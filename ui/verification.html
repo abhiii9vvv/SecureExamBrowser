@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI Biometric Verification</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0066cc",
+                        "background-light": "#f5f7f8",
+                        "background-dark": "#0f1923",
+                        "surface-dark": "#1a242f",
+                        "accent-cyan": "#00e5ff",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "mono": ["'JetBrains Mono'", "monospace"], // Adding a technical font stack fallback
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                    animation: {
+                        'scan': 'scan 3s linear infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        scan: {
+                            '0%': { top: '0%', opacity: '0' },
+                            '10%': { opacity: '1' },
+                            '90%': { opacity: '1' },
+                            '100%': { top: '100%', opacity: '0' },
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+<!-- Google Fonts & Material Symbols -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .glass-panel {
+            background: rgba(26, 36, 47, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .tech-border {
+            position: relative;
+        }
+        .tech-border::before {
+            content: '';
+            position: absolute;
+            top: -1px; left: -1px;
+            width: 20px; height: 20px;
+            border-top: 2px solid #00e5ff;
+            border-left: 2px solid #00e5ff;
+            border-radius: 4px 0 0 0;
+            opacity: 0.7;
+        }
+        .tech-border::after {
+            content: '';
+            position: absolute;
+            bottom: -1px; right: -1px;
+            width: 20px; height: 20px;
+            border-bottom: 2px solid #00e5ff;
+            border-right: 2px solid #00e5ff;
+            border-radius: 0 0 4px 0;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white min-h-screen flex flex-col overflow-hidden">
+<!-- Top Navigation -->
+<header class="w-full h-16 border-b border-[#27303a] bg-[#101418] px-6 flex items-center justify-between shrink-0 z-50">
+<div class="flex items-center gap-3 text-white">
+<div class="size-8 rounded bg-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">school</span>
+</div>
+<h1 class="text-white text-lg font-bold tracking-tight">Sharda University <span class="text-slate-500 font-normal mx-2">/</span> <span class="text-slate-300 text-sm font-medium">B.Tech Exam - Biometric Verification</span></h1>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-dark border border-slate-700">
+<div class="size-2 rounded-full bg-emerald-500 animate-pulse"></div>
+<span class="text-xs font-mono text-slate-300">SYSTEM ONLINE</span>
+</div>
+<button class="flex items-center justify-center size-9 rounded-full hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-slate-400">help</span>
+</button>
+<div class="bg-slate-700 rounded-full size-9 border border-slate-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-400">person</span>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 w-full max-w-[1600px] mx-auto p-4 lg:p-6 flex flex-col lg:flex-row gap-6 h-[calc(100vh-64px)] overflow-y-auto lg:overflow-hidden">
+<!-- Left Panel: Camera Feed (60%) -->
+<section class="lg:w-3/5 w-full flex flex-col h-full relative group">
+<div class="relative w-full h-full rounded-2xl overflow-hidden border border-[#394756] bg-black shadow-2xl tech-border flex flex-col">
+<!-- Camera Header -->
+<div class="absolute top-0 left-0 right-0 z-20 p-4 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-red-500 text-[10px] animate-pulse">fiber_manual_record</span>
+<span class="text-xs font-mono text-white/80 tracking-widest uppercase">Live Feed // Cam_01</span>
+</div>
+<span class="text-[10px] text-slate-400 font-mono">1280x720 • 60FPS • AAC</span>
+</div>
+<div class="px-2 py-1 rounded bg-black/40 backdrop-blur-sm border border-white/10 text-accent-cyan text-xs font-mono">
+                        AI_SCAN_ACTIVE
+                    </div>
+</div>
+<!-- Video Feed Placeholder -->
+<div class="relative w-full h-full flex-1 bg-gray-900 overflow-hidden" id="cameraFeed">
+<video id="videoElement" class="absolute inset-0 w-full h-full object-cover" autoplay playsinline style="display: none;"></video>
+<div class="absolute inset-0 flex items-center justify-center bg-gray-900" id="cameraPlaceholder">
+<div class="text-center">
+<span class="material-symbols-outlined text-slate-600 text-8xl mb-4">videocam_off</span>
+<p class="text-slate-400 text-sm">Initializing camera...</p>
+</div>
+</div>
+</div>
+<!-- Mesh Overlay & Scan Effect -->
+<div class="absolute inset-0 z-10 pointer-events-none flex items-center justify-center">
+<!-- Simulated Face Wireframe (SVG) -->
+<svg class="w-64 h-80 opacity-40 drop-shadow-[0_0_8px_rgba(0,229,255,0.6)]" viewbox="0 0 200 250">
+<path d="M40,60 Q100,20 160,60 Q190,120 160,200 Q100,240 40,200 Q10,120 40,60" fill="none" stroke="#00e5ff" stroke-dasharray="4 2" stroke-width="1"></path>
+<line stroke="#00e5ff" stroke-width="0.5" x1="100" x2="100" y1="20" y2="240"></line>
+<line stroke="#00e5ff" stroke-width="0.5" x1="20" x2="180" y1="125" y2="125"></line>
+<circle cx="70" cy="100" fill="none" r="15" stroke="#00e5ff" stroke-width="1"></circle>
+<circle cx="130" cy="100" fill="none" r="15" stroke="#00e5ff" stroke-width="1"></circle>
+<!-- Targeting Corners -->
+<path d="M20,20 L50,20 M20,20 L20,50" stroke="white" stroke-width="2"></path>
+<path d="M180,20 L150,20 M180,20 L180,50" stroke="white" stroke-width="2"></path>
+<path d="M20,230 L50,230 M20,230 L20,200" stroke="white" stroke-width="2"></path>
+<path d="M180,230 L150,230 M180,230 L180,200" stroke="white" stroke-width="2"></path>
+</svg>
+<!-- Scanning Line -->
+<div class="absolute w-full h-1 bg-gradient-to-r from-transparent via-accent-cyan to-transparent shadow-[0_0_15px_rgba(0,229,255,0.8)] animate-scan top-0 z-20 opacity-50"></div>
+</div>
+</div>
+<!-- Bottom Stats Overlay -->
+<div class="absolute bottom-0 left-0 right-0 z-20 p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+<div class="flex flex-wrap gap-4">
+<div class="flex flex-col gap-1 rounded-lg px-4 py-2 border border-[#394756] bg-black/40 backdrop-blur-md min-w-[140px]">
+<div class="flex items-center gap-2 text-accent-cyan/80">
+<span class="material-symbols-outlined text-[16px]">psychology</span>
+<span class="text-xs font-medium uppercase tracking-wider">Confidence</span>
+</div>
+<p class="text-white font-mono text-xl font-bold leading-tight">98.4%</p>
+</div>
+<div class="flex flex-col gap-1 rounded-lg px-4 py-2 border border-[#394756] bg-black/40 backdrop-blur-md min-w-[140px]">
+<div class="flex items-center gap-2 text-white/60">
+<span class="material-symbols-outlined text-[16px]">3d_rotation</span>
+<span class="text-xs font-medium uppercase tracking-wider">Head Yaw</span>
+</div>
+<p class="text-white font-mono text-xl font-bold leading-tight">12°</p>
+</div>
+<div class="flex flex-col gap-1 rounded-lg px-4 py-2 border border-[#394756] bg-black/40 backdrop-blur-md min-w-[140px]">
+<div class="flex items-center gap-2 text-white/60">
+<span class="material-symbols-outlined text-[16px]">exposure</span>
+<span class="text-xs font-medium uppercase tracking-wider">Light Level</span>
+</div>
+<p class="text-white font-mono text-xl font-bold leading-tight">Optimal</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Panel: Controls & Status (40%) -->
+<aside class="lg:w-2/5 w-full flex flex-col gap-6 h-full overflow-y-auto pr-1 custom-scrollbar">
+<!-- Header Section -->
+<div class="flex flex-col gap-2">
+<h2 class="text-white text-2xl lg:text-3xl font-bold leading-tight tracking-tight">System Check: <br/>Biometric Verification</h2>
+<p class="text-slate-400 text-sm">Please follow the instructions below to verify your identity for the secure exam session.</p>
+</div>
+<!-- Progress Bar -->
+<div class="w-full flex flex-col gap-2">
+<div class="flex justify-between items-end mb-1">
+<span class="text-white text-sm font-medium">Verification Progress</span>
+<span class="text-accent-cyan font-mono text-sm">Step 2 of 4</span>
+</div>
+<div class="w-full h-2 bg-surface-dark rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary to-accent-cyan w-1/2 rounded-full shadow-[0_0_10px_rgba(0,229,255,0.4)] relative">
+<div class="absolute right-0 top-0 bottom-0 w-2 bg-white/50 animate-pulse"></div>
+</div>
+</div>
+</div>
+<!-- Verification Checklist -->
+<div class="flex flex-col gap-3 flex-1">
+<!-- Card 1: Face Detection (Done) -->
+<div class="group flex items-center gap-4 p-4 rounded-xl bg-surface-dark/50 border border-emerald-500/30 shadow-lg relative overflow-hidden transition-all">
+<div class="absolute inset-0 bg-emerald-500/5 pointer-events-none"></div>
+<div class="size-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 border border-emerald-500/50">
+<span class="material-symbols-outlined text-emerald-400">check</span>
+</div>
+<div class="flex flex-col flex-1">
+<h3 class="text-white font-medium text-base">Face Detection</h3>
+<p class="text-emerald-400 text-xs font-mono">Completed successfully</p>
+</div>
+</div>
+<!-- Card 2: Identity Match (Active) -->
+<div class="group flex items-center gap-4 p-4 rounded-xl bg-surface-dark border border-primary shadow-[0_0_15px_rgba(0,102,204,0.15)] relative overflow-hidden ring-1 ring-primary/30">
+<!-- Scanning highlight effect -->
+<div class="absolute -inset-[100%] bg-gradient-to-r from-transparent via-white/5 to-transparent rotate-45 animate-pulse pointer-events-none"></div>
+<div class="size-10 rounded-full bg-primary flex items-center justify-center shrink-0 animate-pulse-slow shadow-lg shadow-primary/40">
+<span class="material-symbols-outlined text-white animate-spin">sync</span>
+</div>
+<div class="flex flex-col flex-1 z-10">
+<h3 class="text-white font-bold text-base">Identity Match</h3>
+<p class="text-primary-300 text-xs font-mono animate-pulse">Comparing biometric markers...</p>
+</div>
+<div class="px-2 py-1 rounded bg-primary/20 border border-primary/30">
+<span class="text-xs text-primary-200 font-bold">SCANNING</span>
+</div>
+</div>
+<!-- Card 3: Liveness Check (Pending) -->
+<div class="group flex items-center gap-4 p-4 rounded-xl bg-surface-dark/30 border border-[#394756] opacity-60">
+<div class="size-10 rounded-full bg-[#27303a] flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-slate-500">sentiment_satisfied</span>
+</div>
+<div class="flex flex-col flex-1">
+<h3 class="text-slate-300 font-medium text-base">Liveness Check</h3>
+<p class="text-slate-500 text-xs font-mono">Pending previous step</p>
+</div>
+</div>
+<!-- Card 4: ID Verification (Pending) -->
+<div class="group flex items-center gap-4 p-4 rounded-xl bg-surface-dark/30 border border-[#394756] opacity-60">
+<div class="size-10 rounded-full bg-[#27303a] flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-slate-500">badge</span>
+</div>
+<div class="flex flex-col flex-1">
+<h3 class="text-slate-300 font-medium text-base">ID Verification</h3>
+<p class="text-slate-500 text-xs font-mono">Pending previous step</p>
+</div>
+</div>
+</div>
+<!-- Main Instruction / Footer -->
+<div class="mt-auto">
+<div class="p-5 rounded-xl bg-gradient-to-br from-[#1a242f] to-[#0f1923] border border-[#394756] flex flex-col items-center text-center gap-3 relative overflow-hidden">
+<div class="absolute top-0 w-full h-[1px] bg-gradient-to-r from-transparent via-accent-cyan/50 to-transparent"></div>
+<span class="material-symbols-outlined text-4xl text-accent-cyan mb-1">visibility</span>
+<h3 class="text-white text-lg font-bold">Look directly at the camera</h3>
+<p class="text-slate-400 text-sm max-w-xs">Please hold still for a moment while we verify your identity against our records.</p>
+<div class="mt-2 flex gap-4 w-full">
+<button class="flex-1 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-medium transition-colors">
+                            Cancel
+                        </button>
+<button class="flex-1 py-2.5 rounded-lg bg-primary hover:bg-blue-600 text-white text-sm font-bold shadow-lg shadow-primary/20 transition-colors">
+                            I'm Ready
+                        </button>
+</div>
+</div>
+<!-- System Status Footer -->
+<div class="flex justify-between items-center mt-4 px-2">
+<div class="flex gap-4">
+<div class="flex items-center gap-1.5 text-emerald-500">
+<span class="material-symbols-outlined text-[16px]">wifi</span>
+<span class="text-[10px] font-mono font-bold uppercase">Connected</span>
+</div>
+<div class="flex items-center gap-1.5 text-emerald-500">
+<span class="material-symbols-outlined text-[16px]">videocam</span>
+<span class="text-[10px] font-mono font-bold uppercase">Video OK</span>
+</div>
+</div>
+<div class="text-[10px] text-slate-500 font-mono">
+                        v2.4.1-secure
+                    </div>
+</div>
+</div>
+</aside>
+</main>
+<script src="js/verification.js"></script>
+</body></html>

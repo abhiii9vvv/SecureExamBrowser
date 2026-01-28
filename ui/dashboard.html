@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Proctor Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#0066cc",
+              "background-light": "#f5f7f8",
+              "background-dark": "#0f1923",
+              "surface-dark": "#1e293b",
+              "accent-red": "#ef4444",
+              "accent-green": "#10b981",
+              "accent-yellow": "#f59e0b",
+            },
+            fontFamily: {
+              "display": ["Inter", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .glass-header {
+            background: rgba(15, 25, 35, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        /* Custom scrollbar for dark technical look */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f1923; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-hidden h-screen flex flex-col">
+<!-- Top Glass Header -->
+<header class="glass-header sticky top-0 z-50 w-full border-b border-white/10 px-6 py-3 flex items-center justify-between shrink-0 h-16">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined text-3xl">verified_user</span>
+<h1 class="text-white text-lg font-bold tracking-tight">Proctor Command v2.0</h1>
+</div>
+<!-- Header KPIs (Integrated) -->
+<div class="hidden md:flex items-center gap-4 border-l border-white/10 pl-6 h-8">
+<div class="flex items-center gap-2">
+<span class="relative flex h-3 w-3">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-green opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-accent-green"></span>
+</span>
+<span class="text-slate-400 text-sm font-medium">Active: <span class="text-white font-bold tabular-nums">47</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="relative flex h-3 w-3">
+<span class="animate-pulse absolute inline-flex h-full w-full rounded-full bg-accent-red opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-accent-red"></span>
+</span>
+<span class="text-slate-400 text-sm font-medium">Critical Flags: <span class="text-white font-bold tabular-nums">3</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-accent-green text-sm">wifi</span>
+<span class="text-slate-400 text-sm font-medium">Network: <span class="text-white font-bold">99.9%</span></span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden lg:flex items-center gap-6 mr-4">
+<a class="text-white text-sm font-medium hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-slate-400 text-sm font-medium hover:text-white transition-colors" href="#">Exams</a>
+<a class="text-slate-400 text-sm font-medium hover:text-white transition-colors" href="#">Users</a>
+<a class="text-slate-400 text-sm font-medium hover:text-white transition-colors" href="#">Reports</a>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center justify-center rounded-lg size-10 bg-surface-dark border border-white/10 hover:bg-white/5 transition-colors text-white relative">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-accent-red rounded-full"></span>
+</button>
+<button class="flex items-center justify-center rounded-lg size-10 bg-surface-dark border border-white/10 hover:bg-white/5 transition-colors text-white">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+</button>
+<button class="flex items-center justify-center rounded-lg size-10 bg-primary hover:bg-primary/90 transition-colors text-white">
+<span class="material-symbols-outlined text-[20px]">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Workspace Layout -->
+<div class="flex flex-1 overflow-hidden">
+<!-- Left: Dashboard Content -->
+<main class="flex-1 flex flex-col overflow-y-auto p-6 gap-6 relative">
+<!-- Top Data Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Card 1 -->
+<div class="flex flex-col gap-2 rounded-xl p-5 bg-surface-dark border border-white/5 shadow-sm">
+<div class="flex justify-between items-start">
+<p class="text-slate-400 text-sm font-medium">Enrollment Volume</p>
+<span class="material-symbols-outlined text-primary text-xl">group</span>
+</div>
+<div class="flex items-baseline gap-2">
+<p class="text-white text-2xl font-bold tabular-nums">1,240</p>
+<p class="text-accent-green text-xs font-medium">+5% vs last hr</p>
+</div>
+<!-- Sparkline SVG -->
+<div class="h-8 w-full mt-2">
+<svg class="w-full h-full stroke-primary fill-none stroke-2" preserveaspectratio="none" viewbox="0 0 100 20">
+<path d="M0,15 Q10,5 20,10 T40,15 T60,5 T80,12 T100,2"></path>
+</svg>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="flex flex-col gap-2 rounded-xl p-5 bg-surface-dark border border-white/5 shadow-sm">
+<div class="flex justify-between items-start">
+<p class="text-slate-400 text-sm font-medium">Avg Risk Level</p>
+<span class="material-symbols-outlined text-accent-yellow text-xl">warning</span>
+</div>
+<div class="flex items-baseline gap-2">
+<p class="text-white text-2xl font-bold">Low</p>
+<p class="text-slate-500 text-xs font-medium">Stable trend</p>
+</div>
+<div class="h-1.5 w-full bg-slate-700 rounded-full mt-auto">
+<div class="h-1.5 bg-accent-green rounded-full w-[85%]"></div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="flex flex-col gap-2 rounded-xl p-5 bg-surface-dark border border-white/5 shadow-sm">
+<div class="flex justify-between items-start">
+<p class="text-slate-400 text-sm font-medium">Time Remaining (Avg)</p>
+<span class="material-symbols-outlined text-slate-400 text-xl">schedule</span>
+</div>
+<div class="flex items-baseline gap-2">
+<p class="text-white text-2xl font-bold tabular-nums">42m 15s</p>
+</div>
+<div class="flex gap-1 mt-auto">
+<span class="h-1 flex-1 bg-slate-700 rounded-sm"></span>
+<span class="h-1 flex-1 bg-primary rounded-sm"></span>
+<span class="h-1 flex-1 bg-slate-700 rounded-sm"></span>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="flex flex-col gap-2 rounded-xl p-5 bg-surface-dark border border-white/5 shadow-sm">
+<div class="flex justify-between items-start">
+<p class="text-slate-400 text-sm font-medium">Verifications Pending</p>
+<span class="material-symbols-outlined text-white text-xl">badge</span>
+</div>
+<div class="flex items-baseline gap-2">
+<p class="text-white text-2xl font-bold tabular-nums">12</p>
+<p class="text-accent-yellow text-xs font-medium">Needs action</p>
+</div>
+<div class="flex -space-x-2 overflow-hidden mt-auto">
+<div class="inline-block h-6 w-6 rounded-full ring-2 ring-surface-dark bg-slate-500"></div>
+<div class="inline-block h-6 w-6 rounded-full ring-2 ring-surface-dark bg-slate-400"></div>
+<div class="inline-block h-6 w-6 rounded-full ring-2 ring-surface-dark bg-slate-600"></div>
+</div>
+</div>
+</div>
+<!-- Section: Monitoring Grid -->
+<div class="flex flex-col flex-1 min-h-[400px]">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-white text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-accent-red animate-pulse">videocam</span>
+                        Live Monitoring Grid
+                    </h3>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 rounded bg-surface-dark border border-white/10 text-xs font-medium text-white hover:bg-white/5">Grid View</button>
+<button class="px-3 py-1.5 rounded bg-transparent border border-transparent text-xs font-medium text-slate-400 hover:text-white">List View</button>
+</div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+<!-- User 1 (Normal) -->
+<div class="group relative rounded-lg overflow-hidden bg-black aspect-video border border-white/10 hover:border-primary/50 transition-colors">
+<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="Portrait of a male student focusing on screen" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAtViiXkrMz6TnHmHsY1CQE7geFJJWTdR-tIkpXlBBHOmo_C08eIXgrN16c_YbFv-gSFEskn7SiJO4KsWGa2j2g2M7bFy7GdKR2T0DREp_qEFR3Jwm-7njuKRhpN6NGhYNWtKyYmTAdMKCMuEoBS9pKf2_E314Pvf4EiCHAkUZvOjAGvKjRUqf7TQ3szagAGQYqup-qaDz1ktfl5LmgiKBBAScd1JnOoZnJJyecrsxuZDsVpk9SAEO6CC2kDdB5GdMHBeQhUycgRj7G');"></div>
+<div class="absolute top-3 left-3 flex gap-2">
+<span class="bg-black/60 backdrop-blur text-white text-[10px] px-1.5 py-0.5 rounded font-mono border border-white/10">ID: 992</span>
+<span class="flex items-center gap-1 bg-accent-green/20 backdrop-blur text-accent-green text-[10px] px-1.5 py-0.5 rounded border border-accent-green/30 font-bold">
+<span class="size-1.5 rounded-full bg-accent-green"></span> LIVE
+                             </span>
+</div>
+<div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
+<p class="text-white text-sm font-medium">John Doe</p>
+<p class="text-slate-400 text-xs">Status: Normal</p>
+</div>
+<!-- Hover Actions -->
+<div class="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
+<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-primary"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-accent-red"><span class="material-symbols-outlined text-lg">block</span></button>
+</div>
+</div>
+<!-- User 2 (Flagged) -->
+<div class="group relative rounded-lg overflow-hidden bg-black aspect-video border-2 border-accent-red animate-[pulse_3s_ease-in-out_infinite]">
+<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="Portrait of a female student looking away" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDWJuCnkO0dWrU-VpQXLVkJCP_k8gp1k2_MsrXpl6HgGwmp8N0lukejbF_3UrKjIKBmIPodtgULJ2ThKeMEVD5jp1rhivnvIfgzXmbSr0Fedys0yehtWj2zvIBa5jBcPBZEHY5illODcQGcNRI7walLRULwtqmVsO4i2hRFBksD_RB-Tlz8Pay9hMAk-3iwnHHtxrB1amx5hxu7SkVul_DIMFtd4Dc-q2NWjLr9tzFdz6JckaSFjI8vw8R5_2VlLK9vTM7V8KIzzjTS');"></div>
+<div class="absolute top-3 left-3 flex gap-2">
+<span class="bg-black/60 backdrop-blur text-white text-[10px] px-1.5 py-0.5 rounded font-mono border border-white/10">ID: 104</span>
+<span class="flex items-center gap-1 bg-accent-red/20 backdrop-blur text-accent-red text-[10px] px-1.5 py-0.5 rounded border border-accent-red/30 font-bold">
+<span class="material-symbols-outlined text-[10px]">warning</span> FLAGGED
+                             </span>
+</div>
+<div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-accent-red/20 to-transparent">
+<p class="text-white text-sm font-medium">Sarah Smith</p>
+<p class="text-accent-red text-xs font-bold">Alert: Audio Spike Detected</p>
+</div>
+<div class="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
+<button class="bg-accent-red p-2 rounded-full text-white hover:bg-red-600 shadow-lg shadow-red-900/50"><span class="material-symbols-outlined text-lg">warning</span></button>
+</div>
+</div>
+<!-- User 3 (Normal) -->
+<div class="group relative rounded-lg overflow-hidden bg-black aspect-video border border-white/10 hover:border-primary/50 transition-colors">
+<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="Portrait of a male student taking exam" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDSFb7000WmsfL4jQjk8r7aA0_4G5TjD91smJM6gkyHc-spmxxe-xvxsGIFNj4oasJvW0vEkVKxuZKTWs51QI2PNiIddP6Is-tXvtHKkvFHypj2AVozL8qwr9qhTcLRuF5xGzHHOgxNg5RkMfDP9hamkw4s8af0_8Dv3DI9-gtnUIjpPwCX4-URED6engb-_-7ea7mrb_nlBUp36Ky2XzZqD-hOd80vfpC8hOzNne8Znx9-LK6_bxfnJs6MT-cNVMfX75BU4WPFkhM2');"></div>
+<div class="absolute top-3 left-3 flex gap-2">
+<span class="bg-black/60 backdrop-blur text-white text-[10px] px-1.5 py-0.5 rounded font-mono border border-white/10">ID: 452</span>
+<span class="flex items-center gap-1 bg-accent-green/20 backdrop-blur text-accent-green text-[10px] px-1.5 py-0.5 rounded border border-accent-green/30 font-bold">
+<span class="size-1.5 rounded-full bg-accent-green"></span> LIVE
+                             </span>
+</div>
+<div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
+<p class="text-white text-sm font-medium">Michael Brown</p>
+<p class="text-slate-400 text-xs">Status: Normal</p>
+</div>
+<div class="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
+<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-primary"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-accent-red"><span class="material-symbols-outlined text-lg">block</span></button>
+</div>
+</div>
+<!-- User 4 (Away) -->
+<div class="group relative rounded-lg overflow-hidden bg-black aspect-video border border-accent-yellow/50">
+<div class="absolute inset-0 bg-cover bg-center opacity-40 grayscale" data-alt="Empty chair in a room" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBZhwNl-xOZJT--RK2XcKtVf08wGZdbRQMxCWsu33EU2ia1ihBJthAPtcpWgrN1eh4hxF07zCe_ef4_ZnOykarIl4CbmcA3W2rfQ8BCy-Mj-TjMNoWMeiT8r5ipgBQEw4r4L212hR8he6VETS7GxLw5f-Nei4ZSb4A-dPXrhgKnSzmMnj0thbIGPsBqp5g8RKGbNKm9wt_0YUqmpeDqyTxcRyON-PR7HeGqs90lnnyPsKS_ytpzpv37OQ9CTuk9Em-z_EI8Jpxiofiy');"></div>
+<div class="absolute top-3 left-3 flex gap-2">
+<span class="bg-black/60 backdrop-blur text-white text-[10px] px-1.5 py-0.5 rounded font-mono border border-white/10">ID: 881</span>
+<span class="flex items-center gap-1 bg-accent-yellow/20 backdrop-blur text-accent-yellow text-[10px] px-1.5 py-0.5 rounded border border-accent-yellow/30 font-bold">
+<span class="material-symbols-outlined text-[10px]">schedule</span> AWAY
+                             </span>
+</div>
+<div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
+<p class="text-white text-sm font-medium">Emily Davis</p>
+<p class="text-accent-yellow text-xs">Status: Face Not Detected (12s)</p>
+</div>
+<div class="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
+<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-primary"><span class="material-symbols-outlined text-lg">visibility</span></button>
+</div>
+</div>
+<!-- User 5 (Normal) -->
+<div class="group relative rounded-lg overflow-hidden bg-black aspect-video border border-white/10 hover:border-primary/50 transition-colors">
+<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="Portrait of a female student focusing" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDNdBXpaQTfzG4nee-GOr6pFLZDow9pQgERFozxWl7QVGOsaZ1pBcRuBKgAoGQbmhVcND132YsRv0JxgKa640yeNmbjTjjpBirb-d03VRtjWX4_roakENnkNeGDohz7DtHqUueFqOinTaJUbuXZokRuIMcTKAzbYmqjAC6dpV1KTxIDWUHeyf76732qheo-u83jAde22Z82o626RqzbRWDUwtK237SZtCA73ViDHgohYQgSCv78qKaEJRROVvqgq3Aw0y7xdWOm4aC5');"></div>
+<div class="absolute top-3 left-3 flex gap-2">
+<span class="bg-black/60 backdrop-blur text-white text-[10px] px-1.5 py-0.5 rounded font-mono border border-white/10">ID: 112</span>
+<span class="flex items-center gap-1 bg-accent-green/20 backdrop-blur text-accent-green text-[10px] px-1.5 py-0.5 rounded border border-accent-green/30 font-bold">
+<span class="size-1.5 rounded-full bg-accent-green"></span> LIVE
+                             </span>
+</div>
+<div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
+<p class="text-white text-sm font-medium">David Wilson</p>
+<p class="text-slate-400 text-xs">Status: Normal</p>
+</div>
+<div class="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
+<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-primary"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-accent-red"><span class="material-symbols-outlined text-lg">block</span></button>
+</div>
+</div>
+<!-- User 6 (Normal) -->
+<div class="group relative rounded-lg overflow-hidden bg-black aspect-video border border-white/10 hover:border-primary/50 transition-colors">
+<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="Portrait of a female student looking at screen" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCib9xQQClGKsYXioz7rSwLOKDqy0qlbyx_UnEb-b-cDopKlCppcffBtUNGnETiOc8SK2mas6TBKChBVVXbajZfVU1PoD4JohZjcWpyKI41WmLLvNtRYjn9Mu2GpKQ5b0lPMOMhSB9lf1ZmAHeQC6B-q_50bY9grfwjrPTCC2Y4qb26530cGhIDICZnvKWV8Lf13LFDRjGqOZnKvnUTACTxb89x2R9x6IXmr9QOQqiE4L3w857q4wxw3RXvSxN3wiwZ9LuXAVbNAvmX');"></div>
+<div class="absolute top-3 left-3 flex gap-2">
+<span class="bg-black/60 backdrop-blur text-white text-[10px] px-1.5 py-0.5 rounded font-mono border border-white/10">ID: 633</span>
+<span class="flex items-center gap-1 bg-accent-green/20 backdrop-blur text-accent-green text-[10px] px-1.5 py-0.5 rounded border border-accent-green/30 font-bold">
+<span class="size-1.5 rounded-full bg-accent-green"></span> LIVE
+                             </span>
+</div>
+<div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
+<p class="text-white text-sm font-medium">Jessica Lee</p>
+<p class="text-slate-400 text-xs">Status: Normal</p>
+</div>
+<div class="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
+<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-primary"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-accent-red"><span class="material-symbols-outlined text-lg">block</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom: Analytics Charts -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">
+<!-- Line Chart Simulation -->
+<div class="rounded-xl bg-surface-dark border border-white/5 p-5 shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<h4 class="text-white text-sm font-bold">Completion Velocity</h4>
+<div class="flex items-center gap-2">
+<span class="size-2 rounded-full bg-primary"></span>
+<span class="text-xs text-slate-400">Current</span>
+<span class="size-2 rounded-full bg-slate-600 ml-2"></span>
+<span class="text-xs text-slate-400">Avg</span>
+</div>
+</div>
+<div class="h-48 w-full relative">
+<div class="absolute inset-0 grid grid-cols-6 grid-rows-4">
+<!-- Grid lines -->
+<div class="border-b border-slate-700/30 w-full h-full col-span-6 row-span-1"></div>
+<div class="border-b border-slate-700/30 w-full h-full col-span-6 row-span-1"></div>
+<div class="border-b border-slate-700/30 w-full h-full col-span-6 row-span-1"></div>
+<div class="border-b border-slate-700/30 w-full h-full col-span-6 row-span-1"></div>
+</div>
+<!-- Line Chart SVG -->
+<svg class="absolute inset-0 w-full h-full" preserveaspectratio="none" viewbox="0 0 100 50">
+<defs>
+<lineargradient id="grad1" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" style="stop-color:#0066cc;stop-opacity:0.3"></stop>
+<stop offset="100%" style="stop-color:#0066cc;stop-opacity:0"></stop>
+</lineargradient>
+</defs>
+<polyline fill="url(#grad1)" points="0,40 20,35 40,25 60,30 80,15 100,5" stroke="#0066cc" stroke-width="1.5"></polyline>
+<polyline fill="none" points="0,45 20,42 40,38 60,35 80,30 100,28" stroke="#475569" stroke-dasharray="2,2" stroke-width="1"></polyline>
+</svg>
+</div>
+<div class="flex justify-between mt-2 text-xs text-slate-500 font-mono">
+<span>10:00</span>
+<span>10:15</span>
+<span>10:30</span>
+<span>10:45</span>
+<span>11:00</span>
+<span>Now</span>
+</div>
+</div>
+<!-- Pie Chart Simulation -->
+<div class="rounded-xl bg-surface-dark border border-white/5 p-5 shadow-sm">
+<h4 class="text-white text-sm font-bold mb-6">Violation Distribution</h4>
+<div class="flex items-center gap-8">
+<div class="relative size-40 shrink-0">
+<!-- CSS Conic Gradient Donut Chart -->
+<div class="w-full h-full rounded-full" style="background: conic-gradient(#ef4444 0% 15%, #f59e0b 15% 45%, #0066cc 45% 65%, #334155 65% 100%);"></div>
+<div class="absolute inset-3 bg-surface-dark rounded-full flex flex-col items-center justify-center">
+<span class="text-2xl font-bold text-white">24</span>
+<span class="text-xs text-slate-400">Total Events</span>
+</div>
+</div>
+<div class="flex flex-col gap-3 w-full">
+<div class="flex items-center justify-between text-sm">
+<div class="flex items-center gap-2">
+<span class="size-2.5 rounded bg-accent-red"></span>
+<span class="text-slate-300">Audio Spikes</span>
+</div>
+<span class="text-white font-mono">15%</span>
+</div>
+<div class="flex items-center justify-between text-sm">
+<div class="flex items-center gap-2">
+<span class="size-2.5 rounded bg-accent-yellow"></span>
+<span class="text-slate-300">Face Not Detected</span>
+</div>
+<span class="text-white font-mono">30%</span>
+</div>
+<div class="flex items-center justify-between text-sm">
+<div class="flex items-center gap-2">
+<span class="size-2.5 rounded bg-primary"></span>
+<span class="text-slate-300">Browser Focus Lost</span>
+</div>
+<span class="text-white font-mono">20%</span>
+</div>
+<div class="flex items-center justify-between text-sm">
+<div class="flex items-center gap-2">
+<span class="size-2.5 rounded bg-slate-600"></span>
+<span class="text-slate-300">Other</span>
+</div>
+<span class="text-white font-mono">35%</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Right: Activity Sidebar -->
+<aside class="w-80 border-l border-white/10 bg-surface-dark/50 flex flex-col hidden lg:flex">
+<div class="p-4 border-b border-white/10 flex justify-between items-center bg-surface-dark/80 backdrop-blur sticky top-0">
+<h3 class="text-white font-bold text-sm">Live Activity Log</h3>
+<span class="text-xs text-slate-500 font-mono">UTC -05:00</span>
+</div>
+<div class="flex-1 overflow-y-auto p-4 space-y-4">
+<!-- Log Item: Critical -->
+<div class="relative pl-4 border-l-2 border-accent-red">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] text-slate-400 font-mono">10:42:15 AM</span>
+<span class="text-[10px] bg-accent-red/20 text-accent-red px-1 rounded font-bold">CRITICAL</span>
+</div>
+<p class="text-white text-xs font-medium leading-relaxed">
+                        Multiple voices detected for <span class="text-slate-300">Sarah Smith (ID: 104)</span>.
+                    </p>
+<button class="mt-2 text-[10px] text-primary hover:text-white underline">Review segment</button>
+</div>
+<!-- Log Item: Warning -->
+<div class="relative pl-4 border-l-2 border-accent-yellow">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] text-slate-400 font-mono">10:41:03 AM</span>
+<span class="text-[10px] bg-accent-yellow/20 text-accent-yellow px-1 rounded font-bold">WARN</span>
+</div>
+<p class="text-white text-xs font-medium leading-relaxed">
+                        Face not visible for &gt;10s <span class="text-slate-300">Emily Davis (ID: 881)</span>.
+                    </p>
+</div>
+<!-- Log Item: Info -->
+<div class="relative pl-4 border-l-2 border-primary">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] text-slate-400 font-mono">10:39:55 AM</span>
+<span class="text-[10px] bg-primary/20 text-primary px-1 rounded font-bold">INFO</span>
+</div>
+<p class="text-white text-xs font-medium leading-relaxed">
+                        Exam submitted successfully by <span class="text-slate-300">User #442</span>.
+                    </p>
+</div>
+<!-- Log Item: Info -->
+<div class="relative pl-4 border-l-2 border-slate-600">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] text-slate-400 font-mono">10:38:12 AM</span>
+</div>
+<p class="text-slate-300 text-xs font-medium leading-relaxed">
+                        System check passed. Network latency stable at 24ms.
+                    </p>
+</div>
+<!-- Log Item: Info -->
+<div class="relative pl-4 border-l-2 border-primary">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] text-slate-400 font-mono">10:35:45 AM</span>
+<span class="text-[10px] bg-primary/20 text-primary px-1 rounded font-bold">INFO</span>
+</div>
+<p class="text-white text-xs font-medium leading-relaxed">
+                        New session started: <span class="text-slate-300">John Doe (ID: 992)</span>.
+                    </p>
+</div>
+<!-- Log Item: Warning -->
+<div class="relative pl-4 border-l-2 border-accent-yellow">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] text-slate-400 font-mono">10:32:10 AM</span>
+<span class="text-[10px] bg-accent-yellow/20 text-accent-yellow px-1 rounded font-bold">WARN</span>
+</div>
+<p class="text-white text-xs font-medium leading-relaxed">
+                       Browser focus lost <span class="text-slate-300">David Wilson</span>.
+                    </p>
+</div>
+<!-- Log Item: Critical -->
+<div class="relative pl-4 border-l-2 border-accent-red">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] text-slate-400 font-mono">10:28:42 AM</span>
+<span class="text-[10px] bg-accent-red/20 text-accent-red px-1 rounded font-bold">CRITICAL</span>
+</div>
+<p class="text-white text-xs font-medium leading-relaxed">
+                        Unauthorized device detected (Phone) <span class="text-slate-300">ID: 881</span>.
+                    </p>
+<button class="mt-2 text-[10px] text-primary hover:text-white underline">Review segment</button>
+</div>
+</div>
+<div class="p-4 border-t border-white/10 bg-surface-dark sticky bottom-0">
+<button class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium py-2 rounded flex items-center justify-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-sm">history</span>
+                    View Full Audit Log
+                </button>
+</div>
+</aside>
+</div>
+</body></html>

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Active Exam Interface</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0066cc",
+                        "background-light": "#f5f7f8",
+                        "background-dark": "#0f1923",
+                        "surface-dark": "#1a242f",
+                        "surface-dark-highlight": "#25303c",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "mono": ["Fira Code", "monospace"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                    boxShadow: {
+                        "glow": "0 0 20px rgba(0, 102, 204, 0.15)",
+                        "glow-active": "0 0 25px rgba(0, 102, 204, 0.4)",
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for sidebar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Range slider styling */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 2px solid #0066cc;
+            cursor: pointer;
+            margin-top: -8px; 
+            box-shadow: 0 0 10px rgba(0, 102, 204, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #27303a;
+            border-radius: 2px;
+        }
+        /* KaTeX simulation */
+        .katex-display {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+        }
+    </style>
+    <link rel="stylesheet" href="css/exam.css">
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-hidden h-screen flex flex-col">
+<!-- Top Header -->
+<header class="flex items-center justify-between border-b border-[#27303a] bg-surface-dark px-6 py-3 shrink-0 z-20">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-3">
+<div class="bg-primary/20 p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined text-2xl">verified_user</span>
+</div>
+<div>
+<h1 class="text-white text-sm font-bold leading-tight tracking-wide uppercase text-opacity-70">Sharda University</h1>
+<h2 class="text-white text-lg font-bold leading-tight">B.Tech - Data Structures & Algorithms</h2>
+</div>
+</div>
+<div class="h-8 w-px bg-[#394756] mx-2 hidden md:block"></div>
+<!-- Timer Section -->
+<div class="hidden md:flex items-center gap-3 bg-surface-dark-highlight px-4 py-2 rounded-lg border border-[#394756]">
+<span class="material-symbols-outlined text-primary" style="font-size: 20px;">timer</span>
+<div class="flex items-baseline gap-1 font-mono text-lg font-bold tracking-wider text-white">
+<span data-timer>02:00:00</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<!-- Progress Bar Compact -->
+<div class="flex flex-col gap-1 w-48">
+<div class="flex justify-between text-xs text-gray-400 font-medium">
+<span>Progress</span>
+<span>6%</span>
+</div>
+<div class="h-2 w-full bg-[#394756] rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 6%"></div>
+</div>
+</div>
+<div class="flex items-center gap-4 pl-6 border-l border-[#394756]">
+<button class="text-gray-400 hover:text-white transition-colors" onclick="toggleSettings()">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="size-9 rounded-full bg-surface-dark-highlight ring-2 ring-[#394756] flex items-center justify-center">
+<span class="material-symbols-outlined text-gray-400">person</span>
+</div>
+</div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden relative">
+<!-- Sidebar Navigation (Heatmap Grid) -->
+<aside class="w-80 border-r border-[#27303a] bg-[#101418] flex flex-col shrink-0 z-10 transition-all duration-300 transform">
+<div class="p-4 border-b border-[#27303a]">
+<h3 class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Question Navigator</h3>
+<div class="flex gap-2 text-[10px] text-gray-500 mb-2">
+<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-primary"></div> Current</div>
+<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-[#394756]"></div> Answered</div>
+<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-yellow-500"></div> Flagged</div>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar p-4">
+<div class="grid grid-cols-5 gap-2">
+<!-- Answered -->
+<button class="aspect-square flex items-center justify-center rounded bg-[#394756] text-gray-300 text-xs font-medium hover:bg-[#4a5a6b] transition-colors">1</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#394756] text-gray-300 text-xs font-medium hover:bg-[#4a5a6b] transition-colors">2</button>
+<!-- Current Active -->
+<button class="aspect-square flex items-center justify-center rounded bg-primary text-white text-sm font-bold shadow-glow-active ring-2 ring-primary ring-offset-2 ring-offset-[#101418] relative z-10">3</button>
+<!-- Flagged -->
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-400 text-xs font-medium hover:bg-[#27303a] transition-colors relative">
+                        4
+                        <div class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-yellow-500"></div>
+</button>
+<!-- Unanswered / Default -->
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">5</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">6</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">7</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">8</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">9</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">10</button>
+<!-- Generating more placeholders for effect -->
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">11</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">12</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">13</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">14</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">15</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">16</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">17</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">18</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">19</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">20</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">21</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">22</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">23</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">24</button>
+<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">25</button>
+</div>
+</div>
+<div class="p-4 border-t border-[#27303a] bg-surface-dark">
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center text-xs text-gray-400">
+<span>Section 1: Basics</span>
+<span class="text-white font-bold">12/50</span>
+</div>
+<div class="h-1.5 w-full bg-[#394756] rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 24%"></div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="flex-1 flex flex-col items-center overflow-y-auto custom-scrollbar bg-background-dark pb-32">
+<div class="w-full max-w-4xl p-8 flex flex-col gap-8">
+<!-- Question Card -->
+<div class="bg-surface-dark rounded-xl border border-[#27303a] shadow-xl overflow-hidden animate-in fade-in zoom-in duration-300">
+<div class="bg-gradient-to-r from-surface-dark-highlight to-surface-dark p-6 border-b border-[#27303a] flex justify-between items-center">
+<div class="flex items-center gap-3">
+<span class="bg-primary/20 text-primary px-3 py-1 rounded text-xs font-bold uppercase tracking-wide">Question 3</span>
+<span class="text-gray-400 text-sm">Category: Data Structures & Algorithms</span>
+</div>
+<div class="flex gap-2">
+<button class="text-gray-400 hover:text-white transition-colors" title="Zoom Text">
+<span class="material-symbols-outlined text-[20px]">text_increase</span>
+</button>
+</div>
+</div>
+<div class="p-8">
+<div class="prose prose-invert max-w-none">
+<h3 class="text-xl font-bold text-white mb-4">Algorithm Complexity Analysis - Nested Loops</h3>
+<p class="text-gray-300 text-base leading-relaxed mb-6">
+                                Analyze the following code snippet that contains nested loops. The outer loop runs based on an integral calculation. What is the <strong class="text-white">time complexity</strong> of this function in Big O notation?
+                            </p>
+<!-- Math / Katex Simulation -->
+<div class="my-8 p-6 bg-[#0f141a] rounded-lg border border-[#27303a] flex items-center justify-center">
+<span class="katex-display text-2xl text-gray-200">
+                                    Constraint: <span class="mx-4">∫</span><sub class="text-lg">0</sub><sup class="text-lg">n</sup> x<sup class="text-sm">2</sup> dx
+                                </span>
+</div>
+<!-- Code Block -->
+<div class="rounded-lg overflow-hidden border border-[#27303a] bg-[#0d1117]">
+<div class="flex items-center gap-2 px-4 py-2 bg-[#161b22] border-b border-[#27303a]">
+<div class="w-3 h-3 rounded-full bg-red-500/50"></div>
+<div class="w-3 h-3 rounded-full bg-yellow-500/50"></div>
+<div class="w-3 h-3 rounded-full bg-green-500/50"></div>
+<span class="ml-auto text-xs text-gray-500 font-mono">algorithm.js</span>
+</div>
+<pre class="p-4 font-mono text-sm leading-6 overflow-x-auto"><code class="text-gray-300"><span class="text-pink-400">function</span> <span class="text-blue-400">calculateComplexity</span><span class="text-yellow-200">(</span><span class="text-orange-400">n</span><span class="text-yellow-200">)</span> <span class="text-yellow-200">{</span>
+  <span class="text-pink-400">let</span> result <span class="text-pink-400">=</span> <span class="text-purple-400">0</span>;
+  <span class="text-gray-500">// Integral result is n^3 / 3</span>
+  <span class="text-pink-400">let</span> bound <span class="text-pink-400">=</span> Math.<span class="text-blue-400">pow</span>(n, <span class="text-purple-400">3</span>) / <span class="text-purple-400">3</span>;
+
+  <span class="text-pink-400">for</span> <span class="text-yellow-200">(</span><span class="text-pink-400">let</span> i <span class="text-pink-400">=</span> <span class="text-purple-400">0</span>; i <span class="text-pink-400">&lt;</span> bound; i<span class="text-pink-400">++</span><span class="text-yellow-200">)</span> <span class="text-yellow-200">{</span>
+    <span class="text-pink-400">for</span> <span class="text-yellow-200">(</span><span class="text-pink-400">let</span> j <span class="text-pink-400">=</span> <span class="text-purple-400">0</span>; j <span class="text-pink-400">&lt;</span> n; j<span class="text-pink-400">++</span><span class="text-yellow-200">)</span> <span class="text-yellow-200">{</span>
+       result <span class="text-pink-400">+=</span> i <span class="text-pink-400">*</span> j;
+    <span class="text-yellow-200">}</span>
+  <span class="text-yellow-200">}</span>
+  <span class="text-pink-400">return</span> result;
+<span class="text-yellow-200">}</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+<!-- Answer Zone: Glass Panel MCQ -->
+<div class="grid grid-cols-1 gap-4">
+<label class="group relative flex items-center p-5 rounded-lg border border-white/10 bg-white/5 backdrop-blur-md cursor-pointer transition-all hover:bg-white/10 hover:border-primary/50 hover:shadow-glow">
+<input class="peer sr-only" name="answer" type="radio"/>
+<div class="flex items-center justify-center w-8 h-8 rounded border border-gray-500 text-transparent peer-checked:bg-primary peer-checked:border-primary peer-checked:text-white transition-all mr-5 shrink-0">
+<span class="material-symbols-outlined text-lg font-bold">check</span>
+</div>
+<div class="flex flex-col">
+<span class="text-white font-medium text-lg font-mono">O(n log n)</span>
+</div>
+<div class="absolute inset-0 rounded-lg ring-2 ring-transparent peer-checked:ring-primary peer-checked:ring-opacity-50 transition-all pointer-events-none"></div>
+</label>
+<label class="group relative flex items-center p-5 rounded-lg border border-white/10 bg-white/5 backdrop-blur-md cursor-pointer transition-all hover:bg-white/10 hover:border-primary/50 hover:shadow-glow">
+<input class="peer sr-only" name="answer" type="radio"/>
+<div class="flex items-center justify-center w-8 h-8 rounded border border-gray-500 text-transparent peer-checked:bg-primary peer-checked:border-primary peer-checked:text-white transition-all mr-5 shrink-0">
+<span class="material-symbols-outlined text-lg font-bold">check</span>
+</div>
+<div class="flex flex-col">
+<span class="text-white font-medium text-lg font-mono">O(n<sup>3</sup>)</span>
+</div>
+<div class="absolute inset-0 rounded-lg ring-2 ring-transparent peer-checked:ring-primary peer-checked:ring-opacity-50 transition-all pointer-events-none"></div>
+</label>
+<!-- Correct Answer (Highlighted for demo) -->
+<label class="group relative flex items-center p-5 rounded-lg border border-primary/50 bg-primary/10 backdrop-blur-md cursor-pointer transition-all hover:bg-white/10 hover:border-primary hover:shadow-glow">
+<input checked="" class="peer sr-only" name="answer" type="radio"/>
+<div class="flex items-center justify-center w-8 h-8 rounded border border-gray-500 text-transparent peer-checked:bg-primary peer-checked:border-primary peer-checked:text-white transition-all mr-5 shrink-0">
+<span class="material-symbols-outlined text-lg font-bold">check</span>
+</div>
+<div class="flex flex-col">
+<span class="text-white font-medium text-lg font-mono">O(n<sup>4</sup>)</span>
+</div>
+<div class="absolute inset-0 rounded-lg ring-2 ring-transparent peer-checked:ring-primary peer-checked:ring-opacity-50 transition-all pointer-events-none"></div>
+</label>
+<label class="group relative flex items-center p-5 rounded-lg border border-white/10 bg-white/5 backdrop-blur-md cursor-pointer transition-all hover:bg-white/10 hover:border-primary/50 hover:shadow-glow">
+<input class="peer sr-only" name="answer" type="radio"/>
+<div class="flex items-center justify-center w-8 h-8 rounded border border-gray-500 text-transparent peer-checked:bg-primary peer-checked:border-primary peer-checked:text-white transition-all mr-5 shrink-0">
+<span class="material-symbols-outlined text-lg font-bold">check</span>
+</div>
+<div class="flex flex-col">
+<span class="text-white font-medium text-lg font-mono">O(1)</span>
+</div>
+<div class="absolute inset-0 rounded-lg ring-2 ring-transparent peer-checked:ring-primary peer-checked:ring-opacity-50 transition-all pointer-events-none"></div>
+</label>
+</div>
+<!-- Confidence Slider -->
+<div class="bg-surface-dark p-6 rounded-xl border border-[#27303a] flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2 text-gray-300 font-medium">
+<span class="material-symbols-outlined text-yellow-500">psychology_alt</span>
+                            AI Confidence Check
+                        </div>
+<span class="text-primary font-bold text-lg">85% Certain</span>
+</div>
+<div class="relative w-full h-8 flex items-center">
+<div class="absolute left-0 text-xs text-gray-500 font-bold">0%</div>
+<div class="absolute right-0 text-xs text-gray-500 font-bold">100%</div>
+<input class="w-full mx-6 h-2 bg-[#27303a] rounded-lg appearance-none cursor-pointer" max="100" min="0" type="range" value="85"/>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Floating Action Bar (FAB) -->
+<div class="fixed bottom-8 left-1/2 transform -translate-x-1/2 md:ml-40 z-50">
+<div class="flex items-center gap-2 p-2 rounded-full bg-surface-dark/90 backdrop-blur-xl border border-[#394756] shadow-2xl">
+<button onclick="previousQuestion()" class="flex items-center gap-2 px-4 py-2.5 rounded-full text-gray-300 hover:bg-[#27303a] hover:text-white transition-colors text-sm font-semibold">
+<span class="material-symbols-outlined text-xl">arrow_back</span>
+<span class="hidden sm:inline">Prev</span>
+</button>
+<div class="w-px h-6 bg-[#394756] mx-1"></div>
+<button onclick="toggleFlag()" class="flex items-center gap-2 px-4 py-2.5 rounded-full text-yellow-500 hover:bg-yellow-500/10 transition-colors text-sm font-semibold group">
+<span class="material-symbols-outlined text-xl group-hover:fill-1">flag</span>
+<span class="hidden sm:inline">Flag</span>
+</button>
+<button onclick="addNote()" class="flex items-center gap-2 px-4 py-2.5 rounded-full text-blue-400 hover:bg-blue-400/10 transition-colors text-sm font-semibold group">
+<span class="material-symbols-outlined text-xl">edit_note</span>
+<span class="hidden sm:inline">Note</span>
+</button>
+<div class="w-px h-6 bg-[#394756] mx-1"></div>
+<button onclick="nextQuestion()" class="flex items-center gap-2 pl-4 pr-6 py-2.5 rounded-full bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/30 transition-all text-sm font-bold">
+<span class="hidden sm:inline">Next Question</span>
+<span class="sm:hidden">Next</span>
+<span class="material-symbols-outlined text-xl">arrow_forward</span>
+</button>
+</div>
+</div>
+
+<script src="js/exam.js"></script>
+</body></html>

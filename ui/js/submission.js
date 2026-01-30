@@ -9,12 +9,57 @@ let submissionStats = {
     timeRemaining: 0
 };
 
+// Confirmation dialog for submission
+function confirmSubmission() {
+    const unanswered = submissionStats.unanswered;
+    const flagged = submissionStats.flagged;
+    
+    let warningMessage = 'Are you sure you want to submit your exam?\n\n';
+    
+    if (unanswered > 0) {
+        warningMessage += `⚠️ You have ${unanswered} unanswered question${unanswered > 1 ? 's' : ''}.\n`;
+    }
+    
+    if (flagged > 0) {
+        warningMessage += `🚩 You have ${flagged} flagged question${flagged > 1 ? 's' : ''} for review.\n`;
+    }
+    
+    warningMessage += '\n✓ Once submitted, you cannot return to the exam.\n';
+    warningMessage += '✓ Your answers will be final and submitted for grading.';
+    
+    if (confirm(warningMessage)) {
+        submitExam();
+    }
+}
+
+function submitExam() {
+    // Show submission animation
+    const submitButton = document.querySelector('button[onclick="confirmSubmission()"]');
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Submitting...';
+    }
+    
+    setTimeout(() => {
+        alert('✅ Exam submitted successfully!\n\nYour submission has been recorded.');
+        console.log('Exam submitted:', examState);
+    }, 1500);
+}
+
+function returnToExam() {
+    if (confirm('Return to exam? You can review and change your answers.')) {
+        window.location.href = 'exam.html';
+    }
+}
+
 // Initialize submission page
 document.addEventListener('DOMContentLoaded', () => {
     loadExamState();
-    updateStatistics();
-    generateQuestionGrid();
-    updateTimerDisplay();
+    if (examState) {
+        updateStatistics();
+        generateQuestionGrid();
+        updateTimerDisplay();
+    }
 });
 
 // Load exam state from previous page
@@ -29,29 +74,24 @@ function loadExamState() {
         submissionStats.flagged = Object.keys(examState.flags || {}).length;
         submissionStats.timeRemaining = examState.timeRemaining || 0;
     } else {
-        // Demo mode - generate sample data
-        examState = {
-            currentQuestion: 1,
-            totalQuestions: 50,
-            timeRemaining: 765, // 12:45
-            answers: {},
-            flags: {},
-            startTime: Date.now()
-        };
-        
-        // Generate some demo answers
-        for (let i = 1; i <= 45; i++) {
-            examState.answers[i] = Math.floor(Math.random() * 4);
-        }
-        examState.flags[4] = true;
-        examState.flags[23] = true;
-        examState.flags[38] = true;
-        
-        submissionStats.answered = 45;
-        submissionStats.unanswered = 5;
-        submissionStats.flagged = 3;
-        submissionStats.timeRemaining = 765;
+        examState = null;
+        setEmptyState('No active exam session found. Please return to the exam to continue.');
     }
+}
+
+function setEmptyState(message) {
+    const submitButton = document.querySelector('button[onclick="confirmSubmission()"]');
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.classList.add('opacity-60', 'cursor-not-allowed');
+    }
+
+    const gridContainers = document.querySelectorAll('.grid.grid-cols-10');
+    gridContainers.forEach(container => {
+        container.innerHTML = `
+            <div class="col-span-10 text-center text-slate-400 text-sm py-6">${message}</div>
+        `;
+    });
 }
 
 // Update statistics displays
@@ -208,17 +248,30 @@ async function submitExam() {
         }
         
         // Prepare submission data
+        const sessionId = Number(localStorage.getItem('currentSessionId'));
+        if (!sessionId) {
+            throw new Error('No active session found');
+        }
+
         const submissionData = {
+            session_id: sessionId,
             examState: examState,
             submittedAt: new Date().toISOString(),
-            timeSpent: examState.timeRemaining,
+            time_remaining: examState.timeRemaining,
             answers: examState.answers,
             flags: examState.flags
         };
         
         // Save to database if electronAPI available
-        if (window.electronAPI && window.electronAPI.dbQuery) {
-            await window.electronAPI.dbQuery('saveExamSubmission', submissionData);
+        if (window.electronAPI && window.electronAPI.saveExamSubmission) {
+            const result = await window.electronAPI.saveExamSubmission(submissionData);
+            if (!result.success) {
+                throw new Error(result.error || 'Submission failed');
+            }
+
+            if (window.electronAPI.endExamSession) {
+                await window.electronAPI.endExamSession(sessionId, 'completed');
+            }
         }
         
         // Clear localStorage
@@ -255,100 +308,3 @@ function autoSubmitExam() {
 }
 
 // Update student name
-if (document.getElementById('studentName')) {
-    document.getElementById('studentName').textContent = 'Abhinav Tiwary';
-}
-// ============================================
-// DEMO AI/ML FEATURES (Simulated)
-// ============================================
-
-// Demo: Answer Quality Analysis
-function analyzeAnswerQuality(questionNumber, answerIndex) {
-    // Simulate ML-based answer analysis
-    const qualityScores = {
-        0: { correct: 0.65, quality: 'fair', feedback: 'Partially correct approach' },
-        1: { correct: 0.92, quality: 'excellent', feedback: 'Excellent understanding demonstrated' },
-        2: { correct: 0.45, quality: 'poor', feedback: 'Consider reviewing this concept' },
-        3: { correct: 0.78, quality: 'good', feedback: 'Good grasp, minor gaps possible' }
-    };
-    
-    return qualityScores[answerIndex] || { correct: 0.5, quality: 'average', feedback: 'Answer recorded' };
-}
-
-// Demo: Performance Prediction
-function predictPerformance(answeredCount, totalCount) {
-    // Simulate ML model predicting final score
-    const answerRate = answeredCount / totalCount;
-    const baseScore = answerRate * 100;
-    const variance = Math.random() * 15 - 7.5; // ±7.5 variance
-    const predictedScore = Math.max(0, Math.min(100, baseScore + variance));
-    
-    return {
-        predicted: predictedScore.toFixed(1),
-        confidence: (0.8 + Math.random() * 0.15).toFixed(2), // 80-95%
-        category: predictedScore >= 70 ? 'Pass' : predictedScore >= 40 ? 'Borderline' : 'Fail'
-    };
-}
-
-// Demo: Answer Similarity Detection (Plagiarism)
-function checkAnswerSimilarity() {
-    // Simulate checking answers against known responses
-    const similarityScore = Math.random() * 0.2; // Low similarity (0-20%)
-    
-    return {
-        plagiarismDetected: similarityScore > 0.15,
-        similarities: [
-            { sourceId: 'Q2', similarity: 0.08 },
-            { sourceId: 'Q5', similarity: 0.12 }
-        ],
-        status: similarityScore > 0.15 ? 'FLAG' : 'PASS'
-    };
-}
-
-// Demo: Concept Mastery Assessment
-function assessConceptMastery() {
-    const concepts = [
-        { name: 'Time Complexity', mastery: Math.random() * 100 },
-        { name: 'Big O Notation', mastery: Math.random() * 100 },
-        { name: 'Data Structures', mastery: Math.random() * 100 },
-        { name: 'Algorithm Design', mastery: Math.random() * 100 }
-    ];
-    
-    return concepts.map(c => ({
-        ...c,
-        level: c.mastery >= 80 ? 'Advanced' : c.mastery >= 60 ? 'Intermediate' : 'Beginner'
-    }));
-}
-
-// Demo: Weak Areas Identification
-function identifyWeakAreas() {
-    const topics = ['Recursion', 'Dynamic Programming', 'Graph Algorithms', 'Sorting'];
-    const weakAreas = topics
-        .map(topic => ({ topic, confidence: Math.random() * 100 }))
-        .filter(item => item.confidence < 50)
-        .sort((a, b) => a.confidence - b.confidence);
-    
-    return weakAreas.slice(0, 3); // Return top 3 weak areas
-}
-
-// Initialize analytics on submission page load
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        if (examState) {
-            const performance = predictPerformance(
-                Object.keys(examState.answers || {}).length,
-                examState.totalQuestions
-            );
-            console.log('📊 Performance Prediction:', performance);
-            
-            const plagiarism = checkAnswerSimilarity();
-            console.log('🔍 Plagiarism Check:', plagiarism);
-            
-            const mastery = assessConceptMastery();
-            console.log('🎯 Concept Mastery:', mastery);
-            
-            const weakAreas = identifyWeakAreas();
-            console.log('⚠️ Weak Areas:', weakAreas);
-        }
-    });
-}

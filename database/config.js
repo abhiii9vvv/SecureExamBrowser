@@ -7,9 +7,9 @@ module.exports = {
     development: {
         host: 'localhost',
         port: 3306,
-        user: 'root',  // Change this to your MySQL username
-        password: 'abhiii9vvv',  // Change this to your MySQL password
-        database: 'secure_exam_browser',
+        user: process.env.DB_USER || 'root',
+        password: process.env.DB_PASSWORD || 'abhiii9vvv',
+        database: process.env.DB_NAME || 'secure_exam_browser',
         charset: 'utf8mb4',
         timezone: '+00:00',
         

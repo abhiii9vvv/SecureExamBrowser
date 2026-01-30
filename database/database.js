@@ -153,8 +153,19 @@ class DatabaseService {
      * Update user trust score
      */
     async updateTrustScore(userId) {
-        const sql = 'CALL sp_update_trust_score(?)';
-        await this.query(sql, [userId]);
+        const sql = `
+            UPDATE users u
+            LEFT JOIN (
+                SELECT s.user_id, COUNT(v.violation_id) AS violation_count
+                FROM exam_sessions s
+                LEFT JOIN violations v ON v.session_id = s.session_id
+                WHERE s.user_id = ?
+                GROUP BY s.user_id
+            ) stats ON stats.user_id = u.user_id
+            SET u.trust_score = GREATEST(0, 100 - (IFNULL(stats.violation_count, 0) * 5))
+            WHERE u.user_id = ?
+        `;
+        await this.query(sql, [userId, userId]);
     }
 
     // ============================================
@@ -215,25 +226,55 @@ class DatabaseService {
      * Start a new exam session
      */
     async startSession(sessionData) {
-        const sql = 'CALL sp_start_exam_session(?, ?, ?, ?, ?)';
+        const sql = `
+            INSERT INTO exam_sessions (user_id, exam_id, session_token, ip_address, machine_info)
+            VALUES (?, ?, ?, ?, ?)
+        `;
         const params = [
             sessionData.user_id,
             sessionData.exam_id,
             sessionData.session_token,
-            sessionData.ip_address,
-            JSON.stringify(sessionData.machine_info)
+            sessionData.ip_address || null,
+            JSON.stringify(sessionData.machine_info || {})
         ];
-        
+
         const result = await this.query(sql, params);
-        return result[0][0].session_id;
+        return result.insertId;
     }
 
     /**
      * End an exam session
      */
     async endSession(sessionId, status = 'completed') {
-        const sql = 'CALL sp_end_exam_session(?, ?)';
-        await this.query(sql, [sessionId, status]);
+        const sql = `
+            UPDATE exam_sessions
+            SET status = ?, ended_at = CURRENT_TIMESTAMP, last_activity = CURRENT_TIMESTAMP
+            WHERE session_id = ?
+        `;
+        await this.query(sql, [status, sessionId]);
+    }
+
+    // ============================================
+    // SUBMISSION OPERATIONS
+    // ============================================
+
+    /**
+     * Save exam submission
+     */
+    async saveExamSubmission(submissionData) {
+        const sql = `
+            INSERT INTO exam_submissions (session_id, time_remaining, answers, flags, status)
+            VALUES (?, ?, ?, ?, ?)
+        `;
+        const params = [
+            submissionData.session_id,
+            submissionData.time_remaining || 0,
+            JSON.stringify(submissionData.answers || {}),
+            JSON.stringify(submissionData.flags || {}),
+            submissionData.status || 'submitted'
+        ];
+        const result = await this.query(sql, params);
+        return result.insertId;
     }
 
     /**
@@ -264,11 +305,14 @@ class DatabaseService {
      * Log an activity
      */
     async logActivity(activityData) {
-        const sql = 'CALL sp_log_activity(?, ?, ?, ?)';
+        const sql = `
+            INSERT INTO activity_logs (session_id, activity_type, activity_data, url)
+            VALUES (?, ?, ?, ?)
+        `;
         const params = [
             activityData.session_id,
             activityData.activity_type,
-            JSON.stringify(activityData.activity_data),
+            JSON.stringify(activityData.activity_data || {}),
             activityData.url || null
         ];
         await this.query(sql, params);

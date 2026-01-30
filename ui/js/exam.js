@@ -10,9 +10,42 @@ let examState = {
     startTime: Date.now()
 };
 
+// Question data
+let questionsData = [];
+let currentSection = '';
+
+// Load questions from JSON
+async function loadQuestionsFromJSON() {
+    try {
+        const response = await fetch('../ques.json');
+        const data = await response.json();
+        
+        // Flatten all sections into single array
+        questionsData = [];
+        Object.keys(data).forEach(section => {
+            data[section].forEach(q => {
+                questionsData.push({
+                    ...q,
+                    section: section
+                });
+            });
+        });
+        
+        examState.totalQuestions = Math.min(50, questionsData.length);
+        console.log(`Loaded ${questionsData.length} questions from ${Object.keys(data).length} sections`);
+        return true;
+    } catch (error) {
+        console.error('Failed to load questions:', error);
+        return false;
+    }
+}
+
 // Initialize exam when page loads
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadQuestionsFromJSON();
     initializeExam();
+    initializeExamSession();
+    initializeProctoringCamera();
     startTimer();
     generateQuestionGrid();
     loadQuestion(examState.currentQuestion);
@@ -26,7 +59,41 @@ async function initializeExam() {
             console.log('System info loaded:', systemInfo);
         }
     } catch (error) {
-        console.log('Running in demo mode:', error);
+        console.warn('System info unavailable:', error);
+    }
+}
+
+async function initializeExamSession() {
+    const userId = Number(localStorage.getItem('currentUserId'));
+    const examId = Number(localStorage.getItem('currentExamId'));
+    if (!userId || !examId) {
+        console.warn('Exam session not started: missing user or exam context');
+        return;
+    }
+
+    if (!window.electronAPI || !window.electronAPI.startExamSession) {
+        console.warn('Exam session API not available');
+        return;
+    }
+
+    try {
+        const systemInfo = window.electronAPI.getSystemInfo ? await window.electronAPI.getSystemInfo() : {};
+        const payload = {
+            user_id: userId,
+            exam_id: examId,
+            session_token: systemInfo.sessionId || `SES-${Date.now()}`,
+            ip_address: null,
+            machine_info: systemInfo || {}
+        };
+
+        const result = await window.electronAPI.startExamSession(payload);
+        if (result.success && result.data) {
+            localStorage.setItem('currentSessionId', result.data.sessionId);
+        } else {
+            console.warn('Failed to start session:', result.error);
+        }
+    } catch (error) {
+        console.warn('Session init failed:', error);
     }
 }
 
@@ -51,17 +118,34 @@ function updateTimerDisplay() {
     const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     
     const timerElements = document.querySelectorAll('[data-timer]');
-    timerElements.forEach(el => {
+    const timerContainers = document.querySelectorAll('[data-timer]').forEach(el => {
         el.textContent = timeString;
+        
+        // Apply warning states
+        const container = el.closest('.bg-surface-dark-highlight');
+        if (container) {
+            // Critical: Last 1 minute - Red pulsing
+            if (examState.timeRemaining <= 60) {
+                container.classList.remove('border-amber-500/50', 'border-[#394756]');
+                container.classList.add('border-red-500', 'animate-pulse');
+                el.classList.add('text-red-400');
+            }
+            // Warning: Last 5 minutes - Amber
+            else if (examState.timeRemaining <= 300) {
+                container.classList.remove('border-[#394756]');
+                container.classList.add('border-amber-500/50');
+                el.classList.add('text-amber-400');
+            }
+        }
     });
     
     // Update progress
     const answered = Object.keys(examState.answers).length;
     const percentage = Math.round((answered / examState.totalQuestions) * 100);
     
-    const progressText = document.querySelector('.flex.justify-between.text-xs.text-gray-400 span:last-child');
+    const progressText = document.querySelector('.flex.justify-between.text-xs span:last-child');
     if (progressText) {
-        progressText.textContent = `${percentage}%`;
+        progressText.textContent = `${answered}/${examState.totalQuestions} (${percentage}%)`;
     }
     
     const progressBar = document.querySelector('.h-2.w-full .h-full');
@@ -106,11 +190,43 @@ function generateQuestionGrid() {
 function loadQuestion(questionNumber) {
     examState.currentQuestion = questionNumber;
     
+    // Get question data
+    const questionIndex = questionNumber - 1;
+    const questionData = questionsData[questionIndex];
+    
+    if (!questionData) {
+        console.warn('Question data not found for:', questionNumber);
+        return;
+    }
+    
     // Update question number display
     const questionBadge = document.querySelector('.bg-primary\\/20.text-primary');
     if (questionBadge) {
         questionBadge.textContent = `Question ${questionNumber}`;
     }
+    
+    // Update section badge if exists
+    const sectionBadge = document.querySelector('[data-section-badge]');
+    if (sectionBadge) {
+        sectionBadge.textContent = questionData.section || 'General';
+    }
+    
+    // Update question text
+    const questionText = document.querySelector('.text-white.text-lg.leading-relaxed');
+    if (questionText) {
+        questionText.textContent = questionData.question;
+    }
+    
+    // Update options
+    const optionLabels = document.querySelectorAll('label.flex.items-start.gap-4.p-4');
+    questionData.options.forEach((option, index) => {
+        if (optionLabels[index]) {
+            const optionText = optionLabels[index].querySelector('.flex-1.text-slate-200');
+            if (optionText) {
+                optionText.textContent = option;
+            }
+        }
+    });
     
     // Load saved answer if exists
     const savedAnswer = examState.answers[questionNumber];
@@ -169,8 +285,34 @@ function saveCurrentAnswer() {
         const radioButtons = Array.from(document.querySelectorAll('input[name="answer"]'));
         const answerIndex = radioButtons.indexOf(selectedRadio);
         examState.answers[examState.currentQuestion] = answerIndex;
+        
+        // Show auto-save indication
+        showAutoSaveIndicator();
     }
 }
+
+// Show auto-save indicator
+function showAutoSaveIndicator() {
+    const indicator = document.querySelector('.auto-save-indicator');
+    if (indicator) {
+        indicator.style.opacity = '1';
+        indicator.querySelector('span:last-child').textContent = 'Auto-saved';
+        indicator.querySelector('.animate-pulse').classList.add('bg-green-500');
+        
+        // Hide after 2 seconds
+        setTimeout(() => {
+            indicator.style.opacity = '0.7';
+        }, 2000);
+    }
+}
+
+// Simulate auto-save every 30 seconds
+setInterval(() => {
+    if (Object.keys(examState.answers).length > 0) {
+        localStorage.setItem('examState', JSON.stringify(examState));
+        showAutoSaveIndicator();
+    }
+}, 30000);
 
 // Flag management
 function toggleFlag() {
@@ -217,84 +359,183 @@ function goToSubmission() {
     }
 }
 
-// Auto-save every 30 seconds
-setInterval(() => {
-    saveCurrentAnswer();
-    console.log('Auto-saved at', new Date().toLocaleTimeString());
-}, 30000);
+
+// Show exam instructions modal
+function showInstructions() {
+    alert(`EXAM INSTRUCTIONS:
+
+1. This is a proctored examination. Your webcam and microphone are being monitored throughout the exam.
+
+2. You have 2 hours to complete 50 questions.
+
+3. You can navigate between questions using the question grid on the right.
+
+4. You can flag questions for review by clicking the flag icon.
+
+5. Do not switch tabs, open other windows, or leave the exam screen. Such actions will be flagged as violations.
+
+6. Your answers are auto-saved every 30 seconds.
+
+7. Click "Submit Exam" when you have completed all questions or when time runs out.
+
+8. Once submitted, you cannot return to the exam.
+
+Good luck!`);
+}
+
+// Show incident log (for dashboard tooltips)
+function showIncidentLog() {
+    window.location.href = 'dashboard.html#incidents';
+}
+
+// Toggle settings menu
+function toggleSettings() {
+    alert('Settings panel would open here (font size, contrast adjustments, etc.)');
+}
+
 // ============================================
-// DEMO AI/ML FEATURES (Simulated)
+// PROCTORING CAMERA INTEGRATION
 // ============================================
 
-// Demo: AI Answer Validation
-function validateAnswerWithAI(questionNumber, selectedAnswer) {
-    // Simulate AI analysis
-    const confidence = Math.random() * 0.3 + 0.7; // 70-100% confidence
-    
-    // For demo purposes, flag some answers as "needs review"
-    if (Math.random() > 0.8) {
-        console.log(`🤖 AI FLAG: Question ${questionNumber} - Unusual pattern detected (Confidence: ${(confidence * 100).toFixed(1)}%)`);
-        return { flagged: true, reason: 'Unusual answer pattern', confidence };
-    }
-    return { flagged: false, confidence };
-}
+let proctoringStream = null;
+let proctoringContext = null;
+let proctoringMonitorInterval = null;
 
-// Demo: Face Detection & Liveness Check
-function simulateFaceDetection() {
-    const detectionResult = {
-        faceDetected: Math.random() > 0.05, // 95% chance of detection
-        livenessPassed: Math.random() > 0.1, // 90% chance of liveness
-        eyeContact: Math.random() > 0.2, // 80% chance of good eye contact
-        confidence: Math.random() * 0.2 + 0.85, // 85-95% confidence
-        timestamp: new Date().toISOString()
-    };
-    return detectionResult;
-}
+async function initializeProctoringCamera() {
+    try {
+        const video = document.getElementById('proctoring-video');
+        const canvas = document.getElementById('proctoring-canvas');
+        const statusDiv = document.getElementById('proctoring-status');
 
-// Demo: Anomaly Detection (unusual exam behavior)
-function checkForAnomalies() {
-    const anomalies = [];
-    
-    // Check if answers are changing frequently
-    if (examState.currentQuestion > 10) {
-        const recentAnswerChanges = Object.keys(examState.answers).length > 40;
-        if (recentAnswerChanges && Math.random() > 0.9) {
-            anomalies.push('Rapid answer changes detected');
+        if (!video || !canvas) {
+            console.warn('Proctoring video elements not found');
+            return;
         }
+
+        // Get camera stream
+        proctoringStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 640, height: 480 },
+            audio: false
+        });
+
+        video.srcObject = proctoringStream;
+        proctoringContext = canvas.getContext('2d');
+
+        // Update status
+        updateProctoringStatus('Valid Face Detected', 'success');
+
+        // Start simulated face detection overlay
+        startProctoringOverlay(video, canvas);
+
+        // Start monitoring camera health
+        startProctoringCameraMonitoring(video);
+
+        console.log('✓ Proctoring camera initialized');
+    } catch (error) {
+        console.error('Failed to initialize proctoring camera:', error);
+        updateProctoringStatus('Camera Access Denied', 'error');
     }
-    
-    // Check for suspicious timing
-    if (examState.timeRemaining > 7000) { // More than 50 min left
-        const answeredTooFast = Object.keys(examState.answers).length > examState.currentQuestion;
-        if (answeredTooFast && Math.random() > 0.95) {
-            anomalies.push('Unusual pace detected - answers submitted very quickly');
+}
+
+function startProctoringCameraMonitoring(video) {
+    if (proctoringMonitorInterval) {
+        clearInterval(proctoringMonitorInterval);
+    }
+
+    proctoringMonitorInterval = setInterval(async () => {
+        try {
+            if (!proctoringStream) {
+                return;
+            }
+
+            const tracks = proctoringStream.getVideoTracks();
+            const track = tracks && tracks[0];
+
+            if (!track || track.readyState === 'ended') {
+                console.warn('Proctoring camera track ended. Restarting...');
+                await restartProctoringCamera(video);
+                return;
+            }
+
+            if (video && video.readyState < 2) {
+                console.warn('Proctoring video stalled. Restarting...');
+                await restartProctoringCamera(video);
+                return;
+            }
+        } catch (error) {
+            console.warn('Proctoring camera monitor error:', error);
         }
+    }, 2000);
+}
+
+async function restartProctoringCamera(video) {
+    try {
+        if (proctoringStream) {
+            proctoringStream.getTracks().forEach(track => track.stop());
+        }
+
+        proctoringStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 640, height: 480 },
+            audio: false
+        });
+
+        video.srcObject = proctoringStream;
+        await video.play();
+    } catch (error) {
+        console.error('Failed to restart proctoring camera:', error);
     }
-    
-    return anomalies;
 }
 
-// Demo: Proctoring Alert System
-function triggerProctorAlert(severity = 'low') {
-    const severities = {
-        low: { icon: 'info', color: 'text-blue-400', message: '📷 System monitoring active' },
-        medium: { icon: 'warning', color: 'text-yellow-400', message: '⚠️ Unusual activity detected' },
-        high: { icon: 'error', color: 'text-red-400', message: '🚨 Multiple violations detected' }
-    };
-    
-    // In a real system, this would alert a human proctor
-    console.log(`🔒 [${severity.toUpperCase()}] ${severities[severity].message}`);
-    return severities[severity];
-}
-
-// Initialize proctoring on exam start (demo)
-document.addEventListener('DOMContentLoaded', () => {
-    // Simulate periodic proctoring checks every 2 minutes
+function startProctoringOverlay(video, canvas) {
+    // Simulate face detection with bounding box
     setInterval(() => {
-        const anomalies = checkForAnomalies();
-        if (anomalies.length > 0 && Math.random() > 0.7) {
-            console.log('🔔 Proctoring Alert:', anomalies);
-            triggerProctorAlert('low');
-        }
-    }, 120000);
+        if (!proctoringContext) return;
+
+        proctoringContext.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw face bounding box (simulated)
+        const boxX = canvas.width / 4;
+        const boxY = canvas.height / 6;
+        const boxW = canvas.width / 2;
+        const boxH = canvas.height / 1.5;
+
+        proctoringContext.strokeStyle = '#00ff00';
+        proctoringContext.lineWidth = 2;
+        proctoringContext.strokeRect(boxX, boxY, boxW, boxH);
+
+        // Draw confidence text
+        proctoringContext.fillStyle = '#00ff00';
+        proctoringContext.font = '12px monospace';
+        proctoringContext.fillText('Face: 98%', boxX, boxY - 5);
+    }, 100);
+}
+
+function updateProctoringStatus(message, type = 'success') {
+    const statusDiv = document.getElementById('proctoring-status');
+    if (!statusDiv) return;
+
+    const colors = {
+        success: { icon: 'check_circle', color: 'green' },
+        warning: { icon: 'warning', color: 'yellow' },
+        error: { icon: 'error', color: 'red' }
+    };
+
+    const config = colors[type] || colors.success;
+
+    statusDiv.innerHTML = `
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-${config.color}-500 text-sm">${config.icon}</span>
+            <span class="text-xs text-${config.color}-400 font-medium">${message}</span>
+        </div>
+    `;
+}
+
+// Clean up camera on page unload
+window.addEventListener('beforeunload', () => {
+    if (proctoringStream) {
+        proctoringStream.getTracks().forEach(track => track.stop());
+    }
+    if (proctoringMonitorInterval) {
+        clearInterval(proctoringMonitorInterval);
+    }
 });

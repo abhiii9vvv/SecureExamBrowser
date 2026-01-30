@@ -1,0 +1,622 @@
+{
+  "Data Structures & Algorithms": [
+    {
+      "id": 1,
+      "question": "What is the time complexity of binary search in a sorted array?",
+      "options": ["O(n)", "O(log n)", "O(n log n)", "O(1)"],
+      "answer": "O(log n)"
+    },
+    {
+      "id": 2,
+      "question": "Which data structure follows FIFO?",
+      "options": ["Stack", "Queue", "Tree", "Graph"],
+      "answer": "Queue"
+    },
+    {
+      "id": 3,
+      "question": "Which traversal of BST gives sorted order?",
+      "options": ["Preorder", "Postorder", "Inorder", "Level order"],
+      "answer": "Inorder"
+    },
+    {
+      "id": 4,
+      "question": "Which data structure is used for recursion?",
+      "options": ["Queue", "Heap", "Stack", "Array"],
+      "answer": "Stack"
+    },
+    {
+      "id": 5,
+      "question": "Worst case time complexity of quicksort?",
+      "options": ["O(n log n)", "O(log n)", "O(n²)", "O(n)"],
+      "answer": "O(n²)"
+    },
+    {
+      "id": 6,
+      "question": "Which is not a linear data structure?",
+      "options": ["Array", "Linked List", "Tree", "Stack"],
+      "answer": "Tree"
+    },
+    {
+      "id": 7,
+      "question": "Which algorithm is used to find shortest path?",
+      "options": ["DFS", "BFS", "Dijkstra", "Binary Search"],
+      "answer": "Dijkstra"
+    },
+    {
+      "id": 8,
+      "question": "Which data structure is used in BFS?",
+      "options": ["Stack", "Queue", "Set", "Tree"],
+      "answer": "Queue"
+    },
+    {
+      "id": 9,
+      "question": "Time complexity of inserting in hash table (average)?",
+      "options": ["O(n)", "O(log n)", "O(1)", "O(n log n)"],
+      "answer": "O(1)"
+    },
+    {
+      "id": 10,
+      "question": "Which sorting algorithm is stable?",
+      "options": ["Quick Sort", "Heap Sort", "Merge Sort", "Selection Sort"],
+      "answer": "Merge Sort"
+    },
+    {
+      "id": 11,
+      "question": "Which data structure uses LIFO?",
+      "options": ["Queue", "Stack", "Deque", "Array"],
+      "answer": "Stack"
+    },
+    {
+      "id": 12,
+      "question": "Best case time complexity of bubble sort?",
+      "options": ["O(n)", "O(n²)", "O(log n)", "O(n log n)"],
+      "answer": "O(n)"
+    },
+    {
+      "id": 13,
+      "question": "Which tree has at most two children?",
+      "options": ["Binary Tree", "AVL Tree", "B-Tree", "Trie"],
+      "answer": "Binary Tree"
+    },
+    {
+      "id": 14,
+      "question": "Which data structure is best for undo operation?",
+      "options": ["Queue", "Stack", "Array", "Graph"],
+      "answer": "Stack"
+    },
+    {
+      "id": 15,
+      "question": "Which traversal uses queue?",
+      "options": ["Inorder", "Preorder", "Postorder", "Level Order"],
+      "answer": "Level Order"
+    },
+    {
+      "id": 16,
+      "question": "Which algorithm uses divide and conquer?",
+      "options": ["Bubble Sort", "Merge Sort", "Insertion Sort", "Linear Search"],
+      "answer": "Merge Sort"
+    },
+    {
+      "id": 17,
+      "question": "Which data structure is dynamic?",
+      "options": ["Array", "Linked List", "Matrix", "String"],
+      "answer": "Linked List"
+    },
+    {
+      "id": 18,
+      "question": "Which case is fastest in quicksort?",
+      "options": ["Worst", "Average", "Best", "None"],
+      "answer": "Best"
+    },
+    {
+      "id": 19,
+      "question": "Which structure is used in DFS?",
+      "options": ["Queue", "Stack", "Heap", "Array"],
+      "answer": "Stack"
+    },
+    {
+      "id": 20,
+      "question": "Which is not a comparison sort?",
+      "options": ["Quick Sort", "Merge Sort", "Counting Sort", "Heap Sort"],
+      "answer": "Counting Sort"
+    }
+  ],
+
+  "Web Development": [
+    {
+      "id": 1,
+      "question": "What does HTML stand for?",
+      "options": ["Hyper Tool Markup Language", "Hyper Text Markup Language", "High Text Machine Language", "None"],
+      "answer": "Hyper Text Markup Language"
+    },
+    {
+      "id": 2,
+      "question": "Which tag is used for JavaScript?",
+      "options": ["<js>", "<javascript>", "<script>", "<code>"],
+      "answer": "<script>"
+    },
+    {
+      "id": 3,
+      "question": "Which CSS property controls text size?",
+      "options": ["font-style", "text-size", "font-size", "size"],
+      "answer": "font-size"
+    },
+    {
+      "id": 4,
+      "question": "Which is a frontend framework?",
+      "options": ["Node.js", "Django", "React", "MongoDB"],
+      "answer": "React"
+    },
+    {
+      "id": 5,
+      "question": "Which HTTP method is used to update data?",
+      "options": ["GET", "POST", "PUT", "DELETE"],
+      "answer": "PUT"
+    },
+    {
+      "id": 6,
+      "question": "Which database is NoSQL?",
+      "options": ["MySQL", "PostgreSQL", "MongoDB", "Oracle"],
+      "answer": "MongoDB"
+    },
+    {
+      "id": 7,
+      "question": "Which is not a JavaScript datatype?",
+      "options": ["Number", "Boolean", "Float", "Undefined"],
+      "answer": "Float"
+    },
+    {
+      "id": 8,
+      "question": "Which tag is used for hyperlinks?",
+      "options": ["<link>", "<a>", "<href>", "<url>"],
+      "answer": "<a>"
+    },
+    {
+      "id": 9,
+      "question": "Which CSS layout is one-dimensional?",
+      "options": ["Grid", "Flexbox", "Float", "Position"],
+      "answer": "Flexbox"
+    },
+    {
+      "id": 10,
+      "question": "What does API stand for?",
+      "options": ["Application Programming Interface", "Advanced Program Interface", "Application Process Interface", "None"],
+      "answer": "Application Programming Interface"
+    },
+    {
+      "id": 11,
+      "question": "Which keyword declares constant in JS?",
+      "options": ["var", "let", "const", "static"],
+      "answer": "const"
+    },
+    {
+      "id": 12,
+      "question": "Which status code means success?",
+      "options": ["404", "500", "200", "301"],
+      "answer": "200"
+    },
+    {
+      "id": 13,
+      "question": "Which is backend runtime?",
+      "options": ["React", "Angular", "Node.js", "Vue"],
+      "answer": "Node.js"
+    },
+    {
+      "id": 14,
+      "question": "Which tag creates checkbox?",
+      "options": ["text", "radio", "checkbox", "button"],
+      "answer": "checkbox"
+    },
+    {
+      "id": 15,
+      "question": "Which is used for version control?",
+      "options": ["Docker", "Git", "NPM", "Webpack"],
+      "answer": "Git"
+    },
+    {
+      "id": 16,
+      "question": "Which CSS unit is relative?",
+      "options": ["px", "cm", "em", "mm"],
+      "answer": "em"
+    },
+    {
+      "id": 17,
+      "question": "Which is client-side language?",
+      "options": ["PHP", "Java", "Python", "JavaScript"],
+      "answer": "JavaScript"
+    },
+    {
+      "id": 18,
+      "question": "Which hook is used for state in React?",
+      "options": ["useEffect", "useRef", "useState", "useMemo"],
+      "answer": "useState"
+    },
+    {
+      "id": 19,
+      "question": "Which protocol is secure?",
+      "options": ["HTTP", "FTP", "HTTPS", "SMTP"],
+      "answer": "HTTPS"
+    },
+    {
+      "id": 20,
+      "question": "Which file contains package info in Node?",
+      "options": ["index.js", "package.json", "app.js", "server.js"],
+      "answer": "package.json"
+    }
+  ],
+
+  "Quantitative Aptitude": [
+    {
+      "id": 1,
+      "question": "If 2x = 10, then x = ?",
+      "options": ["3", "4", "5", "6"],
+      "answer": "5"
+    },
+    {
+      "id": 2,
+      "question": "Average of 10 and 20?",
+      "options": ["10", "15", "20", "25"],
+      "answer": "15"
+    },
+    {
+      "id": 3,
+      "question": "25% of 200 is?",
+      "options": ["25", "50", "75", "100"],
+      "answer": "50"
+    },
+    {
+      "id": 4,
+      "question": "Simplify: 5²",
+      "options": ["10", "20", "25", "30"],
+      "answer": "25"
+    },
+    {
+      "id": 5,
+      "question": "LCM of 4 and 6?",
+      "options": ["12", "24", "6", "8"],
+      "answer": "12"
+    },
+    {
+      "id": 6,
+      "question": "HCF of 12 and 18?",
+      "options": ["3", "6", "9", "12"],
+      "answer": "6"
+    },
+    {
+      "id": 7,
+      "question": "Profit if CP=100, SP=120?",
+      "options": ["10", "15", "20", "25"],
+      "answer": "20"
+    },
+    {
+      "id": 8,
+      "question": "Time: 120 km at 60 km/hr?",
+      "options": ["1 hr", "2 hr", "3 hr", "4 hr"],
+      "answer": "2 hr"
+    },
+    {
+      "id": 9,
+      "question": "Next number: 2,4,8,16,?",
+      "options": ["18", "24", "32", "64"],
+      "answer": "32"
+    },
+    {
+      "id": 10,
+      "question": "Square root of 144?",
+      "options": ["10", "11", "12", "13"],
+      "answer": "12"
+    },
+    {
+      "id": 11,
+      "question": "Ratio of 2:4 simplified?",
+      "options": ["1:2", "2:1", "4:2", "2:2"],
+      "answer": "1:2"
+    },
+    {
+      "id": 12,
+      "question": "10% of 50?",
+      "options": ["2", "5", "10", "15"],
+      "answer": "5"
+    },
+    {
+      "id": 13,
+      "question": "Odd one out: 2,4,6,9",
+      "options": ["2", "4", "6", "9"],
+      "answer": "9"
+    },
+    {
+      "id": 14,
+      "question": "Simple interest of 1000 at 10% for 1 year?",
+      "options": ["50", "100", "150", "200"],
+      "answer": "100"
+    },
+    {
+      "id": 15,
+      "question": "10² + 5²?",
+      "options": ["125", "150", "175", "200"],
+      "answer": "125"
+    },
+    {
+      "id": 16,
+      "question": "Perimeter of square with side 4?",
+      "options": ["8", "12", "16", "20"],
+      "answer": "16"
+    },
+    {
+      "id": 17,
+      "question": "Which is prime?",
+      "options": ["9", "15", "17", "21"],
+      "answer": "17"
+    },
+    {
+      "id": 18,
+      "question": "Convert 0.5 to fraction",
+      "options": ["1/3", "1/4", "1/2", "2/3"],
+      "answer": "1/2"
+    },
+    {
+      "id": 19,
+      "question": "20% of 150?",
+      "options": ["20", "25", "30", "35"],
+      "answer": "30"
+    },
+    {
+      "id": 20,
+      "question": "Value of π (approx)?",
+      "options": ["2.14", "3.14", "4.14", "5.14"],
+      "answer": "3.14"
+    }
+  ],
+
+  "Database Management": [
+    {
+      "id": 1,
+      "question": "Which key uniquely identifies a record in a table?",
+      "options": ["Foreign Key", "Primary Key", "Composite Key", "Candidate Key"],
+      "answer": "Primary Key"
+    },
+    {
+      "id": 2,
+      "question": "SQL stands for?",
+      "options": ["Structured Query Language", "Simple Query Language", "Standard Query Language", "System Query Language"],
+      "answer": "Structured Query Language"
+    },
+    {
+      "id": 3,
+      "question": "Which command is used to retrieve data from database?",
+      "options": ["INSERT", "UPDATE", "SELECT", "DELETE"],
+      "answer": "SELECT"
+    },
+    {
+      "id": 4,
+      "question": "What does ACID stand for in database?",
+      "options": ["Atomicity, Consistency, Isolation, Durability", "Access, Control, Integrity, Data", "All, Consistent, Independent, Durable", "None"],
+      "answer": "Atomicity, Consistency, Isolation, Durability"
+    },
+    {
+      "id": 5,
+      "question": "Which is not a type of join?",
+      "options": ["Inner Join", "Outer Join", "Cross Join", "Parallel Join"],
+      "answer": "Parallel Join"
+    },
+    {
+      "id": 6,
+      "question": "What is normalization?",
+      "options": ["Organizing data to reduce redundancy", "Increasing database size", "Deleting duplicates", "Creating backups"],
+      "answer": "Organizing data to reduce redundancy"
+    },
+    {
+      "id": 7,
+      "question": "Which constraint ensures no NULL values?",
+      "options": ["UNIQUE", "CHECK", "NOT NULL", "DEFAULT"],
+      "answer": "NOT NULL"
+    },
+    {
+      "id": 8,
+      "question": "What is a view in database?",
+      "options": ["Physical table", "Virtual table", "Index", "Constraint"],
+      "answer": "Virtual table"
+    },
+    {
+      "id": 9,
+      "question": "Which is fastest in retrieval?",
+      "options": ["Primary Key", "Index", "Foreign Key", "View"],
+      "answer": "Index"
+    },
+    {
+      "id": 10,
+      "question": "Transaction control command?",
+      "options": ["SELECT", "INSERT", "COMMIT", "CREATE"],
+      "answer": "COMMIT"
+    }
+  ],
+
+  "Operating Systems": [
+    {
+      "id": 1,
+      "question": "Which is not an operating system?",
+      "options": ["Windows", "Linux", "Oracle", "MacOS"],
+      "answer": "Oracle"
+    },
+    {
+      "id": 2,
+      "question": "What is kernel?",
+      "options": ["User interface", "Core of OS", "Application", "File system"],
+      "answer": "Core of OS"
+    },
+    {
+      "id": 3,
+      "question": "Which scheduling is preemptive?",
+      "options": ["FCFS", "SJF", "Round Robin", "Priority"],
+      "answer": "Round Robin"
+    },
+    {
+      "id": 4,
+      "question": "What is deadlock?",
+      "options": ["System crash", "Processes waiting indefinitely", "Memory overflow", "CPU idle"],
+      "answer": "Processes waiting indefinitely"
+    },
+    {
+      "id": 5,
+      "question": "Which memory is fastest?",
+      "options": ["Cache", "RAM", "ROM", "Hard Disk"],
+      "answer": "Cache"
+    },
+    {
+      "id": 6,
+      "question": "What is paging?",
+      "options": ["Memory management technique", "File system", "CPU scheduling", "Disk management"],
+      "answer": "Memory management technique"
+    },
+    {
+      "id": 7,
+      "question": "Which is not a deadlock condition?",
+      "options": ["Mutual Exclusion", "Hold and Wait", "Preemption", "Circular Wait"],
+      "answer": "Preemption"
+    },
+    {
+      "id": 8,
+      "question": "What is thrashing?",
+      "options": ["High paging activity", "CPU overload", "Memory leak", "Disk failure"],
+      "answer": "High paging activity"
+    },
+    {
+      "id": 9,
+      "question": "Which stores BIOS?",
+      "options": ["RAM", "ROM", "Cache", "Hard Disk"],
+      "answer": "ROM"
+    },
+    {
+      "id": 10,
+      "question": "Process state when executing?",
+      "options": ["Ready", "Running", "Waiting", "Terminated"],
+      "answer": "Running"
+    }
+  ],
+
+  "Computer Networks": [
+    {
+      "id": 1,
+      "question": "Which layer handles routing?",
+      "options": ["Physical", "Data Link", "Network", "Transport"],
+      "answer": "Network"
+    },
+    {
+      "id": 2,
+      "question": "What is IP address?",
+      "options": ["Physical address", "Logical address", "MAC address", "Port number"],
+      "answer": "Logical address"
+    },
+    {
+      "id": 3,
+      "question": "Which protocol is connection-oriented?",
+      "options": ["UDP", "ICMP", "TCP", "IP"],
+      "answer": "TCP"
+    },
+    {
+      "id": 4,
+      "question": "Default HTTP port?",
+      "options": ["21", "22", "80", "443"],
+      "answer": "80"
+    },
+    {
+      "id": 5,
+      "question": "What does DNS do?",
+      "options": ["Encrypt data", "Translate domain to IP", "Route packets", "Compress files"],
+      "answer": "Translate domain to IP"
+    },
+    {
+      "id": 6,
+      "question": "Which is not a network topology?",
+      "options": ["Star", "Ring", "Bus", "Linear"],
+      "answer": "Linear"
+    },
+    {
+      "id": 7,
+      "question": "What is subnet mask?",
+      "options": ["Divides network", "Encrypts data", "Routes packets", "Stores data"],
+      "answer": "Divides network"
+    },
+    {
+      "id": 8,
+      "question": "Which device works at data link layer?",
+      "options": ["Router", "Switch", "Hub", "Repeater"],
+      "answer": "Switch"
+    },
+    {
+      "id": 9,
+      "question": "What is MAC address?",
+      "options": ["Logical address", "Physical address", "IP address", "Port address"],
+      "answer": "Physical address"
+    },
+    {
+      "id": 10,
+      "question": "Which protocol checks email?",
+      "options": ["SMTP", "FTP", "POP3", "HTTP"],
+      "answer": "POP3"
+    }
+  ],
+
+  "Python Programming": [
+    {
+      "id": 1,
+      "question": "Which keyword is used to define function?",
+      "options": ["func", "define", "def", "function"],
+      "answer": "def"
+    },
+    {
+      "id": 2,
+      "question": "Which is mutable in Python?",
+      "options": ["Tuple", "String", "List", "Integer"],
+      "answer": "List"
+    },
+    {
+      "id": 3,
+      "question": "What is correct syntax for comments?",
+      "options": ["// comment", "/* comment */", "# comment", "<!-- comment -->"],
+      "answer": "# comment"
+    },
+    {
+      "id": 4,
+      "question": "Which is not a Python data type?",
+      "options": ["int", "float", "char", "str"],
+      "answer": "char"
+    },
+    {
+      "id": 5,
+      "question": "How to create empty list?",
+      "options": ["[]", "{}", "()", "None"],
+      "answer": "[]"
+    },
+    {
+      "id": 6,
+      "question": "Which is used for exception handling?",
+      "options": ["if-else", "try-except", "switch-case", "do-while"],
+      "answer": "try-except"
+    },
+    {
+      "id": 7,
+      "question": "What does len() return?",
+      "options": ["Type", "Size", "Value", "Index"],
+      "answer": "Size"
+    },
+    {
+      "id": 8,
+      "question": "Which is correct for string?",
+      "options": ["'Hello'", "Hello", "<Hello>", "Hello'"],
+      "answer": "'Hello'"
+    },
+    {
+      "id": 9,
+      "question": "What is lambda?",
+      "options": ["Loop", "Anonymous function", "Variable", "Class"],
+      "answer": "Anonymous function"
+    },
+    {
+      "id": 10,
+      "question": "Which imports all from module?",
+      "options": ["import *", "from module import *", "include module", "use module"],
+      "answer": "from module import *"
+    }
+  ]
+}

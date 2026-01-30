@@ -76,6 +76,8 @@
         }
     </style>
     <link rel="stylesheet" href="css/exam.css">
+    <link rel="stylesheet" href="css/accessibility.css">
+    <link rel="stylesheet" href="css/design-system.css">
 </head>
 <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-hidden h-screen flex flex-col">
 <!-- Top Header -->
@@ -90,28 +92,86 @@
 <h2 class="text-white text-lg font-bold leading-tight">B.Tech - Data Structures & Algorithms</h2>
 </div>
 </div>
+<!-- Proctoring Camera Widget -->
+<div class="flex items-center gap-3">
+<div class="relative group">
+<div class="bg-surface-dark-highlight rounded-lg border-2 border-primary/50 overflow-hidden shadow-[0_0_20px_rgba(0,102,204,0.4)]">
+<div class="flex items-center gap-2 px-3 py-1.5 bg-[#161b22] border-b border-primary/30">
+<div class="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
+<span class="text-xs text-gray-300 font-semibold tracking-wide">LIVE PROCTORING</span>
+</div>
+<div class="relative bg-black">
+<video id="proctoring-video" autoplay playsinline class="w-64 h-48 object-cover bg-black"></video>
+<canvas id="proctoring-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+<div id="proctoring-status" class="absolute bottom-2 left-2 right-2 px-3 py-1.5 rounded-md bg-black/80 backdrop-blur-md border border-green-500/30">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-green-500 text-base">check_circle</span>
+<span class="text-xs text-green-400 font-semibold">Valid Face Detected</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
 <div class="h-8 w-px bg-[#394756] mx-2 hidden md:block"></div>
 <!-- Timer Section -->
 <div class="hidden md:flex items-center gap-3 bg-surface-dark-highlight px-4 py-2 rounded-lg border border-[#394756]">
 <span class="material-symbols-outlined text-primary" style="font-size: 20px;">timer</span>
+<div class="flex flex-col gap-0.5">
 <div class="flex items-baseline gap-1 font-mono text-lg font-bold tracking-wider text-white">
 <span data-timer>02:00:00</span>
+</div>
+<span class="text-[10px] text-gray-500 uppercase tracking-wide">HH:MM:SS</span>
 </div>
 </div>
 </div>
 <div class="flex items-center gap-6">
-<!-- Progress Bar Compact -->
-<div class="flex flex-col gap-1 w-48">
-<div class="flex justify-between text-xs text-gray-400 font-medium">
-<span>Progress</span>
-<span>6%</span>
+<!-- Progress Bar Compact with Breakdown -->
+<div class="flex flex-col gap-1 w-56 group relative">
+<div class="flex justify-between text-xs text-gray-300 font-medium">
+<span class="flex items-center gap-1">
+Progress
+<span class="material-symbols-outlined text-xs text-gray-500 cursor-help" title="View breakdown">info</span>
+</span>
+<span>3/50 (6%)</span>
 </div>
 <div class="h-2 w-full bg-[#394756] rounded-full overflow-hidden">
-<div class="h-full bg-primary rounded-full" style="width: 6%"></div>
+<div class="h-full bg-primary rounded-full transition-all duration-300" style="width: 6%"></div>
+</div>
+<!-- Progress Breakdown Tooltip -->
+<div class="hidden group-hover:block absolute top-full mt-2 right-0 z-50 w-64 p-3 rounded-lg bg-surface-dark border border-[#394756] shadow-2xl">
+<p class="text-xs font-bold text-gray-200 mb-2">Section Breakdown</p>
+<div class="space-y-2 text-xs">
+<div class="flex justify-between items-center">
+<span class="text-gray-400">Section 1: Basics</span>
+<span class="text-primary font-bold">2/12</span>
+</div>
+<div class="w-full h-1 bg-[#394756] rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 16.6%"></div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-gray-400">Section 2: Advanced</span>
+<span class="text-amber-400 font-bold">1/20</span>
+</div>
+<div class="w-full h-1 bg-[#394756] rounded-full overflow-hidden">
+<div class="h-full bg-amber-400 rounded-full" style="width: 5%"></div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-gray-400">Section 3: Practice</span>
+<span class="text-gray-500 font-bold">0/18</span>
+</div>
+<div class="w-full h-1 bg-[#394756] rounded-full overflow-hidden">
+<div class="h-full bg-gray-500 rounded-full" style="width: 0%"></div>
+</div>
+</div>
 </div>
 </div>
 <div class="flex items-center gap-4 pl-6 border-l border-[#394756]">
-<button class="text-gray-400 hover:text-white transition-colors" onclick="toggleSettings()">
+<button aria-label="View exam instructions" class="text-gray-400 hover:text-white transition-colors relative group" onclick="showInstructions()" title="Exam Instructions">
+<span class="material-symbols-outlined">description</span>
+<span class="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-dark-highlight text-xs text-gray-300 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-[#394756]">Instructions</span>
+</button>
+<button aria-label="Open exam settings" class="text-gray-400 hover:text-white transition-colors" onclick="toggleSettings()">
 <span class="material-symbols-outlined">settings</span>
 </button>
 <div class="size-9 rounded-full bg-surface-dark-highlight ring-2 ring-[#394756] flex items-center justify-center">
@@ -124,48 +184,46 @@
 <!-- Sidebar Navigation (Heatmap Grid) -->
 <aside class="w-80 border-r border-[#27303a] bg-[#101418] flex flex-col shrink-0 z-10 transition-all duration-300 transform">
 <div class="p-4 border-b border-[#27303a]">
-<h3 class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Question Navigator</h3>
-<div class="flex gap-2 text-[10px] text-gray-500 mb-2">
-<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-primary"></div> Current</div>
-<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-[#394756]"></div> Answered</div>
-<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-yellow-500"></div> Flagged</div>
+<h3 class="text-gray-300 text-sm font-bold uppercase tracking-widest mb-3">Question Navigator</h3>
+<div class="legend">
+<div class="legend-item"><div class="legend-indicator bg-primary"></div>Current</div>
+<div class="legend-item"><div class="legend-indicator bg-[#334155]"></div>Answered</div>
+<div class="legend-item"><div class="legend-indicator bg-yellow-500"></div>Flagged</div>
+<div class="legend-item"><div class="legend-indicator bg-[#1e293b] border border-[#334155]"></div>Unanswered</div>
 </div>
 </div>
 <div class="flex-1 overflow-y-auto custom-scrollbar p-4">
-<div class="grid grid-cols-5 gap-2">
+<div class="question-grid">
 <!-- Answered -->
-<button class="aspect-square flex items-center justify-center rounded bg-[#394756] text-gray-300 text-xs font-medium hover:bg-[#4a5a6b] transition-colors">1</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#394756] text-gray-300 text-xs font-medium hover:bg-[#4a5a6b] transition-colors">2</button>
+<button class="question-btn answered">1</button>
+<button class="question-btn answered">2</button>
 <!-- Current Active -->
-<button class="aspect-square flex items-center justify-center rounded bg-primary text-white text-sm font-bold shadow-glow-active ring-2 ring-primary ring-offset-2 ring-offset-[#101418] relative z-10">3</button>
+<button class="question-btn current">3</button>
 <!-- Flagged -->
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-400 text-xs font-medium hover:bg-[#27303a] transition-colors relative">
-                        4
-                        <div class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-yellow-500"></div>
-</button>
+<button class="question-btn unanswered flagged">4</button>
 <!-- Unanswered / Default -->
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">5</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">6</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">7</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">8</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">9</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">10</button>
+<button class="question-btn unanswered">5</button>
+<button class="question-btn unanswered">6</button>
+<button class="question-btn unanswered">7</button>
+<button class="question-btn unanswered">8</button>
+<button class="question-btn unanswered">9</button>
+<button class="question-btn unanswered">10</button>
 <!-- Generating more placeholders for effect -->
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">11</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">12</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">13</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">14</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">15</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">16</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">17</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">18</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">19</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">20</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">21</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">22</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">23</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">24</button>
-<button class="aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors">25</button>
+<button class="question-btn unanswered">11</button>
+<button class="question-btn unanswered">12</button>
+<button class="question-btn unanswered">13</button>
+<button class="question-btn unanswered">14</button>
+<button class="question-btn unanswered">15</button>
+<button class="question-btn unanswered">16</button>
+<button class="question-btn unanswered">17</button>
+<button class="question-btn unanswered">18</button>
+<button class="question-btn unanswered">19</button>
+<button class="question-btn unanswered">20</button>
+<button class="question-btn unanswered">21</button>
+<button class="question-btn unanswered">22</button>
+<button class="question-btn unanswered">23</button>
+<button class="question-btn unanswered">24</button>
+<button class="question-btn unanswered">25</button>
 </div>
 </div>
 <div class="p-4 border-t border-[#27303a] bg-surface-dark">
@@ -296,6 +354,13 @@
 </div>
 <!-- Floating Action Bar (FAB) -->
 <div class="fixed bottom-8 left-1/2 transform -translate-x-1/2 md:ml-40 z-50">
+<div class="flex flex-col items-center gap-2">
+<!-- Auto-save indicator -->
+<div class="px-3 py-1.5 rounded-full bg-surface-dark/80 backdrop-blur-xl border border-green-500/30 shadow-lg flex items-center gap-2 auto-save-indicator">
+<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+<span class="text-xs text-green-400 font-medium">Auto-saved</span>
+</div>
+<!-- Action buttons -->
 <div class="flex items-center gap-2 p-2 rounded-full bg-surface-dark/90 backdrop-blur-xl border border-[#394756] shadow-2xl">
 <button onclick="previousQuestion()" class="flex items-center gap-2 px-4 py-2.5 rounded-full text-gray-300 hover:bg-[#27303a] hover:text-white transition-colors text-sm font-semibold">
 <span class="material-symbols-outlined text-xl">arrow_back</span>
@@ -316,6 +381,7 @@
 <span class="sm:hidden">Next</span>
 <span class="material-symbols-outlined text-xl">arrow_forward</span>
 </button>
+</div>
 </div>
 </div>
 

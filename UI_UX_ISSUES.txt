@@ -1,0 +1,316 @@
+================================================================================
+SECURE EXAM BROWSER - UI/UX ISSUES REPORT
+Generated: January 28, 2026
+================================================================================
+
+This document outlines all identified UI/UX issues across the Secure Exam Browser
+application. These are design, usability, and user experience problems - NOT code
+or syntax issues.
+
+================================================================================
+1. ACCESSIBILITY ISSUES
+================================================================================
+
+1.1 Poor Color Contrast
+    - Light gray text on dark backgrounds may not meet WCAG AA standards
+    - Examples: text-slate-400 on dark backgrounds throughout the application
+    - Impact: Users with visual impairments struggle to read content
+    - Affected Files: launch.html, exam.html, submission.html, dashboard.html
+
+1.2 Missing ARIA Labels
+    - Buttons lack accessible descriptions for screen readers
+    - Examples: Settings button, Notifications button, Flag button
+    - Impact: Screen reader users cannot understand button purposes
+    - Affected Files: exam.html, dashboard.html, verification.html
+
+1.3 No Visible Focus Indicators
+    - Interactive elements lack clear focus states for keyboard navigation
+    - Impact: Keyboard-only users cannot see which element is focused
+    - Affected Files: All HTML files
+
+1.4 Font Size Too Small
+    - Many text elements use text-xs which is very small (12px)
+    - Examples: Status labels, timestamps, secondary information
+    - Impact: Difficult for users with low vision to read
+    - Affected Files: launch.html, exam.html, submission.html
+
+================================================================================
+2. MOBILE RESPONSIVENESS ISSUES
+================================================================================
+
+2.1 Exam Sidebar Not Collapsible
+    - 80px wide sidebar on exam.html doesn't collapse on mobile
+    - Impact: Creates extremely cramped layouts on phones and small tablets
+    - Affected File: exam.html
+
+2.2 Fixed Floating Action Bar (FAB)
+    - Bottom FAB overlaps content on small screens
+    - Impact: Users cannot see content behind FAB, especially on phones
+    - Affected File: exam.html
+
+2.3 Header Information Overflow
+    - Dashboard header with KPIs and navigation text gets squished on tablets
+    - Impact: Text wraps awkwardly, header becomes unreadable
+    - Affected File: dashboard.html
+
+2.4 Masonry Grid Limited Responsiveness
+    - Submission.html masonry only supports 3/2/1 columns
+    - Impact: No optimization for extra-large screens or ultra-wide monitors
+    - Affected File: submission.html
+
+================================================================================
+3. USER FEEDBACK & CLARITY ISSUES
+================================================================================
+
+3.1 No Loading States During Checks
+    - System doesn't show feedback when checking camera/microphone permissions
+    - Impact: Users don't know if system is working or frozen
+    - Affected File: launch.html
+
+3.2 Unclear Timer Status States
+    - Exam screen doesn't distinguish between time warning levels
+    - Examples: No visual change for last 5 minutes, last 1 minute, etc.
+    - Impact: Users might not realize exam is running out of time
+    - Affected File: exam.html
+
+3.3 No Confirmation Before Submission
+    - Users can submit exam without confirmation dialog
+    - Impact: High risk of accidental submission of incomplete work
+    - Affected File: submission.html
+
+3.4 Unclear Question Navigation
+    - Users don't know question numbers in grid are clickable
+    - Impact: Navigation feels unclear, no hover affordances
+    - Affected File: exam.html
+
+================================================================================
+4. VISUAL HIERARCHY & LAYOUT ISSUES
+================================================================================
+
+4.1 Overwhelming Question Navigator
+    - 25 question buttons in 5-column grid is visually dense
+    - Impact: Hard to scan quickly, difficult to find specific questions
+    - Affected File: exam.html
+
+4.2 Inconsistent Padding/Spacing
+    - Different sections use different gap values (gap-2, gap-4, gap-6)
+    - Impact: Visual inconsistency across the application
+    - Affected Files: All HTML files
+
+4.3 Inconsistent Icon Sizing
+    - Icons are different sizes (20px, 24px, 120px) throughout
+    - Impact: Looks unprofessional and inconsistent
+    - Affected Files: All HTML files
+
+4.4 Subtle Status Color Indicators
+    - "Online" status uses subtle colors that are hard to see
+    - Impact: Users miss important status information
+    - Affected File: launch.html, dashboard.html
+
+================================================================================
+5. INFORMATION ARCHITECTURE ISSUES
+================================================================================
+
+5.1 Insufficient Failure Handling on Launch Screen
+    - System checks don't explain what happens if checks fail
+    - Examples: Camera check fails, microphone unavailable, no internet
+    - Impact: Users confused about next steps if devices unavailable
+    - Affected File: launch.html
+
+5.2 Missing Progress Context in Exam
+    - Shows "6% Progress" but doesn't show which sections are incomplete
+    - Impact: Users can't prioritize which sections to focus on
+    - Affected File: exam.html
+
+5.3 No Link to Exam Instructions
+    - No visible button/link to exam rules or instructions during exam
+    - Impact: Users cannot reference instructions if needed
+    - Affected File: exam.html
+
+5.4 Dashboard KPIs Lack Explanation
+    - "Critical Flags: 3" shown without explanation
+    - Impact: Proctors don't understand what flags mean or how to investigate
+    - Affected File: dashboard.html
+
+================================================================================
+6. FORM & INPUT ISSUES
+================================================================================
+
+6.1 Range Slider Accessibility
+    - Custom-styled confidence slider may not work with keyboard
+    - Impact: Cannot adjust confidence without mouse
+    - Affected File: exam.html
+
+6.2 Radio Button Styling Issues
+    - Radio buttons are heavily styled, unselected state unclear
+    - Impact: Users might not realize they can select options
+    - Affected File: exam.html
+
+6.3 MCQ Options Layout Fragility
+    - Answer options could wrap awkwardly on medium screens
+    - Impact: Text wraps in unexpected places, reduces readability
+    - Affected File: exam.html
+
+6.4 No Input Validation Feedback
+    - Submission page doesn't indicate if required fields are complete
+    - Impact: Users might submit incomplete exam thinking it's ready
+    - Affected File: submission.html
+
+================================================================================
+7. VISUAL & DESIGN CONSISTENCY ISSUES
+================================================================================
+
+7.1 Inconsistent Typography
+    - Multiple font families mixed (Inter, Fira Code, JetBrains Mono)
+    - Impact: Looks unprofessional and scattered
+    - Affected Files: launch.html, exam.html, verification.html
+
+7.2 Over-use of Backdrop Blur Effects
+    - Too many backdrop-filter: blur(12px) elements
+    - Impact: Creates visual confusion and cognitive load
+    - Affected Files: launch.html, exam.html, submission.html
+
+7.3 Glass Panel Inconsistency
+    - Different opacity values for glass panels across files
+    - Example: rgba(30, 41, 59, 0.4) vs rgba(26, 36, 47, 0.6)
+    - Impact: Inconsistent look and feel
+    - Affected Files: launch.css, verification.html
+
+7.4 Radial Progress Ring Unclear
+    - Grade "A" floating inside progress ring is not clear
+    - Impact: Users might not immediately understand it shows grade
+    - Affected File: submission.html
+
+================================================================================
+8. REAL-TIME FEEDBACK ISSUES
+================================================================================
+
+8.1 Timer Display Format Ambiguous
+    - "02:00:00" format not explicitly labeled as HH:MM:SS
+    - Impact: Users might misread remaining time
+    - Affected Files: exam.html, submission.html
+
+8.2 No Auto-save Indication
+    - Users don't see if answers are being saved
+    - Impact: Users unsure if their work is being persisted
+    - Affected File: exam.html
+
+8.3 Missing Network Status Indicator
+    - No real-time connection/network status visible during exam
+    - Impact: Users don't know if connection issues are affecting them
+    - Affected File: exam.html
+
+8.4 Unsaved Answers Not Visually Distinct
+    - Question navigator doesn't show visual difference between saved/unsaved
+    - Impact: Users confused about which answers are actually saved
+    - Affected File: exam.html
+
+================================================================================
+9. TASK COMPLETION & FLOW ISSUES
+================================================================================
+
+9.1 Ambiguous "Proceed" Button Text
+    - Launch screen says "Proceed to Verification" but next step is unclear
+    - Impact: Users don't know what will happen when they click
+    - Affected File: launch.html
+
+9.2 No Clear Exit Strategy
+    - Exam interface has no graceful way to leave exam (only auto-submit)
+    - Impact: Users feel trapped if they need to exit
+    - Affected File: exam.html
+
+9.3 Missing Submission Confirmation
+    - No confirmation of successful submission or receipt number
+    - Impact: Users unsure if exam was actually submitted
+    - Affected File: submission.html
+
+================================================================================
+10. EDGE CASE HANDLING
+================================================================================
+
+10.1 Very Long Question Text Not Handled
+    - No word wrapping strategy for extremely long questions
+    - Impact: Text may overflow or become unreadable
+    - Affected File: exam.html
+
+10.2 Scalability Issue with 50+ Questions
+    - Question navigator grid becomes unwieldy with many questions
+    - Impact: Difficult to navigate exams with 100+ questions
+    - Affected File: exam.html
+
+10.3 Mobile Exam Support Missing
+    - Entire application designed for desktop/tablet only
+    - Impact: Students cannot take exams on phones
+    - Affected Files: All HTML files
+
+10.4 Offline Scenarios Not Handled
+    - No indication of what happens if internet drops mid-exam
+    - Impact: Users don't know if work is saved, if they can continue
+    - Affected Files: exam.html, submission.html
+
+================================================================================
+11. PROCTORING-SPECIFIC UX ISSUES
+================================================================================
+
+11.1 Missing Student Webcam Feed
+    - Exam interface doesn't show student's own webcam feed
+    - Impact: Students cannot verify they're being recorded
+    - Affected File: exam.html
+
+11.2 No Visible Incident History
+    - Dashboard shows "Critical Flags: 3" without incident log
+    - Impact: Proctors cannot see what caused the flags
+    - Affected File: dashboard.html
+
+11.3 Flagging Actions Not Obvious
+    - Unclear how proctoring flagging works or provides feedback
+    - Impact: Proctors confused about their actions
+    - Affected File: dashboard.html
+
+================================================================================
+12. COGNITIVE LOAD ISSUES
+================================================================================
+
+12.1 Information Overload on Submission Page
+    - Grade, completion %, confidence score, and 50+ question buttons shown
+    - Impact: Overwhelms users, hard to focus on what's important
+    - Affected File: submission.html
+
+12.2 Dense Dark Color Scheme
+    - Dark theme with many colors makes it hard to focus
+    - Impact: Visual fatigue, especially during long exam
+    - Affected Files: All HTML files
+
+12.3 Competing Visual Elements
+    - Decorative blurs and glows distract from content
+    - Impact: Important information gets lost in decoration
+    - Affected Files: launch.html, submission.html
+
+================================================================================
+PRIORITY FIXES (HIGH IMPACT)
+================================================================================
+
+CRITICAL (Do First):
+1. Add confirmation dialog before exam submission
+2. Implement visible focus indicators for keyboard navigation
+3. Make exam sidebar collapsible on mobile devices
+4. Improve color contrast on light gray text (WCAG AA compliance)
+5. Add ARIA labels to all buttons and interactive elements
+
+HIGH PRIORITY:
+6. Reduce visual density of question navigator grid
+7. Add loading/feedback states during system checks
+8. Implement time warning visual changes (colors, animations)
+9. Show answer auto-save indication
+10. Add keyboard support for range sliders
+
+MEDIUM PRIORITY:
+11. Improve timer display labeling (HH:MM:SS)
+12. Reduce backdrop blur overuse
+13. Standardize spacing and padding across all pages
+14. Add exam instructions link/button
+15. Improve icon size consistency
+
+================================================================================
+END OF REPORT
+================================================================================

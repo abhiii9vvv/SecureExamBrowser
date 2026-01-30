@@ -1,0 +1,382 @@
+/* ============================================================================
+   DESIGN SYSTEM - VISUAL HIERARCHY & CONSISTENCY
+   - Standardized spacing system
+   - Consistent icon sizing
+   - Enhanced status indicators
+   - Improved question navigator
+   ========================================================================= */
+
+/* ==========================================================================
+   SPACING SYSTEM - Consistent gaps and padding throughout
+   ========================================================================== */
+
+:root {
+    /* Spacing Scale - Use these consistently */
+    --spacing-xs: 0.25rem;   /* 4px */
+    --spacing-sm: 0.5rem;    /* 8px */
+    --spacing-md: 1rem;      /* 16px */
+    --spacing-lg: 1.5rem;    /* 24px */
+    --spacing-xl: 2rem;      /* 32px */
+    --spacing-2xl: 3rem;     /* 48px */
+    
+    /* Icon Sizing - Standardized */
+    --icon-xs: 16px;
+    --icon-sm: 20px;
+    --icon-md: 24px;
+    --icon-lg: 32px;
+    --icon-xl: 48px;
+    
+    /* Status Colors - Enhanced visibility */
+    --status-online: #10b981;
+    --status-warning: #f59e0b;
+    --status-error: #ef4444;
+    --status-neutral: #6b7280;
+}
+
+/* Standard spacing classes */
+.gap-standard { gap: var(--spacing-md); }
+.gap-tight { gap: var(--spacing-sm); }
+.gap-loose { gap: var(--spacing-lg); }
+
+.padding-standard { padding: var(--spacing-md); }
+.padding-tight { padding: var(--spacing-sm); }
+.padding-loose { padding: var(--spacing-lg); }
+
+/* ==========================================================================
+   ICON SIZING - Consistent throughout application
+   ========================================================================== */
+
+/* Material Icons standardization */
+.material-symbols-outlined.icon-xs { font-size: var(--icon-xs) !important; }
+.material-symbols-outlined.icon-sm { font-size: var(--icon-sm) !important; }
+.material-symbols-outlined.icon-md { font-size: var(--icon-md) !important; }
+.material-symbols-outlined.icon-lg { font-size: var(--icon-lg) !important; }
+.material-symbols-outlined.icon-xl { font-size: var(--icon-xl) !important; }
+
+/* Default icon sizing by context */
+header .material-symbols-outlined { font-size: var(--icon-md); }
+button .material-symbols-outlined { font-size: var(--icon-sm); }
+.status-indicator .material-symbols-outlined { font-size: var(--icon-md); }
+
+/* ==========================================================================
+   ENHANCED STATUS INDICATORS - More visible and clear
+   ========================================================================== */
+
+/* Status dot with enhanced visibility */
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    position: relative;
+}
+
+.status-dot::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    opacity: 0.3;
+}
+
+.status-dot.online {
+    background-color: var(--status-online);
+    color: var(--status-online);
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+}
+
+.status-dot.warning {
+    background-color: var(--status-warning);
+    color: var(--status-warning);
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+}
+
+.status-dot.error {
+    background-color: var(--status-error);
+    color: var(--status-error);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+}
+
+.status-dot.offline {
+    background-color: var(--status-neutral);
+    color: var(--status-neutral);
+}
+
+/* Enhanced status cards */
+.status-card {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.status-card.online {
+    border-color: var(--status-online) !important;
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.status-card.warning {
+    border-color: var(--status-warning) !important;
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.status-card.error {
+    border-color: var(--status-error) !important;
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.status-card.offline {
+    border-color: var(--status-neutral) !important;
+    opacity: 0.6;
+}
+
+/* ==========================================================================
+   IMPROVED QUESTION NAVIGATOR - Better visual hierarchy
+   ========================================================================== */
+
+/* Grouped question navigation */
+.question-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+    gap: var(--spacing-sm);
+    max-width: 100%;
+}
+
+/* Larger, easier to click question buttons */
+.question-btn {
+    aspect-ratio: 1;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.question-btn::after {
+    content: 'Click to navigate';
+    position: absolute;
+    top: -32px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 25, 35, 0.95);
+    color: #94a3b8;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.question-btn:hover::after {
+    opacity: 1;
+}
+
+.question-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+}
+
+/* Question states with clear visual distinction */
+.question-btn.answered {
+    background: #334155;
+    color: #cbd5e1;
+    border: 1px solid #475569;
+}
+
+.question-btn.current {
+    background: #0066cc;
+    color: white;
+    border: 2px solid #0066cc;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.2);
+    transform: scale(1.05);
+    z-index: 10;
+}
+
+.question-btn.unanswered {
+    background: #1e293b;
+    color: #64748b;
+    border: 1px solid #334155;
+}
+
+.question-btn.flagged::before {
+    content: '';
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    background: #f59e0b;
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.8);
+}
+
+/* Hover states */
+.question-btn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.question-btn.current:hover {
+    transform: scale(1.1);
+}
+
+/* Section dividers in question navigator */
+.question-section {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.question-section:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.question-section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    margin-bottom: var(--spacing-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* ==========================================================================
+   VISUAL HIERARCHY IMPROVEMENTS
+   ========================================================================== */
+
+/* Header hierarchy */
+h1, h2, h3, h4, h5, h6 {
+    line-height: 1.2;
+    font-weight: 700;
+}
+
+/* Consistent button hierarchy */
+.btn-primary {
+    background: #0066cc;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.btn-ghost {
+    background: transparent;
+    color: #94a3b8;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+/* Card elevation system */
+.card-flat { box-shadow: none; }
+.card-raised { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
+.card-elevated { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+.card-floating { box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2); }
+
+/* ==========================================================================
+   LEGEND IMPROVEMENTS - Clear and visible
+   ========================================================================== */
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0.5rem;
+    margin-bottom: var(--spacing-md);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: 0.875rem;
+    color: #e2e8f0;
+}
+
+.legend-indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 0.25rem;
+    flex-shrink: 0;
+}
+
+/* ==========================================================================
+   RESPONSIVE ADJUSTMENTS
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .question-grid {
+        grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+        gap: var(--spacing-xs);
+    }
+    
+    .question-btn {
+        min-height: 44px;
+        font-size: 0.875rem;
+    }
+    
+    .legend {
+        gap: var(--spacing-sm);
+    }
+}
+
+/* ==========================================================================
+   IMPROVED VISUAL FEEDBACK
+   ========================================================================== */
+
+/* Loading state */
+.loading-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Success feedback */
+.success-flash {
+    animation: flash-success 0.5s ease;
+}
+
+@keyframes flash-success {
+    0%, 100% { background-color: transparent; }
+    50% { background-color: rgba(16, 185, 129, 0.2); }
+}
+
+/* Error feedback */
+.error-shake {
+    animation: shake 0.5s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}

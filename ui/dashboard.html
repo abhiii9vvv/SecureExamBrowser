@@ -52,6 +52,9 @@
             background: #475569; 
         }
     </style>
+    <link rel="stylesheet" href="css/accessibility.css">
+    <link rel="stylesheet" href="css/design-system.css">
+    <script src="js/dashboard.js" defer></script>
 </head>
 <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-hidden h-screen flex flex-col">
 <!-- Top Glass Header -->
@@ -63,19 +66,40 @@
 </div>
 <!-- Header KPIs (Integrated) -->
 <div class="hidden md:flex items-center gap-4 border-l border-white/10 pl-6 h-8">
-<div class="flex items-center gap-2">
+<div class="flex items-center gap-2 group relative cursor-help">
 <span class="relative flex h-3 w-3">
 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-green opacity-75"></span>
 <span class="relative inline-flex rounded-full h-3 w-3 bg-accent-green"></span>
 </span>
-<span class="text-slate-400 text-sm font-medium">Active: <span class="text-white font-bold tabular-nums">47</span></span>
+<span class="text-slate-400 text-sm font-medium">Active: <span class="text-white font-bold tabular-nums" id="activeCount">0</span></span>
+<!-- Tooltip -->
+<div class="hidden group-hover:block absolute top-full left-0 mt-2 z-50 w-56 p-3 rounded-lg bg-surface-dark border border-white/20 shadow-xl">
+<p class="text-xs font-bold text-gray-200 mb-1">Active Examinees</p>
+<p class="text-xs text-gray-400">Students currently taking exams with stable connections and proper monitoring</p>
 </div>
-<div class="flex items-center gap-2">
+</div>
+<div class="flex items-center gap-2 group relative cursor-help">
 <span class="relative flex h-3 w-3">
 <span class="animate-pulse absolute inline-flex h-full w-full rounded-full bg-accent-red opacity-75"></span>
 <span class="relative inline-flex rounded-full h-3 w-3 bg-accent-red"></span>
 </span>
-<span class="text-slate-400 text-sm font-medium">Critical Flags: <span class="text-white font-bold tabular-nums">3</span></span>
+<span class="text-slate-400 text-sm font-medium">Critical Flags: <span class="text-white font-bold tabular-nums" id="criticalCount">0</span></span>
+<!-- Tooltip with breakdown -->
+<div class="hidden group-hover:block absolute top-full left-0 mt-2 z-50 w-64 p-3 rounded-lg bg-surface-dark border border-red-500/30 shadow-xl">
+<p class="text-xs font-bold text-red-400 mb-1">Critical Security Flags</p>
+<p class="text-xs text-gray-400 mb-2">Incidents requiring immediate attention:</p>
+<ul class="text-xs text-gray-300 space-y-1">
+<li class="flex items-start gap-2">
+<span class="text-red-400">•</span>
+<span>2x Tab switching detected</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="text-red-400">•</span>
+<span>1x Unauthorized window open</span>
+</li>
+</ul>
+<button class="mt-2 text-xs text-primary hover:text-blue-400 underline" onclick="showIncidentLog()">View all incidents →</button>
+</div>
 </div>
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-accent-green text-sm">wifi</span>
@@ -185,114 +209,8 @@
 <button class="px-3 py-1.5 rounded bg-transparent border border-transparent text-xs font-medium text-slate-400 hover:text-white">List View</button>
 </div>
 </div>
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-<!-- User 1 (Normal) -->
-<div class="group relative rounded-lg overflow-hidden bg-black aspect-video border border-white/10 hover:border-primary/50 transition-colors">
-<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="Portrait of a male student focusing on screen" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAtViiXkrMz6TnHmHsY1CQE7geFJJWTdR-tIkpXlBBHOmo_C08eIXgrN16c_YbFv-gSFEskn7SiJO4KsWGa2j2g2M7bFy7GdKR2T0DREp_qEFR3Jwm-7njuKRhpN6NGhYNWtKyYmTAdMKCMuEoBS9pKf2_E314Pvf4EiCHAkUZvOjAGvKjRUqf7TQ3szagAGQYqup-qaDz1ktfl5LmgiKBBAScd1JnOoZnJJyecrsxuZDsVpk9SAEO6CC2kDdB5GdMHBeQhUycgRj7G');"></div>
-<div class="absolute top-3 left-3 flex gap-2">
-<span class="bg-black/60 backdrop-blur text-white text-[10px] px-1.5 py-0.5 rounded font-mono border border-white/10">ID: 992</span>
-<span class="flex items-center gap-1 bg-accent-green/20 backdrop-blur text-accent-green text-[10px] px-1.5 py-0.5 rounded border border-accent-green/30 font-bold">
-<span class="size-1.5 rounded-full bg-accent-green"></span> LIVE
-                             </span>
-</div>
-<div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
-<p class="text-white text-sm font-medium">John Doe</p>
-<p class="text-slate-400 text-xs">Status: Normal</p>
-</div>
-<!-- Hover Actions -->
-<div class="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
-<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-primary"><span class="material-symbols-outlined text-lg">visibility</span></button>
-<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-accent-red"><span class="material-symbols-outlined text-lg">block</span></button>
-</div>
-</div>
-<!-- User 2 (Flagged) -->
-<div class="group relative rounded-lg overflow-hidden bg-black aspect-video border-2 border-accent-red animate-[pulse_3s_ease-in-out_infinite]">
-<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="Portrait of a female student looking away" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDWJuCnkO0dWrU-VpQXLVkJCP_k8gp1k2_MsrXpl6HgGwmp8N0lukejbF_3UrKjIKBmIPodtgULJ2ThKeMEVD5jp1rhivnvIfgzXmbSr0Fedys0yehtWj2zvIBa5jBcPBZEHY5illODcQGcNRI7walLRULwtqmVsO4i2hRFBksD_RB-Tlz8Pay9hMAk-3iwnHHtxrB1amx5hxu7SkVul_DIMFtd4Dc-q2NWjLr9tzFdz6JckaSFjI8vw8R5_2VlLK9vTM7V8KIzzjTS');"></div>
-<div class="absolute top-3 left-3 flex gap-2">
-<span class="bg-black/60 backdrop-blur text-white text-[10px] px-1.5 py-0.5 rounded font-mono border border-white/10">ID: 104</span>
-<span class="flex items-center gap-1 bg-accent-red/20 backdrop-blur text-accent-red text-[10px] px-1.5 py-0.5 rounded border border-accent-red/30 font-bold">
-<span class="material-symbols-outlined text-[10px]">warning</span> FLAGGED
-                             </span>
-</div>
-<div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-accent-red/20 to-transparent">
-<p class="text-white text-sm font-medium">Sarah Smith</p>
-<p class="text-accent-red text-xs font-bold">Alert: Audio Spike Detected</p>
-</div>
-<div class="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
-<button class="bg-accent-red p-2 rounded-full text-white hover:bg-red-600 shadow-lg shadow-red-900/50"><span class="material-symbols-outlined text-lg">warning</span></button>
-</div>
-</div>
-<!-- User 3 (Normal) -->
-<div class="group relative rounded-lg overflow-hidden bg-black aspect-video border border-white/10 hover:border-primary/50 transition-colors">
-<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="Portrait of a male student taking exam" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDSFb7000WmsfL4jQjk8r7aA0_4G5TjD91smJM6gkyHc-spmxxe-xvxsGIFNj4oasJvW0vEkVKxuZKTWs51QI2PNiIddP6Is-tXvtHKkvFHypj2AVozL8qwr9qhTcLRuF5xGzHHOgxNg5RkMfDP9hamkw4s8af0_8Dv3DI9-gtnUIjpPwCX4-URED6engb-_-7ea7mrb_nlBUp36Ky2XzZqD-hOd80vfpC8hOzNne8Znx9-LK6_bxfnJs6MT-cNVMfX75BU4WPFkhM2');"></div>
-<div class="absolute top-3 left-3 flex gap-2">
-<span class="bg-black/60 backdrop-blur text-white text-[10px] px-1.5 py-0.5 rounded font-mono border border-white/10">ID: 452</span>
-<span class="flex items-center gap-1 bg-accent-green/20 backdrop-blur text-accent-green text-[10px] px-1.5 py-0.5 rounded border border-accent-green/30 font-bold">
-<span class="size-1.5 rounded-full bg-accent-green"></span> LIVE
-                             </span>
-</div>
-<div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
-<p class="text-white text-sm font-medium">Michael Brown</p>
-<p class="text-slate-400 text-xs">Status: Normal</p>
-</div>
-<div class="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
-<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-primary"><span class="material-symbols-outlined text-lg">visibility</span></button>
-<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-accent-red"><span class="material-symbols-outlined text-lg">block</span></button>
-</div>
-</div>
-<!-- User 4 (Away) -->
-<div class="group relative rounded-lg overflow-hidden bg-black aspect-video border border-accent-yellow/50">
-<div class="absolute inset-0 bg-cover bg-center opacity-40 grayscale" data-alt="Empty chair in a room" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBZhwNl-xOZJT--RK2XcKtVf08wGZdbRQMxCWsu33EU2ia1ihBJthAPtcpWgrN1eh4hxF07zCe_ef4_ZnOykarIl4CbmcA3W2rfQ8BCy-Mj-TjMNoWMeiT8r5ipgBQEw4r4L212hR8he6VETS7GxLw5f-Nei4ZSb4A-dPXrhgKnSzmMnj0thbIGPsBqp5g8RKGbNKm9wt_0YUqmpeDqyTxcRyON-PR7HeGqs90lnnyPsKS_ytpzpv37OQ9CTuk9Em-z_EI8Jpxiofiy');"></div>
-<div class="absolute top-3 left-3 flex gap-2">
-<span class="bg-black/60 backdrop-blur text-white text-[10px] px-1.5 py-0.5 rounded font-mono border border-white/10">ID: 881</span>
-<span class="flex items-center gap-1 bg-accent-yellow/20 backdrop-blur text-accent-yellow text-[10px] px-1.5 py-0.5 rounded border border-accent-yellow/30 font-bold">
-<span class="material-symbols-outlined text-[10px]">schedule</span> AWAY
-                             </span>
-</div>
-<div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
-<p class="text-white text-sm font-medium">Emily Davis</p>
-<p class="text-accent-yellow text-xs">Status: Face Not Detected (12s)</p>
-</div>
-<div class="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
-<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-primary"><span class="material-symbols-outlined text-lg">visibility</span></button>
-</div>
-</div>
-<!-- User 5 (Normal) -->
-<div class="group relative rounded-lg overflow-hidden bg-black aspect-video border border-white/10 hover:border-primary/50 transition-colors">
-<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="Portrait of a female student focusing" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDNdBXpaQTfzG4nee-GOr6pFLZDow9pQgERFozxWl7QVGOsaZ1pBcRuBKgAoGQbmhVcND132YsRv0JxgKa640yeNmbjTjjpBirb-d03VRtjWX4_roakENnkNeGDohz7DtHqUueFqOinTaJUbuXZokRuIMcTKAzbYmqjAC6dpV1KTxIDWUHeyf76732qheo-u83jAde22Z82o626RqzbRWDUwtK237SZtCA73ViDHgohYQgSCv78qKaEJRROVvqgq3Aw0y7xdWOm4aC5');"></div>
-<div class="absolute top-3 left-3 flex gap-2">
-<span class="bg-black/60 backdrop-blur text-white text-[10px] px-1.5 py-0.5 rounded font-mono border border-white/10">ID: 112</span>
-<span class="flex items-center gap-1 bg-accent-green/20 backdrop-blur text-accent-green text-[10px] px-1.5 py-0.5 rounded border border-accent-green/30 font-bold">
-<span class="size-1.5 rounded-full bg-accent-green"></span> LIVE
-                             </span>
-</div>
-<div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
-<p class="text-white text-sm font-medium">David Wilson</p>
-<p class="text-slate-400 text-xs">Status: Normal</p>
-</div>
-<div class="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
-<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-primary"><span class="material-symbols-outlined text-lg">visibility</span></button>
-<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-accent-red"><span class="material-symbols-outlined text-lg">block</span></button>
-</div>
-</div>
-<!-- User 6 (Normal) -->
-<div class="group relative rounded-lg overflow-hidden bg-black aspect-video border border-white/10 hover:border-primary/50 transition-colors">
-<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="Portrait of a female student looking at screen" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCib9xQQClGKsYXioz7rSwLOKDqy0qlbyx_UnEb-b-cDopKlCppcffBtUNGnETiOc8SK2mas6TBKChBVVXbajZfVU1PoD4JohZjcWpyKI41WmLLvNtRYjn9Mu2GpKQ5b0lPMOMhSB9lf1ZmAHeQC6B-q_50bY9grfwjrPTCC2Y4qb26530cGhIDICZnvKWV8Lf13LFDRjGqOZnKvnUTACTxb89x2R9x6IXmr9QOQqiE4L3w857q4wxw3RXvSxN3wiwZ9LuXAVbNAvmX');"></div>
-<div class="absolute top-3 left-3 flex gap-2">
-<span class="bg-black/60 backdrop-blur text-white text-[10px] px-1.5 py-0.5 rounded font-mono border border-white/10">ID: 633</span>
-<span class="flex items-center gap-1 bg-accent-green/20 backdrop-blur text-accent-green text-[10px] px-1.5 py-0.5 rounded border border-accent-green/30 font-bold">
-<span class="size-1.5 rounded-full bg-accent-green"></span> LIVE
-                             </span>
-</div>
-<div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
-<p class="text-white text-sm font-medium">Jessica Lee</p>
-<p class="text-slate-400 text-xs">Status: Normal</p>
-</div>
-<div class="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
-<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-primary"><span class="material-symbols-outlined text-lg">visibility</span></button>
-<button class="bg-surface-dark p-2 rounded-full text-white hover:bg-accent-red"><span class="material-symbols-outlined text-lg">block</span></button>
-</div>
-</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="activeSessionsGrid">
+<div class="col-span-full text-center text-slate-400 text-sm py-8" id="activeSessionsEmpty">No active sessions</div>
 </div>
 </div>
 <!-- Bottom: Analytics Charts -->

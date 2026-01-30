@@ -1,0 +1,149 @@
+/* ============================================================================
+   ACCESSIBILITY IMPROVEMENTS
+   - Focus indicators for keyboard navigation
+   - Enhanced color contrast
+   - Better visual feedback
+   ========================================================================= */
+
+/* Focus Indicators for All Interactive Elements */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+    outline: 3px solid #0066cc;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.3);
+}
+
+/* Enhanced Focus for Primary Actions */
+button.bg-primary:focus-visible,
+button[aria-label*="next"]:focus-visible,
+button[aria-label*="submit"]:focus-visible {
+    outline: 3px solid #ffffff;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 6px rgba(0, 102, 204, 0.5);
+}
+
+/* Focus for Radio Buttons and Checkboxes */
+input[type="radio"]:focus-visible,
+input[type="checkbox"]:focus-visible {
+    outline: 2px solid #0066cc;
+    outline-offset: 3px;
+}
+
+/* Focus for Question Navigator Buttons */
+button[aria-label*="question"]:focus-visible {
+    outline: 2px solid #0066cc;
+    outline-offset: 1px;
+    z-index: 20;
+}
+
+/* Enhanced Color Contrast Classes */
+.text-high-contrast {
+    color: #e2e8f0; /* Improved from text-slate-400 */
+}
+
+.text-medium-contrast {
+    color: #cbd5e1; /* Improved from text-slate-500 */
+}
+
+/* Minimum Font Size Override */
+.min-readable {
+    font-size: 0.875rem; /* 14px minimum instead of 12px */
+    line-height: 1.5;
+}
+
+/* Skip to Content Link (for screen readers) */
+.skip-to-content {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: #0066cc;
+    color: white;
+    padding: 8px 16px;
+    text-decoration: none;
+    border-radius: 0 0 4px 0;
+    font-weight: 600;
+    z-index: 10000;
+}
+
+.skip-to-content:focus {
+    top: 0;
+}
+
+/* Keyboard Navigation Helpers */
+*:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    body {
+        --tw-text-opacity: 1;
+    }
+    
+    .text-slate-400,
+    .text-slate-500 {
+        color: #e2e8f0 !important;
+    }
+    
+    .border-white\/10 {
+        border-color: rgba(255, 255, 255, 0.3) !important;
+    }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Screen Reader Only Content */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+.sr-only-focusable:focus,
+.sr-only-focusable:active {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+}
+
+/* Hover States Should Not Be Sole Indicator */
+button:hover,
+a:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+}
+
+/* Button Minimum Touch Target (44x44px for mobile) */
+button,
+a[role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+/* Exception for navigation buttons that have padding */
+button.px-4,
+button.px-6 {
+    min-width: auto;
+}

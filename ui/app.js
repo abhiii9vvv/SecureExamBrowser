@@ -141,7 +141,13 @@ class SecureExamApp {
         
         // Log activity if electronAPI is available
         if (window.electronAPI && window.electronAPI.logActivity) {
-            await window.electronAPI.logActivity(`Navigated to ${screen}`);
+            const sessionId = Number(localStorage.getItem('currentSessionId'));
+            if (sessionId) {
+                await window.electronAPI.logActivity('NAVIGATION', {
+                    session_id: sessionId,
+                    screen
+                });
+            }
         }
 
         // Use electronAPI navigation if available

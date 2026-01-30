@@ -71,8 +71,11 @@
             background: radial-gradient(circle at center top, #1e293b 0%, #0f172a 40%, #020617 100%);
         }
     </style>
+    <link rel="stylesheet" href="css/accessibility.css">
+    <link rel="stylesheet" href="css/design-system.css">
 </head>
 <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display min-h-screen flex flex-col relative overflow-hidden bg-radial-gradient">
+    <a href="#main-content" class="skip-to-content">Skip to main content</a>
 <!-- Background Ambience -->
 <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
 <div class="absolute top-[-10%] left-[20%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px]"></div>
@@ -89,12 +92,12 @@
 </div>
 <div class="hidden sm:flex items-center gap-3 px-4 py-1.5 rounded-full bg-white/5 border border-white/5">
 <span class="w-2 h-2 rounded-full bg-green-500"></span>
-<span class="text-sm font-medium text-slate-300">B.Tech - Data Structures & Algorithms</span>
+<span class="text-sm font-medium text-slate-300" id="examName">Exam Not Scheduled</span>
 </div>
 <div class="flex items-center gap-4">
 <div class="text-right hidden md:block">
 <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">Exam ID</p>
-<p class="text-sm font-mono text-slate-200">SU-BTECH-2024</p>
+<p class="text-sm font-mono text-slate-200" id="examCode">--</p>
 </div>
 </div>
 </div>
@@ -102,45 +105,57 @@
 <!-- Main Content -->
 <main class="flex-grow flex flex-col items-center justify-center p-6 w-full max-w-7xl mx-auto z-10">
 <div class="w-full max-w-5xl flex flex-col gap-8">
+<!-- Status Grid Header with Refresh -->
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-xl font-bold text-white">System Checks</h2>
+<button onclick="runSystemChecks()" class="flex items-center gap-2 px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg transition-colors border border-primary/30">
+<span class="material-symbols-outlined text-[18px]">refresh</span>
+<span class="text-sm font-medium">Recheck All</span>
+</button>
+</div>
+
 <!-- Status Grid -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
 <!-- Internet -->
-<div class="glass-panel p-4 rounded-xl flex items-center gap-4 group hover:bg-white/5 transition-colors" data-status="internet">
+<div class="glass-panel status-card p-4 rounded-xl flex items-center gap-4 group hover:bg-white/5 transition-colors" data-status="internet">
 <div class="p-2.5 rounded-lg bg-green-500/10 text-green-400 flex items-center justify-center">
 <span class="material-symbols-outlined">wifi</span>
 </div>
-<div>
-<p class="text-xs text-slate-400 font-medium uppercase tracking-wider mb-0.5">Internet</p>
+<div class="flex-1">
+<p class="text-sm text-slate-300 font-medium uppercase tracking-wider mb-0.5">Internet</p>
 <div class="flex items-center gap-2">
 <span class="w-2 h-2 rounded-full bg-green-500 pulse-dot"></span>
-<span class="font-semibold text-sm">Connected</span>
+<span class="font-semibold text-sm status-text">Connected</span>
 </div>
+<p class="text-xs text-red-400 mt-1 hidden error-message">⚠ Check your connection and retry</p>
 </div>
 </div>
 <!-- Webcam -->
-<div class="glass-panel p-4 rounded-xl flex items-center gap-4 group hover:bg-white/5 transition-colors" data-status="camera">
+<div class="glass-panel status-card p-4 rounded-xl flex items-center gap-4 group hover:bg-white/5 transition-colors" data-status="camera">
 <div class="p-2.5 rounded-lg bg-green-500/10 text-green-400 flex items-center justify-center">
 <span class="material-symbols-outlined">videocam</span>
 </div>
-<div>
-<p class="text-xs text-slate-400 font-medium uppercase tracking-wider mb-0.5">Webcam</p>
+<div class="flex-1">
+<p class="text-sm text-slate-300 font-medium uppercase tracking-wider mb-0.5">Webcam</p>
 <div class="flex items-center gap-2">
 <span class="w-2 h-2 rounded-full bg-green-500 pulse-dot"></span>
-<span class="font-semibold text-sm">Active</span>
+<span class="font-semibold text-sm status-text">Active</span>
 </div>
+<p class="text-xs text-red-400 mt-1 hidden error-message">⚠ Grant camera permission in browser</p>
 </div>
 </div>
 <!-- Microphone -->
-<div class="glass-panel p-4 rounded-xl flex items-center gap-4 group hover:bg-white/5 transition-colors" data-status="microphone">
+<div class="glass-panel status-card p-4 rounded-xl flex items-center gap-4 group hover:bg-white/5 transition-colors" data-status="microphone">
 <div class="p-2.5 rounded-lg bg-green-500/10 text-green-400 flex items-center justify-center">
 <span class="material-symbols-outlined">mic</span>
 </div>
-<div>
-<p class="text-xs text-slate-400 font-medium uppercase tracking-wider mb-0.5">Microphone</p>
+<div class="flex-1">
+<p class="text-sm text-slate-300 font-medium uppercase tracking-wider mb-0.5">Microphone</p>
 <div class="flex items-center gap-2">
 <span class="w-2 h-2 rounded-full bg-green-500 pulse-dot"></span>
-<span class="font-semibold text-sm">Active</span>
+<span class="font-semibold text-sm status-text">Active</span>
 </div>
+<p class="text-xs text-red-400 mt-1 hidden error-message">⚠ Grant microphone permission in browser</p>
 </div>
 </div>
 <!-- Environment -->
@@ -149,7 +164,7 @@
 <span class="material-symbols-outlined">lock</span>
 </div>
 <div>
-<p class="text-xs text-slate-400 font-medium uppercase tracking-wider mb-0.5">Browser</p>
+<p class="text-sm text-slate-300 font-medium uppercase tracking-wider mb-0.5">Browser</p>
 <div class="flex items-center gap-2">
 <span class="w-2 h-2 rounded-full bg-green-500 pulse-dot"></span>
 <span class="font-semibold text-sm">Locked</span>
@@ -204,7 +219,7 @@
 </div>
 <!-- Primary Action -->
 <div class="flex flex-col items-center justify-center pt-4">
-<button class="group relative overflow-hidden rounded-xl bg-primary hover:bg-blue-600 text-white shadow-[0_0_40px_-10px_rgba(0,102,204,0.6)] transition-all duration-300 w-full max-w-md h-16 flex items-center justify-center gap-3">
+            <button aria-label="Proceed to biometric verification" class="group relative overflow-hidden rounded-xl bg-primary hover:bg-blue-600 text-white shadow-[0_0_40px_-10px_rgba(0,102,204,0.6)] transition-all duration-300 w-full max-w-md h-16 flex items-center justify-center gap-3">
 <span class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out"></span>
 <span class="text-lg font-bold tracking-wide">Proceed to Verification</span>
 <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
@@ -215,11 +230,11 @@
 </main>
 <!-- Footer -->
 <footer class="w-full border-t border-white/5 bg-[#0a1118]/80 backdrop-blur-sm py-4 mt-auto z-20">
-<div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center text-xs md:text-sm text-slate-500">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center text-sm text-slate-300">
 <div class="flex items-center gap-6 font-mono">
 <span class="flex items-center gap-2">
 <span class="material-symbols-outlined text-[16px]">key</span>
-                    Session: 7f8a-99bc-secure
+                    Session: <span id="sessionId">--</span>
                 </span>
 <span class="hidden md:inline text-slate-700">|</span>
 <span class="hidden md:flex items-center gap-2">

@@ -11,6 +11,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Database operations
   dbQuery: (sql, params) => ipcRenderer.invoke('db-query', sql, params),
+  getDatabaseStatus: () => ipcRenderer.invoke('get-db-status'),
+  getDashboardStats: () => ipcRenderer.invoke('get-dashboard-stats'),
+  getActiveSessions: () => ipcRenderer.invoke('get-active-sessions'),
+  getUserProfile: (userId) => ipcRenderer.invoke('get-user-profile', userId),
+  getActiveExam: () => ipcRenderer.invoke('get-active-exam'),
+  startExamSession: (payload) => ipcRenderer.invoke('start-exam-session', payload),
+  endExamSession: (sessionId, status) => ipcRenderer.invoke('end-exam-session', sessionId, status),
+  saveExamSubmission: (submissionData) => ipcRenderer.invoke('save-exam-submission', submissionData),
+  saveBiometricData: (userId, biometricType, data) => ipcRenderer.invoke('save-biometric-data', userId, biometricType, data),
+
+  // Verification (AI)
+  verifyFrame: (payload) => ipcRenderer.invoke('verify-frame', payload),
+  enrollIdentity: (payload) => ipcRenderer.invoke('enroll-identity', payload),
   
   // Activity logging
   logActivity: (type, details) => ipcRenderer.invoke('log-activity', type, details),

@@ -32,8 +32,8 @@
                 <div class="d-none d-lg-flex align-items-center gap-2">
                     <div class="small text-muted">Progress</div>
                     <div class="app-mono small" data-progress-text>3/50 (6%)</div>
-                    <div class="progress" style="width: 140px; height: 6px;">
-                        <div class="progress-bar bg-dark" role="progressbar" data-progress-bar style="width: 6%"></div>
+                    <div class="progress progress-compact" role="progressbar" aria-label="Exam progress">
+                        <div class="progress-bar bg-dark" data-progress-bar></div>
                     </div>
                 </div>
             </div>
@@ -42,7 +42,7 @@
 
     <main class="container-fluid app-main app-compact" data-exam-scroll>
         <div class="row g-4">
-            <aside class="col-lg-3">
+            <aside class="col-lg-3 camera-panel">
                 <div class="app-card p-3 mb-3">
                     <div class="app-section-title mb-2">Question Navigator</div>
                     <div class="question-grid" data-question-grid></div>
@@ -57,8 +57,8 @@
                             <div class="text-muted small">Camera feed active</div>
                         </div>
                     </div>
-                    <div class="proctoring-frame compact mt-3" style="aspect-ratio: 4 / 3;">
-                        <video id="proctoring-video" autoplay playsinline></video>
+                    <div class="proctoring-frame compact ratio-4-3 mt-3">
+                        <video id="proctoring-video" autoplay></video>
                         <canvas id="proctoring-canvas"></canvas>
                         <div class="proctoring-status" id="proctoring-status">Initializing camera...</div>
                     </div>
@@ -111,14 +111,15 @@
                             <div class="small" data-coding-examples></div>
                         </div>
                         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                            <div class="fw-semibold">Code Editor</div>
-                            <select class="form-select form-select-sm" style="max-width: 180px;" id="codeLanguage">
+                            <label class="fw-semibold" for="codeLanguage">Code Editor</label>
+                            <select class="form-select form-select-sm select-compact" id="codeLanguage" aria-label="Code language">
                                 <option value="javascript">JavaScript</option>
                                 <option value="python">Python</option>
                                 <option value="cpp">C++</option>
                             </select>
                         </div>
-                        <textarea class="form-control app-mono" id="codeEditor" rows="10"></textarea>
+                        <label class="visually-hidden" for="codeEditor">Code editor</label>
+                        <textarea class="form-control app-mono code-editor" id="codeEditor" rows="10" placeholder="Write your solution here..."></textarea>
                         <div class="d-flex flex-wrap gap-2 mt-3">
                             <button class="btn btn-outline-dark" id="runCode">Run</button>
                             <button class="btn btn-dark" id="submitCode">Submit</button>

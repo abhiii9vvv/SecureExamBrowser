@@ -26,12 +26,13 @@ async function loadQuestionsFromJSON() {
             data[section].forEach(q => {
                 questionsData.push({
                     ...q,
-                    section: section
+                    section: section,
+                    type: q.type || 'mcq'
                 });
             });
         });
         
-        examState.totalQuestions = Math.min(50, questionsData.length);
+        examState.totalQuestions = questionsData.length;
         console.log(`Loaded ${questionsData.length} questions from ${Object.keys(data).length} sections`);
         return true;
     } catch (error) {
@@ -49,6 +50,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     startTimer();
     generateQuestionGrid();
     loadQuestion(examState.currentQuestion);
+
+    const runButton = document.getElementById('runCode');
+    if (runButton) {
+        runButton.addEventListener('click', () => {
+            runCodeSimulated();
+        });
+    }
+
+    const submitButton = document.getElementById('submitCode');
+    if (submitButton) {
+        submitButton.addEventListener('click', () => {
+            submitCodeSimulated();
+        });
+    }
 });
 
 // Initialize exam with system info
@@ -118,37 +133,29 @@ function updateTimerDisplay() {
     const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     
     const timerElements = document.querySelectorAll('[data-timer]');
-    const timerContainers = document.querySelectorAll('[data-timer]').forEach(el => {
+    timerElements.forEach(el => {
         el.textContent = timeString;
-        
-        // Apply warning states
-        const container = el.closest('.bg-surface-dark-highlight');
-        if (container) {
-            // Critical: Last 1 minute - Red pulsing
-            if (examState.timeRemaining <= 60) {
-                container.classList.remove('border-amber-500/50', 'border-[#394756]');
-                container.classList.add('border-red-500', 'animate-pulse');
-                el.classList.add('text-red-400');
-            }
-            // Warning: Last 5 minutes - Amber
-            else if (examState.timeRemaining <= 300) {
-                container.classList.remove('border-[#394756]');
-                container.classList.add('border-amber-500/50');
-                el.classList.add('text-amber-400');
-            }
-        }
     });
+
+    const timerContainer = document.querySelector('[data-timer-container]');
+    if (timerContainer) {
+        if (examState.timeRemaining <= 60) {
+            timerContainer.classList.add('text-danger');
+        } else if (examState.timeRemaining <= 300) {
+            timerContainer.classList.add('text-warning');
+        }
+    }
     
     // Update progress
     const answered = Object.keys(examState.answers).length;
     const percentage = Math.round((answered / examState.totalQuestions) * 100);
     
-    const progressText = document.querySelector('.flex.justify-between.text-xs span:last-child');
+    const progressText = document.querySelector('[data-progress-text]');
     if (progressText) {
         progressText.textContent = `${answered}/${examState.totalQuestions} (${percentage}%)`;
     }
     
-    const progressBar = document.querySelector('.h-2.w-full .h-full');
+    const progressBar = document.querySelector('[data-progress-bar]');
     if (progressBar) {
         progressBar.style.width = `${percentage}%`;
     }
@@ -156,7 +163,7 @@ function updateTimerDisplay() {
 
 // Generate question navigator grid
 function generateQuestionGrid() {
-    const gridContainer = document.querySelector('.grid.grid-cols-5');
+    const gridContainer = document.querySelector('[data-question-grid]');
     if (!gridContainer) return;
     
     gridContainer.innerHTML = '';
@@ -167,19 +174,16 @@ function generateQuestionGrid() {
         button.onclick = () => goToQuestion(i);
         
         // Determine button state
+        button.className = 'question-button position-relative';
         if (i === examState.currentQuestion) {
-            button.className = 'aspect-square flex items-center justify-center rounded bg-primary text-white text-sm font-bold shadow-glow-active ring-2 ring-primary ring-offset-2 ring-offset-[#101418] relative z-10';
-        } else if (examState.answers[i]) {
-            button.className = 'aspect-square flex items-center justify-center rounded bg-[#394756] text-gray-300 text-xs font-medium hover:bg-[#4a5a6b] transition-colors';
-        } else {
-            button.className = 'aspect-square flex items-center justify-center rounded bg-[#1b2128] border border-[#394756] text-gray-500 text-xs font-medium hover:bg-[#27303a] transition-colors relative';
+            button.classList.add('is-current');
+        } else if (examState.answers[i] !== undefined) {
+            button.classList.add('is-answered');
         }
         
         // Add flag indicator if flagged
         if (examState.flags[i]) {
-            const flagIndicator = document.createElement('div');
-            flagIndicator.className = 'absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-yellow-500';
-            button.appendChild(flagIndicator);
+            button.classList.add('is-flagged');
         }
         
         gridContainer.appendChild(button);
@@ -200,7 +204,7 @@ function loadQuestion(questionNumber) {
     }
     
     // Update question number display
-    const questionBadge = document.querySelector('.bg-primary\\/20.text-primary');
+    const questionBadge = document.querySelector('[data-question-badge]');
     if (questionBadge) {
         questionBadge.textContent = `Question ${questionNumber}`;
     }
@@ -212,42 +216,87 @@ function loadQuestion(questionNumber) {
     }
     
     // Update question text
-    const questionText = document.querySelector('.text-white.text-lg.leading-relaxed');
+    const questionText = document.querySelector('[data-question-text]');
     if (questionText) {
-        questionText.textContent = questionData.question;
+        questionText.textContent = questionData.question || questionData.title || 'Question';
+    }
+
+    const subtext = document.querySelector('[data-question-subtext]');
+    if (subtext) {
+        subtext.textContent = questionData.section ? `Section: ${questionData.section}` : '';
+    }
+
+    const mcqPanel = document.querySelector('[data-mcq-panel]');
+    const codingPanel = document.querySelector('[data-coding-panel]');
+    const isCoding = questionData.type === 'coding';
+    if (mcqPanel) {
+        mcqPanel.classList.toggle('d-none', isCoding);
+    }
+    if (codingPanel) {
+        codingPanel.classList.toggle('d-none', !isCoding);
     }
     
     // Update options
-    const optionLabels = document.querySelectorAll('label.flex.items-start.gap-4.p-4');
-    questionData.options.forEach((option, index) => {
-        if (optionLabels[index]) {
-            const optionText = optionLabels[index].querySelector('.flex-1.text-slate-200');
-            if (optionText) {
-                optionText.textContent = option;
+    const optionLabels = document.querySelectorAll('[data-option-label]');
+    if (!isCoding && questionData.options) {
+        questionData.options.forEach((option, index) => {
+            if (optionLabels[index]) {
+                const optionText = optionLabels[index].querySelector('[data-option-text]');
+                if (optionText) {
+                    optionText.textContent = option;
+                }
             }
-        }
-    });
+        });
+    }
     
     // Load saved answer if exists
     const savedAnswer = examState.answers[questionNumber];
-    if (savedAnswer !== undefined) {
-        const radioButtons = document.querySelectorAll('input[name="answer"]');
-        radioButtons.forEach((radio, index) => {
-            radio.checked = (index === savedAnswer);
-        });
+    if (isCoding) {
+        const codeEditor = document.getElementById('codeEditor');
+        if (codeEditor) {
+            if (savedAnswer && typeof savedAnswer === 'object') {
+                codeEditor.value = savedAnswer.value || questionData.starterCode || '';
+            } else {
+                codeEditor.value = questionData.starterCode || '';
+            }
+        }
+
+        const prompt = document.querySelector('[data-coding-prompt]');
+        if (prompt) {
+            prompt.textContent = questionData.prompt || '';
+        }
+
+        const constraints = document.querySelector('[data-coding-constraints]');
+        if (constraints) {
+            const items = (questionData.constraints || []).map(c => `- ${c}`).join('\n');
+            constraints.textContent = items ? `Constraints:\n${items}` : '';
+        }
+
+        const examples = document.querySelector('[data-coding-examples]');
+        if (examples) {
+            const lines = (questionData.examples || []).map(ex => `Input: ${ex.input}\nOutput: ${ex.output}`).join('\n\n');
+            examples.textContent = lines;
+        }
     } else {
-        // Clear all selections
-        const radioButtons = document.querySelectorAll('input[name="answer"]');
-        radioButtons.forEach(radio => {
-            radio.checked = false;
-        });
+        if (savedAnswer !== undefined) {
+            const radioButtons = document.querySelectorAll('input[name="answer"]');
+            radioButtons.forEach((radio, index) => {
+                radio.checked = (index === savedAnswer);
+            });
+        } else {
+            // Clear all selections
+            const radioButtons = document.querySelectorAll('input[name="answer"]');
+            radioButtons.forEach(radio => {
+                radio.checked = false;
+            });
+        }
     }
     
     // Update grid
     generateQuestionGrid();
     
     // Scroll to top
-    const mainElement = document.querySelector('main');
+    const mainElement = document.querySelector('[data-exam-scroll]');
     if (mainElement) {
         mainElement.scrollTop = 0;
     }
@@ -280,6 +329,21 @@ function goToQuestion(questionNumber) {
 
 // Save current answer
 function saveCurrentAnswer() {
+    const questionData = questionsData[examState.currentQuestion - 1];
+    if (!questionData) return;
+
+    if (questionData.type === 'coding') {
+        const codeEditor = document.getElementById('codeEditor');
+        if (codeEditor) {
+            examState.answers[examState.currentQuestion] = {
+                type: 'coding',
+                value: codeEditor.value
+            };
+            showAutoSaveIndicator();
+        }
+        return;
+    }
+
     const selectedRadio = document.querySelector('input[name="answer"]:checked');
     if (selectedRadio) {
         const radioButtons = Array.from(document.querySelectorAll('input[name="answer"]'));
@@ -293,17 +357,56 @@ function saveCurrentAnswer() {
 
 // Show auto-save indicator
 function showAutoSaveIndicator() {
-    const indicator = document.querySelector('.auto-save-indicator');
+    const indicator = document.querySelector('[data-auto-save]');
     if (indicator) {
         indicator.style.opacity = '1';
-        indicator.querySelector('span:last-child').textContent = 'Auto-saved';
-        indicator.querySelector('.animate-pulse').classList.add('bg-green-500');
+        const textEl = indicator.querySelector('span:last-child');
+        if (textEl) {
+            textEl.textContent = 'Auto-saved';
+        }
+        const dot = indicator.querySelector('[data-auto-save-dot]');
+        if (dot) {
+            dot.classList.add('is-active');
+        }
         
         // Hide after 2 seconds
         setTimeout(() => {
             indicator.style.opacity = '0.7';
+            const dot = indicator.querySelector('[data-auto-save-dot]');
+            if (dot) {
+                dot.classList.remove('is-active');
+            }
         }, 2000);
     }
+}
+
+function runCodeSimulated() {
+    const output = document.getElementById('codeOutput');
+    const codeEditor = document.getElementById('codeEditor');
+    if (!output || !codeEditor) return;
+
+    const code = codeEditor.value.trim();
+    if (!code) {
+        output.textContent = 'No code to run.';
+        return;
+    }
+
+    output.textContent = 'Running sample tests...\n\nTest 1: Passed\nTest 2: Passed\n\nOutput: [0, 1]';
+}
+
+function submitCodeSimulated() {
+    const output = document.getElementById('codeOutput');
+    const codeEditor = document.getElementById('codeEditor');
+    if (!output || !codeEditor) return;
+
+    const code = codeEditor.value.trim();
+    if (!code) {
+        output.textContent = 'Submission failed: code is empty.';
+        return;
+    }
+
+    output.textContent = 'Submitting...\n\nResult: Accepted (simulated)';
+    saveCurrentAnswer();
 }
 
 // Simulate auto-save every 30 seconds

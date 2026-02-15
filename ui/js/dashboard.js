@@ -54,7 +54,7 @@ function renderActiveSessions(sessions) {
 
     sessions.forEach(session => {
         const card = document.createElement('div');
-        card.className = 'group relative rounded-lg overflow-hidden bg-[#0b1016] aspect-video border border-white/10 hover:border-primary/50 transition-colors';
+        card.className = 'col-md-6 col-lg-4 col-xl-3';
 
         const initials = (session.full_name || 'Student')
             .split(' ')
@@ -64,21 +64,22 @@ function renderActiveSessions(sessions) {
             .toUpperCase();
 
         const statusLabel = session.status === 'active' ? 'LIVE' : session.status;
-        const statusClass = session.status === 'active' ? 'bg-accent-green/20 text-accent-green border-accent-green/30' : 'bg-accent-yellow/20 text-accent-yellow border-accent-yellow/30';
+        const statusBadgeClass = session.status === 'active' ? 'text-bg-dark' : 'text-bg-light border';
 
         card.innerHTML = `
-            <div class="absolute inset-0 flex items-center justify-center text-4xl font-bold text-slate-700">
-                ${initials}
-            </div>
-            <div class="absolute top-3 left-3 flex gap-2">
-                <span class="bg-black/60 backdrop-blur text-white text-[10px] px-1.5 py-0.5 rounded font-mono border border-white/10">ID: ${session.student_id || session.user_id}</span>
-                <span class="flex items-center gap-1 ${statusClass} backdrop-blur text-[10px] px-1.5 py-0.5 rounded border font-bold">
-                    <span class="size-1.5 rounded-full ${session.status === 'active' ? 'bg-accent-green' : 'bg-accent-yellow'}"></span> ${statusLabel}
-                </span>
-            </div>
-            <div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
-                <p class="text-white text-sm font-medium">${session.full_name || 'Student'}</p>
-                <p class="text-slate-400 text-xs">${session.exam_name || 'Exam Session'}</p>
+            <div class="app-card p-3 h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="status-icon">
+                        <span class="material-symbols-outlined">person</span>
+                    </div>
+                    <span class="badge ${statusBadgeClass}">${statusLabel}</span>
+                </div>
+                <div class="mt-3">
+                    <div class="fw-semibold">${session.full_name || 'Student'}</div>
+                    <div class="text-muted small">ID: ${session.student_id || session.user_id}</div>
+                    <div class="text-muted small">${session.exam_name || 'Exam Session'}</div>
+                </div>
+                <div class="mt-3 app-mono text-muted">${initials}</div>
             </div>
         `;
 

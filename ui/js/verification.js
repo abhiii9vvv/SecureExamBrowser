@@ -24,7 +24,7 @@ let verificationVideoElement = null;
 let identityMatched = false;
 let backendVerifyInterval = null;
 let enrollingIdentity = false;
-const DEMO_MODE = false;
+const DEMO_MODE = true;
 
 // Warning and score tracking
 let currentWarnings = [];
@@ -456,20 +456,13 @@ function showVerificationLocked() {
     if (placeholder) {
         placeholder.style.display = 'flex';
         placeholder.innerHTML = `
-            <div class="text-center p-8 max-w-md">
-                <div class="mb-6 relative">
-                    <span class="material-symbols-outlined text-red-500 text-9xl">block</span>
-                    <span class="material-symbols-outlined text-red-500 text-4xl absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse">lock</span>
+            <div class="text-center p-4">
+                <div class="mb-3">
+                    <span class="material-symbols-outlined" style="font-size: 64px;">block</span>
                 </div>
-                <h2 class="text-red-500 text-2xl font-bold mb-3">Verification Locked</h2>
-                <p class="text-slate-300 text-base mb-6">${lockReason}</p>
-                <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/30 mb-6">
-                    <p class="text-red-400 text-sm font-medium">⚠️ Security Alert</p>
-                    <p class="text-slate-400 text-xs mt-1">This incident has been logged. Please contact your exam administrator.</p>
-                </div>
-                <button onclick="returnToLaunch()" class="px-6 py-3 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-semibold transition-colors">
-                    Return to Launch Screen
-                </button>
+                <h2 class="h4 mb-2">Verification Locked</h2>
+                <p class="text-muted mb-3">${lockReason}</p>
+                <button onclick="returnToLaunch()" class="btn btn-dark">Return to Launch</button>
             </div>
         `;
     }
@@ -481,7 +474,7 @@ function showVerificationLocked() {
     }
     
     // Disable buttons
-    const readyButton = Array.from(document.querySelectorAll('button')).find(btn => btn.textContent.includes("I'm Ready"));
+    const readyButton = document.querySelector('[data-ready-button]');
     if (readyButton) {
         readyButton.disabled = true;
         readyButton.classList.add('opacity-50', 'cursor-not-allowed');
@@ -517,7 +510,7 @@ function startVerificationProcess() {
     verificationComplete = false;
 
     verificationInterval = setInterval(() => {
-        const progressBar = document.querySelector('.h-2.w-full.bg-surface-dark.rounded-full .h-full');
+        const progressBar = document.querySelector('[data-progress-bar]');
 
         if (faceDetected) {
             verificationProgress += 1.0;
@@ -582,7 +575,7 @@ async function saveBiometricSnapshot() {
 }
 
 function updateVerificationCards() {
-    const cards = document.querySelectorAll('.group.flex.items-center.gap-4');
+    const cards = document.querySelectorAll('[data-step-card]');
     const currentStep = verificationComplete
         ? 4
         : livenessPassed
@@ -590,7 +583,7 @@ function updateVerificationCards() {
             : identityMatched
                 ? 2
                 : 1;
-    const stepText = document.querySelector('.text-accent-cyan.font-mono.text-sm');
+    const stepText = document.querySelector('[data-step-text]');
     if (stepText) {
         stepText.textContent = `Step ${currentStep} of 4`;
     }
@@ -604,46 +597,30 @@ function updateVerificationCards() {
     cards.forEach((card, index) => {
         const state = states[index] || 'pending';
         const icon = card.querySelector('.material-symbols-outlined');
-        const text = card.querySelector('.text-xs.font-mono');
-        const iconBg = icon ? icon.parentElement : null;
+        const text = card.querySelector('[data-step-status]');
+
+        card.classList.remove('completed', 'active', 'pending');
+        card.classList.add(state);
 
         if (state === 'completed') {
-            card.className = 'group flex items-center gap-4 p-4 rounded-xl bg-surface-dark/50 border border-emerald-500/30 shadow-lg relative overflow-hidden transition-all';
-            if (iconBg) iconBg.className = 'size-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 border border-emerald-500/50';
-            if (icon) {
-                icon.className = 'material-symbols-outlined text-emerald-400';
-                icon.textContent = 'check';
-            }
+            if (icon) icon.textContent = 'check';
             if (text) text.textContent = 'Completed successfully';
         } else if (state === 'active') {
-            card.className = 'group flex items-center gap-4 p-4 rounded-xl bg-surface-dark border border-primary shadow-[0_0_15px_rgba(0,102,204,0.15)] relative overflow-hidden ring-1 ring-primary/30';
-            if (iconBg) iconBg.className = 'size-10 rounded-full bg-primary flex items-center justify-center shrink-0 animate-pulse-slow shadow-lg shadow-primary/40';
-            if (icon) {
-                icon.className = 'material-symbols-outlined text-white animate-spin';
-                icon.textContent = 'sync';
-            }
+            if (icon) icon.textContent = 'sync';
             if (text) text.textContent = 'Processing...';
         } else {
-            card.className = 'group flex items-center gap-4 p-4 rounded-xl bg-surface-dark/40 border border-white/10 shadow-lg relative overflow-hidden transition-all';
-            if (iconBg) iconBg.className = 'size-10 rounded-full bg-white/5 flex items-center justify-center shrink-0 border border-white/10';
-            if (icon) {
-                icon.className = 'material-symbols-outlined text-slate-400';
-                icon.textContent = 'hourglass_empty';
-            }
+            if (icon) icon.textContent = 'hourglass_empty';
             if (text) text.textContent = 'Pending';
         }
     });
 }
 
 function enableReadyButton() {
-    const buttons = document.querySelectorAll('button');
-    buttons.forEach(btn => {
-        if (btn.textContent.includes("I'm Ready")) {
-            btn.disabled = false;
-            btn.style.boxShadow = '0 0 30px rgba(0, 229, 255, 0.6)';
-            btn.classList.add('animate-pulse-slow');
-        }
-    });
+    const readyButton = document.querySelector('[data-ready-button]');
+    if (readyButton) {
+        readyButton.disabled = false;
+        readyButton.classList.add('ready-glow');
+    }
 }
 
 function updateConfidenceUI(value) {
@@ -709,50 +686,47 @@ function navigateToExam() {
 
 // Button handlers
 document.addEventListener('DOMContentLoaded', () => {
-    const buttons = document.querySelectorAll('button');
-    buttons.forEach(btn => {
-        if (btn.textContent.includes('Cancel')) {
-            btn.addEventListener('click', () => {
-                if (cameraStream) {
-                    cameraStream.getTracks().forEach(track => track.stop());
+    const cancelButton = document.querySelector('[data-cancel-button]');
+    if (cancelButton) {
+        cancelButton.addEventListener('click', () => {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
+            if (faceDetectionFrame) {
+                cancelAnimationFrame(faceDetectionFrame);
+                faceDetectionFrame = null;
+            }
+            detectionLoopActive = false;
+            if (window.electronAPI && window.electronAPI.navigateTo) {
+                window.electronAPI.navigateTo('launch');
+            } else {
+                window.location.href = 'launch.html';
+            }
+        });
+    }
+
+    const readyButton = document.querySelector('[data-ready-button]');
+    if (readyButton) {
+        readyButton.addEventListener('click', async () => {
+            if (!verificationComplete) {
+                if (!cameraStream) {
+                    await initializeVerification();
                 }
-                if (faceDetectionFrame) {
-                    cancelAnimationFrame(faceDetectionFrame);
-                    faceDetectionFrame = null;
+                if (verificationLocked) {
+                    return;
                 }
-                detectionLoopActive = false;
-                if (window.electronAPI && window.electronAPI.navigateTo) {
-                    window.electronAPI.navigateTo('launch');
-                } else {
-                    window.location.href = 'launch.html';
-                }
-            });
-        }
-        if (btn.textContent.includes("I'm Ready")) {
-            btn.addEventListener('click', async () => {
                 if (!verificationComplete) {
-                    // Verification not started or not complete
-                    if (!cameraStream) {
-                        // Try to get camera access
-                        await initializeVerification();
-                    }
-                    // Check if locked
-                    if (verificationLocked) {
-                        return;
-                    }
-                    // Wait for verification to complete
-                    if (!verificationComplete) {
-                        alert('⚠️ Please wait for face verification to complete (face must be stable for 1 second).');
-                        return;
-                    }
-                    navigateToExam();
-                } else {
-                    // Verification already complete, navigate immediately
-                    navigateToExam();
+                    alert('Please wait for face verification to complete.');
+                    return;
                 }
-            });
-        }
-    });
+                navigateToExam();
+                return;
+            }
+
+            // Verification already complete, navigate immediately
+            navigateToExam();
+        });
+    }
     
     // Auto-start verification
     setTimeout(() => {

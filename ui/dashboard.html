@@ -1,391 +1,129 @@
 <!DOCTYPE html>
-
-<html class="dark" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Proctor Command Center</title>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script id="tailwind-config">
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            colors: {
-              "primary": "#0066cc",
-              "background-light": "#f5f7f8",
-              "background-dark": "#0f1923",
-              "surface-dark": "#1e293b",
-              "accent-red": "#ef4444",
-              "accent-green": "#10b981",
-              "accent-yellow": "#f59e0b",
-            },
-            fontFamily: {
-              "display": ["Inter", "sans-serif"]
-            },
-            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
-          },
-        },
-      }
-    </script>
-<style>
-        .glass-header {
-            background: rgba(15, 25, 35, 0.7);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-        }
-        /* Custom scrollbar for dark technical look */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0f1923; 
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #334155; 
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #475569; 
-        }
-    </style>
-    <link rel="stylesheet" href="css/accessibility.css">
-    <link rel="stylesheet" href="css/design-system.css">
-    <script src="js/dashboard.js" defer></script>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>Proctor Command Center</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect" />
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="css/accessibility.css" />
+  <link rel="stylesheet" href="css/theme.css" />
+  <script src="js/dashboard.js" defer></script>
 </head>
-<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-hidden h-screen flex flex-col">
-<!-- Top Glass Header -->
-<header class="glass-header sticky top-0 z-50 w-full border-b border-white/10 px-6 py-3 flex items-center justify-between shrink-0 h-16">
-<div class="flex items-center gap-6">
-<div class="flex items-center gap-2 text-primary">
-<span class="material-symbols-outlined text-3xl">verified_user</span>
-<h1 class="text-white text-lg font-bold tracking-tight">Proctor Command v2.0</h1>
-</div>
-<!-- Header KPIs (Integrated) -->
-<div class="hidden md:flex items-center gap-4 border-l border-white/10 pl-6 h-8">
-<div class="flex items-center gap-2 group relative cursor-help">
-<span class="relative flex h-3 w-3">
-<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-green opacity-75"></span>
-<span class="relative inline-flex rounded-full h-3 w-3 bg-accent-green"></span>
-</span>
-<span class="text-slate-400 text-sm font-medium">Active: <span class="text-white font-bold tabular-nums" id="activeCount">0</span></span>
-<!-- Tooltip -->
-<div class="hidden group-hover:block absolute top-full left-0 mt-2 z-50 w-56 p-3 rounded-lg bg-surface-dark border border-white/20 shadow-xl">
-<p class="text-xs font-bold text-gray-200 mb-1">Active Examinees</p>
-<p class="text-xs text-gray-400">Students currently taking exams with stable connections and proper monitoring</p>
-</div>
-</div>
-<div class="flex items-center gap-2 group relative cursor-help">
-<span class="relative flex h-3 w-3">
-<span class="animate-pulse absolute inline-flex h-full w-full rounded-full bg-accent-red opacity-75"></span>
-<span class="relative inline-flex rounded-full h-3 w-3 bg-accent-red"></span>
-</span>
-<span class="text-slate-400 text-sm font-medium">Critical Flags: <span class="text-white font-bold tabular-nums" id="criticalCount">0</span></span>
-<!-- Tooltip with breakdown -->
-<div class="hidden group-hover:block absolute top-full left-0 mt-2 z-50 w-64 p-3 rounded-lg bg-surface-dark border border-red-500/30 shadow-xl">
-<p class="text-xs font-bold text-red-400 mb-1">Critical Security Flags</p>
-<p class="text-xs text-gray-400 mb-2">Incidents requiring immediate attention:</p>
-<ul class="text-xs text-gray-300 space-y-1">
-<li class="flex items-start gap-2">
-<span class="text-red-400">•</span>
-<span>2x Tab switching detected</span>
-</li>
-<li class="flex items-start gap-2">
-<span class="text-red-400">•</span>
-<span>1x Unauthorized window open</span>
-</li>
-</ul>
-<button class="mt-2 text-xs text-primary hover:text-blue-400 underline" onclick="showIncidentLog()">View all incidents →</button>
-</div>
-</div>
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-accent-green text-sm">wifi</span>
-<span class="text-slate-400 text-sm font-medium">Network: <span class="text-white font-bold">99.9%</span></span>
-</div>
-</div>
-</div>
-<div class="flex items-center gap-4">
-<div class="hidden lg:flex items-center gap-6 mr-4">
-<a class="text-white text-sm font-medium hover:text-primary transition-colors" href="#">Dashboard</a>
-<a class="text-slate-400 text-sm font-medium hover:text-white transition-colors" href="#">Exams</a>
-<a class="text-slate-400 text-sm font-medium hover:text-white transition-colors" href="#">Users</a>
-<a class="text-slate-400 text-sm font-medium hover:text-white transition-colors" href="#">Reports</a>
-</div>
-<div class="flex gap-2">
-<button class="flex items-center justify-center rounded-lg size-10 bg-surface-dark border border-white/10 hover:bg-white/5 transition-colors text-white relative">
-<span class="material-symbols-outlined text-[20px]">notifications</span>
-<span class="absolute top-2 right-2 size-2 bg-accent-red rounded-full"></span>
-</button>
-<button class="flex items-center justify-center rounded-lg size-10 bg-surface-dark border border-white/10 hover:bg-white/5 transition-colors text-white">
-<span class="material-symbols-outlined text-[20px]">settings</span>
-</button>
-<button class="flex items-center justify-center rounded-lg size-10 bg-primary hover:bg-primary/90 transition-colors text-white">
-<span class="material-symbols-outlined text-[20px]">account_circle</span>
-</button>
-</div>
-</div>
-</header>
-<!-- Main Workspace Layout -->
-<div class="flex flex-1 overflow-hidden">
-<!-- Left: Dashboard Content -->
-<main class="flex-1 flex flex-col overflow-y-auto p-6 gap-6 relative">
-<!-- Top Data Row -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-<!-- Card 1 -->
-<div class="flex flex-col gap-2 rounded-xl p-5 bg-surface-dark border border-white/5 shadow-sm">
-<div class="flex justify-between items-start">
-<p class="text-slate-400 text-sm font-medium">Enrollment Volume</p>
-<span class="material-symbols-outlined text-primary text-xl">group</span>
-</div>
-<div class="flex items-baseline gap-2">
-<p class="text-white text-2xl font-bold tabular-nums">1,240</p>
-<p class="text-accent-green text-xs font-medium">+5% vs last hr</p>
-</div>
-<!-- Sparkline SVG -->
-<div class="h-8 w-full mt-2">
-<svg class="w-full h-full stroke-primary fill-none stroke-2" preserveaspectratio="none" viewbox="0 0 100 20">
-<path d="M0,15 Q10,5 20,10 T40,15 T60,5 T80,12 T100,2"></path>
-</svg>
-</div>
-</div>
-<!-- Card 2 -->
-<div class="flex flex-col gap-2 rounded-xl p-5 bg-surface-dark border border-white/5 shadow-sm">
-<div class="flex justify-between items-start">
-<p class="text-slate-400 text-sm font-medium">Avg Risk Level</p>
-<span class="material-symbols-outlined text-accent-yellow text-xl">warning</span>
-</div>
-<div class="flex items-baseline gap-2">
-<p class="text-white text-2xl font-bold">Low</p>
-<p class="text-slate-500 text-xs font-medium">Stable trend</p>
-</div>
-<div class="h-1.5 w-full bg-slate-700 rounded-full mt-auto">
-<div class="h-1.5 bg-accent-green rounded-full w-[85%]"></div>
-</div>
-</div>
-<!-- Card 3 -->
-<div class="flex flex-col gap-2 rounded-xl p-5 bg-surface-dark border border-white/5 shadow-sm">
-<div class="flex justify-between items-start">
-<p class="text-slate-400 text-sm font-medium">Time Remaining (Avg)</p>
-<span class="material-symbols-outlined text-slate-400 text-xl">schedule</span>
-</div>
-<div class="flex items-baseline gap-2">
-<p class="text-white text-2xl font-bold tabular-nums">42m 15s</p>
-</div>
-<div class="flex gap-1 mt-auto">
-<span class="h-1 flex-1 bg-slate-700 rounded-sm"></span>
-<span class="h-1 flex-1 bg-primary rounded-sm"></span>
-<span class="h-1 flex-1 bg-slate-700 rounded-sm"></span>
-</div>
-</div>
-<!-- Card 4 -->
-<div class="flex flex-col gap-2 rounded-xl p-5 bg-surface-dark border border-white/5 shadow-sm">
-<div class="flex justify-between items-start">
-<p class="text-slate-400 text-sm font-medium">Verifications Pending</p>
-<span class="material-symbols-outlined text-white text-xl">badge</span>
-</div>
-<div class="flex items-baseline gap-2">
-<p class="text-white text-2xl font-bold tabular-nums">12</p>
-<p class="text-accent-yellow text-xs font-medium">Needs action</p>
-</div>
-<div class="flex -space-x-2 overflow-hidden mt-auto">
-<div class="inline-block h-6 w-6 rounded-full ring-2 ring-surface-dark bg-slate-500"></div>
-<div class="inline-block h-6 w-6 rounded-full ring-2 ring-surface-dark bg-slate-400"></div>
-<div class="inline-block h-6 w-6 rounded-full ring-2 ring-surface-dark bg-slate-600"></div>
-</div>
-</div>
-</div>
-<!-- Section: Monitoring Grid -->
-<div class="flex flex-col flex-1 min-h-[400px]">
-<div class="flex items-center justify-between mb-4">
-<h3 class="text-white text-lg font-bold flex items-center gap-2">
-<span class="material-symbols-outlined text-accent-red animate-pulse">videocam</span>
-                        Live Monitoring Grid
-                    </h3>
-<div class="flex gap-2">
-<button class="px-3 py-1.5 rounded bg-surface-dark border border-white/10 text-xs font-medium text-white hover:bg-white/5">Grid View</button>
-<button class="px-3 py-1.5 rounded bg-transparent border border-transparent text-xs font-medium text-slate-400 hover:text-white">List View</button>
-</div>
-</div>
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="activeSessionsGrid">
-<div class="col-span-full text-center text-slate-400 text-sm py-8" id="activeSessionsEmpty">No active sessions</div>
-</div>
-</div>
-<!-- Bottom: Analytics Charts -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">
-<!-- Line Chart Simulation -->
-<div class="rounded-xl bg-surface-dark border border-white/5 p-5 shadow-sm">
-<div class="flex justify-between items-center mb-6">
-<h4 class="text-white text-sm font-bold">Completion Velocity</h4>
-<div class="flex items-center gap-2">
-<span class="size-2 rounded-full bg-primary"></span>
-<span class="text-xs text-slate-400">Current</span>
-<span class="size-2 rounded-full bg-slate-600 ml-2"></span>
-<span class="text-xs text-slate-400">Avg</span>
-</div>
-</div>
-<div class="h-48 w-full relative">
-<div class="absolute inset-0 grid grid-cols-6 grid-rows-4">
-<!-- Grid lines -->
-<div class="border-b border-slate-700/30 w-full h-full col-span-6 row-span-1"></div>
-<div class="border-b border-slate-700/30 w-full h-full col-span-6 row-span-1"></div>
-<div class="border-b border-slate-700/30 w-full h-full col-span-6 row-span-1"></div>
-<div class="border-b border-slate-700/30 w-full h-full col-span-6 row-span-1"></div>
-</div>
-<!-- Line Chart SVG -->
-<svg class="absolute inset-0 w-full h-full" preserveaspectratio="none" viewbox="0 0 100 50">
-<defs>
-<lineargradient id="grad1" x1="0%" x2="0%" y1="0%" y2="100%">
-<stop offset="0%" style="stop-color:#0066cc;stop-opacity:0.3"></stop>
-<stop offset="100%" style="stop-color:#0066cc;stop-opacity:0"></stop>
-</lineargradient>
-</defs>
-<polyline fill="url(#grad1)" points="0,40 20,35 40,25 60,30 80,15 100,5" stroke="#0066cc" stroke-width="1.5"></polyline>
-<polyline fill="none" points="0,45 20,42 40,38 60,35 80,30 100,28" stroke="#475569" stroke-dasharray="2,2" stroke-width="1"></polyline>
-</svg>
-</div>
-<div class="flex justify-between mt-2 text-xs text-slate-500 font-mono">
-<span>10:00</span>
-<span>10:15</span>
-<span>10:30</span>
-<span>10:45</span>
-<span>11:00</span>
-<span>Now</span>
-</div>
-</div>
-<!-- Pie Chart Simulation -->
-<div class="rounded-xl bg-surface-dark border border-white/5 p-5 shadow-sm">
-<h4 class="text-white text-sm font-bold mb-6">Violation Distribution</h4>
-<div class="flex items-center gap-8">
-<div class="relative size-40 shrink-0">
-<!-- CSS Conic Gradient Donut Chart -->
-<div class="w-full h-full rounded-full" style="background: conic-gradient(#ef4444 0% 15%, #f59e0b 15% 45%, #0066cc 45% 65%, #334155 65% 100%);"></div>
-<div class="absolute inset-3 bg-surface-dark rounded-full flex flex-col items-center justify-center">
-<span class="text-2xl font-bold text-white">24</span>
-<span class="text-xs text-slate-400">Total Events</span>
-</div>
-</div>
-<div class="flex flex-col gap-3 w-full">
-<div class="flex items-center justify-between text-sm">
-<div class="flex items-center gap-2">
-<span class="size-2.5 rounded bg-accent-red"></span>
-<span class="text-slate-300">Audio Spikes</span>
-</div>
-<span class="text-white font-mono">15%</span>
-</div>
-<div class="flex items-center justify-between text-sm">
-<div class="flex items-center gap-2">
-<span class="size-2.5 rounded bg-accent-yellow"></span>
-<span class="text-slate-300">Face Not Detected</span>
-</div>
-<span class="text-white font-mono">30%</span>
-</div>
-<div class="flex items-center justify-between text-sm">
-<div class="flex items-center gap-2">
-<span class="size-2.5 rounded bg-primary"></span>
-<span class="text-slate-300">Browser Focus Lost</span>
-</div>
-<span class="text-white font-mono">20%</span>
-</div>
-<div class="flex items-center justify-between text-sm">
-<div class="flex items-center gap-2">
-<span class="size-2.5 rounded bg-slate-600"></span>
-<span class="text-slate-300">Other</span>
-</div>
-<span class="text-white font-mono">35%</span>
-</div>
-</div>
-</div>
-</div>
-</div>
-</main>
-<!-- Right: Activity Sidebar -->
-<aside class="w-80 border-l border-white/10 bg-surface-dark/50 flex flex-col hidden lg:flex">
-<div class="p-4 border-b border-white/10 flex justify-between items-center bg-surface-dark/80 backdrop-blur sticky top-0">
-<h3 class="text-white font-bold text-sm">Live Activity Log</h3>
-<span class="text-xs text-slate-500 font-mono">UTC -05:00</span>
-</div>
-<div class="flex-1 overflow-y-auto p-4 space-y-4">
-<!-- Log Item: Critical -->
-<div class="relative pl-4 border-l-2 border-accent-red">
-<div class="flex justify-between items-start mb-1">
-<span class="text-[10px] text-slate-400 font-mono">10:42:15 AM</span>
-<span class="text-[10px] bg-accent-red/20 text-accent-red px-1 rounded font-bold">CRITICAL</span>
-</div>
-<p class="text-white text-xs font-medium leading-relaxed">
-                        Multiple voices detected for <span class="text-slate-300">Sarah Smith (ID: 104)</span>.
-                    </p>
-<button class="mt-2 text-[10px] text-primary hover:text-white underline">Review segment</button>
-</div>
-<!-- Log Item: Warning -->
-<div class="relative pl-4 border-l-2 border-accent-yellow">
-<div class="flex justify-between items-start mb-1">
-<span class="text-[10px] text-slate-400 font-mono">10:41:03 AM</span>
-<span class="text-[10px] bg-accent-yellow/20 text-accent-yellow px-1 rounded font-bold">WARN</span>
-</div>
-<p class="text-white text-xs font-medium leading-relaxed">
-                        Face not visible for &gt;10s <span class="text-slate-300">Emily Davis (ID: 881)</span>.
-                    </p>
-</div>
-<!-- Log Item: Info -->
-<div class="relative pl-4 border-l-2 border-primary">
-<div class="flex justify-between items-start mb-1">
-<span class="text-[10px] text-slate-400 font-mono">10:39:55 AM</span>
-<span class="text-[10px] bg-primary/20 text-primary px-1 rounded font-bold">INFO</span>
-</div>
-<p class="text-white text-xs font-medium leading-relaxed">
-                        Exam submitted successfully by <span class="text-slate-300">User #442</span>.
-                    </p>
-</div>
-<!-- Log Item: Info -->
-<div class="relative pl-4 border-l-2 border-slate-600">
-<div class="flex justify-between items-start mb-1">
-<span class="text-[10px] text-slate-400 font-mono">10:38:12 AM</span>
-</div>
-<p class="text-slate-300 text-xs font-medium leading-relaxed">
-                        System check passed. Network latency stable at 24ms.
-                    </p>
-</div>
-<!-- Log Item: Info -->
-<div class="relative pl-4 border-l-2 border-primary">
-<div class="flex justify-between items-start mb-1">
-<span class="text-[10px] text-slate-400 font-mono">10:35:45 AM</span>
-<span class="text-[10px] bg-primary/20 text-primary px-1 rounded font-bold">INFO</span>
-</div>
-<p class="text-white text-xs font-medium leading-relaxed">
-                        New session started: <span class="text-slate-300">John Doe (ID: 992)</span>.
-                    </p>
-</div>
-<!-- Log Item: Warning -->
-<div class="relative pl-4 border-l-2 border-accent-yellow">
-<div class="flex justify-between items-start mb-1">
-<span class="text-[10px] text-slate-400 font-mono">10:32:10 AM</span>
-<span class="text-[10px] bg-accent-yellow/20 text-accent-yellow px-1 rounded font-bold">WARN</span>
-</div>
-<p class="text-white text-xs font-medium leading-relaxed">
-                       Browser focus lost <span class="text-slate-300">David Wilson</span>.
-                    </p>
-</div>
-<!-- Log Item: Critical -->
-<div class="relative pl-4 border-l-2 border-accent-red">
-<div class="flex justify-between items-start mb-1">
-<span class="text-[10px] text-slate-400 font-mono">10:28:42 AM</span>
-<span class="text-[10px] bg-accent-red/20 text-accent-red px-1 rounded font-bold">CRITICAL</span>
-</div>
-<p class="text-white text-xs font-medium leading-relaxed">
-                        Unauthorized device detected (Phone) <span class="text-slate-300">ID: 881</span>.
-                    </p>
-<button class="mt-2 text-[10px] text-primary hover:text-white underline">Review segment</button>
-</div>
-</div>
-<div class="p-4 border-t border-white/10 bg-surface-dark sticky bottom-0">
-<button class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium py-2 rounded flex items-center justify-center gap-2 transition-colors">
-<span class="material-symbols-outlined text-sm">history</span>
-                    View Full Audit Log
-                </button>
-</div>
-</aside>
-</div>
-</body></html>
+<body class="app-bg app-fullscreen">
+  <header class="app-header">
+    <div class="container-fluid py-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div class="d-flex align-items-center gap-3">
+        <div class="status-icon is-ok">
+          <span class="material-symbols-outlined">verified_user</span>
+        </div>
+        <div>
+          <div class="app-title">Proctor Command</div>
+          <div class="app-subtitle">Live oversight and incident response</div>
+        </div>
+      </div>
+      <nav class="d-flex align-items-center gap-3">
+        <a class="text-decoration-none text-dark fw-semibold" href="#">Dashboard</a>
+        <a class="text-decoration-none text-muted" href="#">Exams</a>
+        <a class="text-decoration-none text-muted" href="#">Users</a>
+        <a class="text-decoration-none text-muted" href="#">Reports</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container-fluid app-main app-compact">
+    <div class="row g-4">
+      <div class="col-xl-9">
+        <div class="row g-3">
+          <div class="col-md-6 col-xl-3">
+            <div class="app-card p-3 h-100 fade-up">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-muted small">Active Examinees</div>
+                  <div class="fs-3 fw-bold" id="activeCount">0</div>
+                </div>
+                <span class="material-symbols-outlined">group</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6 col-xl-3">
+            <div class="app-card p-3 h-100 fade-up stagger-1">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-muted small">Critical Flags</div>
+                  <div class="fs-3 fw-bold" id="criticalCount">0</div>
+                </div>
+                <span class="material-symbols-outlined">report</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6 col-xl-3">
+            <div class="app-card p-3 h-100 fade-up stagger-2">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-muted small">Network Health</div>
+                  <div class="fs-3 fw-bold">99.9%</div>
+                </div>
+                <span class="material-symbols-outlined">wifi</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6 col-xl-3">
+            <div class="app-card p-3 h-100 fade-up stagger-3">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-muted small">Pending Verifications</div>
+                  <div class="fs-3 fw-bold">12</div>
+                </div>
+                <span class="material-symbols-outlined">badge</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="app-card p-4 mt-4">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="app-section-title mb-0">Live Monitoring</h2>
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-dark" type="button">Grid</button>
+              <button class="btn btn-outline-dark" type="button">List</button>
+            </div>
+          </div>
+          <div class="row g-3" id="activeSessionsGrid">
+            <div class="col-12 text-center text-muted py-4" id="activeSessionsEmpty">No active sessions</div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="col-xl-3">
+        <div class="app-card p-4 h-100">
+          <h2 class="app-section-title">Incident Log</h2>
+          <p class="text-muted small">Realtime alerts and audit trail</p>
+          <div class="border-top pt-3">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div>
+                <div class="fw-semibold">Tab switch detected</div>
+                <div class="text-muted small">Student: A. Singh</div>
+              </div>
+              <span class="badge text-bg-light border">Now</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div>
+                <div class="fw-semibold">Face not detected</div>
+                <div class="text-muted small">Student: K. Rao</div>
+              </div>
+              <span class="badge text-bg-light border">2m</span>
+            </div>
+            <button class="btn btn-outline-dark w-100" onclick="showIncidentLog()">View full log</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

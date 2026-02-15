@@ -172,8 +172,8 @@ async function runSystemChecks() {
 
 function setLoadingState(card, isLoading) {
     const statusText = card.querySelector('.status-text');
-    const statusDot = card.querySelector('.pulse-dot, .w-2.h-2.rounded-full');
-    const icon = card.querySelector('.material-symbols-outlined');
+    const statusDot = card.querySelector('[data-status-dot]');
+    const icon = card.querySelector('[data-status-icon]');
     
     if (isLoading) {
         if (statusText) {
@@ -181,19 +181,18 @@ function setLoadingState(card, isLoading) {
             statusText.style.opacity = '0.6';
         }
         if (statusDot) {
-            statusDot.className = 'w-2 h-2 rounded-full bg-blue-500 animate-pulse';
+            statusDot.className = 'status-dot is-loading';
         }
         if (icon) {
-            const parent = icon.parentElement;
-            parent.className = 'p-2.5 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center animate-pulse';
+            icon.className = 'status-icon is-loading';
         }
     }
 }
 
 function updateStatusCard(card, isActive) {
     const statusText = card.querySelector('.status-text');
-    const statusDot = card.querySelector('.pulse-dot, .w-2.h-2.rounded-full');
-    const icon = card.querySelector('.material-symbols-outlined');
+    const statusDot = card.querySelector('[data-status-dot]');
+    const icon = card.querySelector('[data-status-icon]');
     const errorMessage = card.querySelector('.error-message');
     
     console.log('Updating card:', card.getAttribute('data-status'), 'Active:', isActive);
@@ -217,29 +216,20 @@ function updateStatusCard(card, isActive) {
 
     // Update status dot
     if (statusDot) {
-        if (isActive) {
-            statusDot.className = 'w-2 h-2 rounded-full bg-green-500 pulse-dot';
-        } else {
-            statusDot.className = 'w-2 h-2 rounded-full bg-red-500';
-        }
+        statusDot.className = `status-dot ${isActive ? 'is-ok' : 'is-error'}`;
     }
 
     // Update icon container
     if (icon) {
-        const parent = icon.parentElement;
-        if (isActive) {
-            parent.className = 'p-2.5 rounded-lg bg-green-500/10 text-green-400 flex items-center justify-center';
-        } else {
-            parent.className = 'p-2.5 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center';
-        }
+        icon.className = `status-icon ${isActive ? 'is-ok' : 'is-error'}`;
     }
 
     // Show/hide error message
     if (errorMessage) {
         if (isActive) {
-            errorMessage.classList.add('hidden');
+            errorMessage.classList.add('d-none');
         } else {
-            errorMessage.classList.remove('hidden');
+            errorMessage.classList.remove('d-none');
         }
     }
 }

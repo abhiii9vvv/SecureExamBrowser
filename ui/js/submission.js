@@ -34,7 +34,7 @@ function confirmSubmission() {
 
 function submitExam() {
     // Show submission animation
-    const submitButton = document.querySelector('button[onclick="confirmSubmission()"]');
+    const submitButton = document.querySelector('[data-submit-button]');
     if (submitButton) {
         submitButton.disabled = true;
         submitButton.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Submitting...';
@@ -80,16 +80,16 @@ function loadExamState() {
 }
 
 function setEmptyState(message) {
-    const submitButton = document.querySelector('button[onclick="confirmSubmission()"]');
+    const submitButton = document.querySelector('[data-submit-button]');
     if (submitButton) {
         submitButton.disabled = true;
         submitButton.classList.add('opacity-60', 'cursor-not-allowed');
     }
 
-    const gridContainers = document.querySelectorAll('.grid.grid-cols-10');
+    const gridContainers = document.querySelectorAll('[data-submission-grid]');
     gridContainers.forEach(container => {
         container.innerHTML = `
-            <div class="col-span-10 text-center text-slate-400 text-sm py-6">${message}</div>
+            <div class="col-12 text-center text-muted py-4">${message}</div>
         `;
     });
 }
@@ -97,7 +97,7 @@ function setEmptyState(message) {
 // Update statistics displays
 function updateStatistics() {
     // Update timer widget
-    const timerDisplay = document.querySelector('.glass-panel .flex.items-baseline span.font-mono');
+    const timerDisplay = document.querySelector('[data-timer-display]');
     if (timerDisplay) {
         const hours = Math.floor(submissionStats.timeRemaining / 3600);
         const minutes = Math.floor((submissionStats.timeRemaining % 3600) / 60);
@@ -106,20 +106,25 @@ function updateStatistics() {
     }
     
     // Update answered widget
-    const answeredDisplay = document.querySelectorAll('.glass-panel .font-mono')[1];
-    if (answeredDisplay) {
-        answeredDisplay.textContent = submissionStats.answered;
-        const totalDisplay = answeredDisplay.parentElement.querySelector('.text-gray-500');
-        if (totalDisplay) {
-            totalDisplay.textContent = `/ ${examState.totalQuestions}`;
-        }
+    const answeredValue = document.querySelector('[data-metric="answered"] [data-metric-value]');
+    const answeredTotal = document.querySelector('[data-metric="answered"] [data-metric-total]');
+    if (answeredValue) {
+        answeredValue.textContent = submissionStats.answered;
+    }
+    if (answeredTotal) {
+        answeredTotal.textContent = `/ ${examState.totalQuestions}`;
     }
     
     // Update radial progress
     const percentage = Math.round((submissionStats.answered / examState.totalQuestions) * 100);
-    const radialProgress = document.querySelector('.radial-progress + .absolute span.font-bold');
-    if (radialProgress) {
-        radialProgress.textContent = `${percentage}%`;
+    const radialValue = document.querySelector('[data-radial-value]');
+    if (radialValue) {
+        radialValue.textContent = `${percentage}%`;
+    }
+
+    const radialMeter = document.querySelector('[data-radial-meter]');
+    if (radialMeter) {
+        radialMeter.style.background = `conic-gradient(#111111 0deg ${percentage * 3.6}deg, #e5e7eb ${percentage * 3.6}deg 360deg)`;
     }
     
     // Update metrics cards
@@ -129,59 +134,49 @@ function updateStatistics() {
 }
 
 function updateMetricsCard(type, value, total) {
-    const cards = document.querySelectorAll('.glass-panel');
-    cards.forEach(card => {
-        const text = card.textContent.toLowerCase();
-        if (text.includes(type)) {
-            const valueDisplay = card.querySelector('.font-bold.font-mono');
-            if (valueDisplay) {
-                valueDisplay.textContent = value;
-            }
-            const totalDisplay = card.querySelector('.text-gray-500');
-            if (totalDisplay) {
-                totalDisplay.textContent = `/ ${total}`;
-            }
-        }
-    });
+    const card = document.querySelector(`[data-metric="${type}"]`);
+    if (!card) return;
+    const valueDisplay = card.querySelector('[data-metric-value]');
+    if (valueDisplay) {
+        valueDisplay.textContent = value;
+    }
+    const totalDisplay = card.querySelector('[data-metric-total]');
+    if (totalDisplay) {
+        totalDisplay.textContent = `/ ${total}`;
+    }
 }
 
 // Generate question grid
 function generateQuestionGrid() {
-    const gridContainers = document.querySelectorAll('.grid.grid-cols-10');
+    const gridContainers = document.querySelectorAll('[data-submission-grid]');
     
     gridContainers.forEach(container => {
         container.innerHTML = '';
         
         for (let i = 1; i <= examState.totalQuestions; i++) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'col-2 col-sm-2 col-md-1';
+
             const button = document.createElement('button');
             button.textContent = i;
             button.onclick = () => goToQuestion(i);
-            
+
             // Determine button state
             const isAnswered = examState.answers[i] !== undefined;
             const isFlagged = examState.flags[i];
-            
-            if (isAnswered && isFlagged) {
-                // Answered and flagged
-                button.className = 'aspect-square flex items-center justify-center rounded-lg bg-green-900/30 border-2 border-yellow-500 text-white text-xs font-bold hover:bg-green-900/50 transition-all relative';
-                const flagDot = document.createElement('div');
-                flagDot.className = 'absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-yellow-500';
-                button.appendChild(flagDot);
-            } else if (isAnswered) {
-                // Answered only
-                button.className = 'aspect-square flex items-center justify-center rounded-lg bg-green-900/30 border-2 border-green-600 text-white text-xs font-bold hover:bg-green-900/50 transition-all';
-            } else if (isFlagged) {
-                // Flagged but not answered
-                button.className = 'aspect-square flex items-center justify-center rounded-lg bg-yellow-900/20 border-2 border-yellow-500 text-yellow-300 text-xs font-bold hover:bg-yellow-900/30 transition-all relative';
-                const flagDot = document.createElement('div');
-                flagDot.className = 'absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-yellow-500';
-                button.appendChild(flagDot);
-            } else {
-                // Unanswered
-                button.className = 'aspect-square flex items-center justify-center rounded-lg bg-red-900/20 border-2 border-red-600 text-red-300 text-xs font-bold hover:bg-red-900/30 transition-all';
+
+            button.className = 'question-button position-relative w-100';
+
+            if (isAnswered) {
+                button.classList.add('is-answered');
             }
-            
-            container.appendChild(button);
+
+            if (isFlagged) {
+                button.classList.add('is-flagged');
+            }
+
+            wrapper.appendChild(button);
+            container.appendChild(wrapper);
         }
     });
 }
@@ -241,7 +236,7 @@ function confirmSubmission() {
 async function submitExam() {
     try {
         // Show loading state
-        const submitButton = document.querySelector('button[onclick="confirmSubmission()"]');
+        const submitButton = document.querySelector('[data-submit-button]');
         if (submitButton) {
             submitButton.disabled = true;
             submitButton.innerHTML = '<span class="material-symbols-outlined animate-spin">progress_activity</span> Submitting...';
@@ -293,7 +288,7 @@ async function submitExam() {
         alert('❌ Error submitting exam. Please try again or contact support.');
         
         // Re-enable button
-        const submitButton = document.querySelector('button[onclick="confirmSubmission()"]');
+        const submitButton = document.querySelector('[data-submit-button]');
         if (submitButton) {
             submitButton.disabled = false;
             submitButton.innerHTML = 'Confirm Submission <span class="material-symbols-outlined">send</span>';

@@ -17,12 +17,13 @@ select:focus-visible {
 }
 
 /* Enhanced Focus for Primary Actions */
-button.bg-primary:focus-visible,
+button.btn-primary:focus-visible,
+button.btn-dark:focus-visible,
 button[aria-label*="next"]:focus-visible,
 button[aria-label*="submit"]:focus-visible {
-    outline: 3px solid #ffffff;
+    outline: 3px solid #111111;
     outline-offset: 3px;
-    box-shadow: 0 0 0 6px rgba(0, 102, 204, 0.5);
+    box-shadow: 0 0 0 4px rgba(17, 17, 17, 0.2);
 }
 
 /* Focus for Radio Buttons and Checkboxes */
@@ -33,6 +34,7 @@ input[type="checkbox"]:focus-visible {
 }
 
 /* Focus for Question Navigator Buttons */
+button.question-button:focus-visible,
 button[aria-label*="question"]:focus-visible {
     outline: 2px solid #0066cc;
     outline-offset: 1px;
@@ -85,11 +87,7 @@ button[aria-label*="question"]:focus-visible {
     
     .text-slate-400,
     .text-slate-500 {
-        color: #e2e8f0 !important;
-    }
-    
-    .border-white\/10 {
-        border-color: rgba(255, 255, 255, 0.3) !important;
+        color: #111111 !important;
     }
 }
 

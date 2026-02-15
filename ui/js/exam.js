@@ -277,6 +277,11 @@ function loadQuestion(questionNumber) {
             const lines = (questionData.examples || []).map(ex => `Input: ${ex.input}\nOutput: ${ex.output}`).join('\n\n');
             examples.textContent = lines;
         }
+
+        const languageSelect = document.getElementById('codeLanguage');
+        if (languageSelect && questionData.language) {
+            languageSelect.value = questionData.language;
+        }
     } else {
         if (savedAnswer !== undefined) {
             const radioButtons = document.querySelectorAll('input[name="answer"]');

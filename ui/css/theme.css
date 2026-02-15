@@ -47,6 +47,7 @@ body.app-bg {
 .app-header {
     background: rgba(255, 255, 255, 0.9);
     border-bottom: 1px solid var(--app-border);
+    -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
 }
 
@@ -75,6 +76,29 @@ body.app-bg {
     font-weight: 700;
     font-size: 1.15rem;
     letter-spacing: -0.01em;
+}
+
+.progress-compact {
+    width: 140px;
+    height: 6px;
+}
+
+.progress-thin {
+    height: 6px;
+}
+
+.progress-bar-zero {
+    width: 0;
+}
+
+.select-compact {
+    max-width: 180px;
+}
+
+.camera-panel {
+    align-self: flex-start;
+    position: sticky;
+    top: 20px;
 }
 
 .status-card {
@@ -171,13 +195,21 @@ body.app-bg {
 .proctoring-frame {
     position: relative;
     border-radius: 14px;
-    overflow: hidden;
+    overflow: visible;
     background: #0b0b0b;
     border: 1px solid #1f2937;
 }
 
 .proctoring-frame.compact {
-    height: 260px;
+    height: 280px;
+}
+
+.proctoring-frame.tall {
+    height: 320px;
+}
+
+.proctoring-frame.ratio-4-3 {
+    aspect-ratio: 4 / 3;
 }
 
 .proctoring-frame video,
@@ -188,9 +220,17 @@ body.app-bg {
     object-fit: cover;
 }
 
+.proctoring-frame video {
+    object-position: center top;
+}
+
+.is-hidden {
+    display: none;
+}
+
 .proctoring-status {
     position: absolute;
-    bottom: 12px;
+    top: 12px;
     left: 12px;
     right: 12px;
     padding: 8px 12px;
@@ -198,6 +238,7 @@ body.app-bg {
     background: rgba(17, 17, 17, 0.8);
     color: #f8fafc;
     font-size: 0.85rem;
+    z-index: 10;
 }
 
 .question-grid {
@@ -283,6 +324,17 @@ body.app-bg {
     color: #111111;
     margin-right: 12px;
     font-weight: 600;
+}
+
+.code-editor {
+    min-height: 220px;
+    resize: vertical;
+}
+
+[data-coding-constraints],
+[data-coding-examples],
+#codeOutput {
+    white-space: pre-wrap;
 }
 
 .auto-save-indicator {

@@ -1,230 +1,101 @@
 {
-  "Data Structures & Algorithms": [
+  "Aptitude": [
     {
       "id": 1,
+      "type": "mcq",
+      "question": "If 2x = 10, then x = ?",
+      "options": ["3", "4", "5", "6"],
+      "answer": "5"
+    },
+    {
+      "id": 2,
+      "type": "mcq",
+      "question": "Average of 10 and 20?",
+      "options": ["10", "15", "20", "25"],
+      "answer": "15"
+    },
+    {
+      "id": 3,
+      "type": "mcq",
+      "question": "25% of 200 is?",
+      "options": ["25", "50", "75", "100"],
+      "answer": "50"
+    },
+    {
+      "id": 4,
+      "type": "mcq",
+      "question": "Simplify: 5^2",
+      "options": ["10", "20", "25", "30"],
+      "answer": "25"
+    },
+    {
+      "id": 5,
+      "type": "mcq",
+      "question": "Square root of 144?",
+      "options": ["10", "11", "12", "13"],
+      "answer": "12"
+    }
+  ],
+  "Coding MCQ": [
+    {
+      "id": 1,
+      "type": "mcq",
       "question": "What is the time complexity of binary search in a sorted array?",
       "options": ["O(n)", "O(log n)", "O(n log n)", "O(1)"],
       "answer": "O(log n)"
     },
     {
       "id": 2,
+      "type": "mcq",
       "question": "Which data structure follows FIFO?",
       "options": ["Stack", "Queue", "Tree", "Graph"],
       "answer": "Queue"
     },
     {
       "id": 3,
+      "type": "mcq",
       "question": "Which traversal of BST gives sorted order?",
       "options": ["Preorder", "Postorder", "Inorder", "Level order"],
       "answer": "Inorder"
     },
     {
       "id": 4,
-      "question": "Which data structure is used for recursion?",
-      "options": ["Queue", "Heap", "Stack", "Array"],
-      "answer": "Stack"
+      "type": "mcq",
+      "question": "Worst case time complexity of quicksort?",
+      "options": ["O(n log n)", "O(log n)", "O(n^2)", "O(n)"],
+      "answer": "O(n^2)"
     },
     {
       "id": 5,
-      "question": "Worst case time complexity of quicksort?",
-      "options": ["O(n log n)", "O(log n)", "O(n²)", "O(n)"],
-      "answer": "O(n²)"
-    },
-    {
-      "id": 6,
-      "question": "Which is not a linear data structure?",
-      "options": ["Array", "Linked List", "Tree", "Stack"],
-      "answer": "Tree"
-    },
-    {
-      "id": 7,
+      "type": "mcq",
       "question": "Which algorithm is used to find shortest path?",
       "options": ["DFS", "BFS", "Dijkstra", "Binary Search"],
       "answer": "Dijkstra"
-    },
+    }
+  ],
+  "Coding Challenge": [
     {
-      "id": 8,
-      "question": "Which data structure is used in BFS?",
-      "options": ["Stack", "Queue", "Set", "Tree"],
-      "answer": "Queue"
-    },
-    {
-      "id": 9,
-      "question": "Time complexity of inserting in hash table (average)?",
-      "options": ["O(n)", "O(log n)", "O(1)", "O(n log n)"],
-      "answer": "O(1)"
-    },
-    {
-      "id": 10,
-      "question": "Which sorting algorithm is stable?",
-      "options": ["Quick Sort", "Heap Sort", "Merge Sort", "Selection Sort"],
-      "answer": "Merge Sort"
-    },
-    {
-      "id": 11,
-      "question": "Which data structure uses LIFO?",
-      "options": ["Queue", "Stack", "Deque", "Array"],
-      "answer": "Stack"
-    },
-    {
-      "id": 12,
-      "question": "Best case time complexity of bubble sort?",
-      "options": ["O(n)", "O(n²)", "O(log n)", "O(n log n)"],
-      "answer": "O(n)"
-    },
-    {
-      "id": 13,
-      "question": "Which tree has at most two children?",
-      {
-        "Aptitude": [
-          {
-            "id": 1,
-            "type": "mcq",
-            "question": "If 2x = 10, then x = ?",
-            "options": ["3", "4", "5", "6"],
-            "answer": "5"
-          },
-          {
-            "id": 2,
-            "type": "mcq",
-            "question": "Average of 10 and 20?",
-            "options": ["10", "15", "20", "25"],
-            "answer": "15"
-          },
-          {
-            "id": 3,
-            "type": "mcq",
-            "question": "25% of 200 is?",
-            "options": ["25", "50", "75", "100"],
-            "answer": "50"
-          },
-          {
-            "id": 4,
-            "type": "mcq",
-            "question": "Simplify: 5^2",
-            "options": ["10", "20", "25", "30"],
-            "answer": "25"
-          },
-          {
-            "id": 5,
-            "type": "mcq",
-            "question": "Square root of 144?",
-            "options": ["10", "11", "12", "13"],
-            "answer": "12"
-          }
-        ],
-        "Coding MCQ": [
-          {
-            "id": 1,
-            "type": "mcq",
-            "question": "What is the time complexity of binary search in a sorted array?",
-            "options": ["O(n)", "O(log n)", "O(n log n)", "O(1)"],
-            "answer": "O(log n)"
-          },
-          {
-            "id": 2,
-            "type": "mcq",
-            "question": "Which data structure follows FIFO?",
-            "options": ["Stack", "Queue", "Tree", "Graph"],
-            "answer": "Queue"
-          },
-          {
-            "id": 3,
-            "type": "mcq",
-            "question": "Which traversal of BST gives sorted order?",
-            "options": ["Preorder", "Postorder", "Inorder", "Level order"],
-            "answer": "Inorder"
-          },
-          {
-            "id": 4,
-            "type": "mcq",
-            "question": "Worst case time complexity of quicksort?",
-            "options": ["O(n log n)", "O(log n)", "O(n^2)", "O(n)"],
-            "answer": "O(n^2)"
-          },
-          {
-            "id": 5,
-            "type": "mcq",
-            "question": "Which algorithm is used to find shortest path?",
-            "options": ["DFS", "BFS", "Dijkstra", "Binary Search"],
-            "answer": "Dijkstra"
-          }
-        ],
-        "Coding Challenge": [
-          {
-            "id": 1,
-            "type": "coding",
-            "title": "Two Sum",
-            "prompt": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target. You may assume exactly one solution, and you may not use the same element twice.",
-            "constraints": [
-              "2 <= nums.length <= 10^4",
-              "-10^9 <= nums[i] <= 10^9",
-              "-10^9 <= target <= 10^9"
-            ],
-            "examples": [
-              {
-                "input": "nums = [2,7,11,15], target = 9",
-                "output": "[0,1]"
-              },
-              {
-                "input": "nums = [3,2,4], target = 6",
-                "output": "[1,2]"
-              }
-            ],
-            "starterCode": "function twoSum(nums, target) {\n  // TODO: return [i, j]\n  return [];\n}\n",
-            "language": "javascript"
-          }
-        ]
-      }
-      "answer": "List"
-    },
-    {
-      "id": 3,
-      "question": "What is correct syntax for comments?",
-      "options": ["// comment", "/* comment */", "# comment", "<!-- comment -->"],
-      "answer": "# comment"
-    },
-    {
-      "id": 4,
-      "question": "Which is not a Python data type?",
-      "options": ["int", "float", "char", "str"],
-      "answer": "char"
-    },
-    {
-      "id": 5,
-      "question": "How to create empty list?",
-      "options": ["[]", "{}", "()", "None"],
-      "answer": "[]"
-    },
-    {
-      "id": 6,
-      "question": "Which is used for exception handling?",
-      "options": ["if-else", "try-except", "switch-case", "do-while"],
-      "answer": "try-except"
-    },
-    {
-      "id": 7,
-      "question": "What does len() return?",
-      "options": ["Type", "Size", "Value", "Index"],
-      "answer": "Size"
-    },
-    {
-      "id": 8,
-      "question": "Which is correct for string?",
-      "options": ["'Hello'", "Hello", "<Hello>", "Hello'"],
-      "answer": "'Hello'"
-    },
-    {
-      "id": 9,
-      "question": "What is lambda?",
-      "options": ["Loop", "Anonymous function", "Variable", "Class"],
-      "answer": "Anonymous function"
-    },
-    {
-      "id": 10,
-      "question": "Which imports all from module?",
-      "options": ["import *", "from module import *", "include module", "use module"],
-      "answer": "from module import *"
+      "id": 1,
+      "type": "coding",
+      "title": "Two Sum",
+      "prompt": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target. You may assume exactly one solution, and you may not use the same element twice.",
+      "constraints": [
+        "2 <= nums.length <= 10^4",
+        "-10^9 <= nums[i] <= 10^9",
+        "-10^9 <= target <= 10^9"
+      ],
+      "examples": [
+        {
+          "input": "nums = [2,7,11,15], target = 9",
+          "output": "[0,1]"
+        },
+        {
+          "input": "nums = [3,2,4], target = 6",
+          "output": "[1,2]"
+        }
+      ],
+      "starterCode": "function twoSum(nums, target) {\n  // TODO: return [i, j]\n  return [];\n}\n",
+      "language": "javascript"
     }
   ]
 }

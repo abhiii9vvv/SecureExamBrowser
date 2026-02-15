@@ -13,12 +13,12 @@ class LivenessDetector:
         self.prev_face_gray = None
         self.live_frame_count = 0
 
-        self.face_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-        )
-        self.eye_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + "haarcascade_eye.xml"
-        )
+        # Load Haar Cascade for face detection
+        import os
+        cascade_path = os.path.join(os.path.dirname(cv2.__file__), 'data', 'haarcascade_frontalface_default.xml')
+        eye_cascade_path = os.path.join(os.path.dirname(cv2.__file__), 'data', 'haarcascade_eye.xml')
+        self.face_cascade = cv2.CascadeClassifier(cascade_path)
+        self.eye_cascade = cv2.CascadeClassifier(eye_cascade_path)
 
     def detect(self, frame, face_boxes=None):
         """

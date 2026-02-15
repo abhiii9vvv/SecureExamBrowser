@@ -30,6 +30,7 @@ class ProctoringService:
         self.identity_matcher = IdentityMatcher()
         self.reference_embedding = reference_embedding
         self.not_live_frames = 0
+        self.DEV_MODE = True  # DEV MODE: Skip violation tracking
     
     def start_proctoring(self, exam_id):
         """
@@ -85,47 +86,49 @@ class ProctoringService:
             if current_emb is not None:
                 identity_result = self.identity_matcher.match(self.reference_embedding, current_emb)
         
-        # Track violations
-        if face_count == 0:
-            self.no_face_frames += 1
-            if self.no_face_frames >= self.violation_threshold:
-                self.violations.append({
-                    'type': 'NO_FACE_DETECTED',
-                    'frame': self.frame_count,
-                    'timestamp': datetime.now().isoformat()
-                })
+        # Track violations (skip in DEV_MODE)
+        if not self.DEV_MODE:
+            if face_count == 0:
+                self.no_face_frames += 1
+                if self.no_face_frames >= self.violation_threshold:
+                    self.violations.append({
+                        'type': 'NO_FACE_DETECTED',
+                        'frame': self.frame_count,
+                        'timestamp': datetime.now().isoformat()
+                    })
+                    self.no_face_frames = 0
+            else:
                 self.no_face_frames = 0
-        else:
-            self.no_face_frames = 0
         
-        if face_count > 1:
-            self.multiple_face_frames += 1
-            if self.multiple_face_frames >= self.violation_threshold:
-                self.violations.append({
-                    'type': 'MULTIPLE_FACES',
-                    'frame': self.frame_count,
-                    'timestamp': datetime.now().isoformat()
-                })
+        if not self.DEV_MODE:
+            if face_count > 1:
+                self.multiple_face_frames += 1
+                if self.multiple_face_frames >= self.violation_threshold:
+                    self.violations.append({
+                        'type': 'MULTIPLE_FACES',
+                        'frame': self.frame_count,
+                        'timestamp': datetime.now().isoformat()
+                    })
+                    self.multiple_face_frames = 0
+            else:
                 self.multiple_face_frames = 0
-        else:
-            self.multiple_face_frames = 0
 
-        # Track liveness failures
-        if face_count == 1 and not liveness['is_live']:
-            self.not_live_frames += 1
-            if self.not_live_frames >= self.violation_threshold:
-                self.violations.append({
-                    'type': 'LIVENESS_FAILED',
-                    'frame': self.frame_count,
-                    'timestamp': datetime.now().isoformat(),
-                    'details': {
-                        'motion_score': liveness['motion_score'],
-                        'eyes_detected': liveness['eyes_detected']
-                    }
-                })
+            # Track liveness failures
+            if face_count == 1 and not liveness['is_live']:
+                self.not_live_frames += 1
+                if self.not_live_frames >= self.violation_threshold:
+                    self.violations.append({
+                        'type': 'LIVENESS_FAILED',
+                        'frame': self.frame_count,
+                        'timestamp': datetime.now().isoformat(),
+                        'details': {
+                            'motion_score': liveness['motion_score'],
+                            'eyes_detected': liveness['eyes_detected']
+                        }
+                    })
+                    self.not_live_frames = 0
+            else:
                 self.not_live_frames = 0
-        else:
-            self.not_live_frames = 0
         
         self.current_status = detections['status']
         

@@ -1,6 +1,12 @@
 // Launch Screen JavaScript
 
 // Initialize launch screen
+const systemStatus = {
+    internet: null,
+    camera: null,
+    microphone: null,
+    lock: null
+};
 async function initializeLaunchScreen() {
     const proceedButton = document.querySelector('button[aria-label="Proceed to biometric verification"]');
     let hasActiveExam = false;
@@ -26,8 +32,30 @@ async function initializeLaunchScreen() {
                 const exam = examResult.data;
                 const examName = document.getElementById('examName');
                 const examCode = document.getElementById('examCode');
+                const examTitle = document.getElementById('examTitle');
+                const examCodeInline = document.getElementById('examCodeInline');
+                const examDuration = document.getElementById('examDuration');
+                const examWindow = document.getElementById('examWindow');
+                const examUrl = document.getElementById('examUrl');
                 if (examName) examName.textContent = exam.exam_name;
                 if (examCode) examCode.textContent = exam.exam_code;
+                if (examTitle) examTitle.textContent = exam.exam_name || '--';
+                if (examCodeInline) examCodeInline.textContent = exam.exam_code || '--';
+                if (examDuration) {
+                    examDuration.textContent = exam.duration_minutes
+                        ? `${exam.duration_minutes} minutes`
+                        : '--';
+                }
+                if (examWindow) {
+                    examWindow.textContent = formatExamWindow(exam.start_time, exam.end_time);
+                }
+                if (examUrl) {
+                    const url = exam.exam_url || '';
+                    examUrl.innerHTML = url ? `<a href="${url}">${url}</a>` : '--';
+                }
+                localStorage.setItem('currentExamName', exam.exam_name || '');
+                localStorage.setItem('currentExamCode', exam.exam_code || '');
+                localStorage.setItem('currentExamDuration', exam.duration_minutes || '');
                 localStorage.setItem('currentExamId', exam.exam_id);
                 hasActiveExam = true;
             }
@@ -51,9 +79,23 @@ async function initializeLaunchScreen() {
         }
     }
 
+    const storedCourse = localStorage.getItem('currentUserCourse');
+    const storedBranch = localStorage.getItem('currentUserBranch');
+    const storedUniversity = localStorage.getItem('currentUserUniversity');
+    const storedLocation = localStorage.getItem('currentUserLocation');
+
+    if (storedCourse) document.getElementById('studentCourse').textContent = storedCourse;
+    if (storedBranch) document.getElementById('studentBranch').textContent = storedBranch;
+    if (storedUniversity) document.getElementById('studentUniversity').textContent = storedUniversity;
+    if (storedLocation) document.getElementById('studentLocation').textContent = storedLocation;
+
     if (!hasUserProfile) {
         document.getElementById('studentName').textContent = 'Not signed in';
         document.getElementById('studentId').textContent = '--';
+        document.getElementById('studentCourse').textContent = '--';
+        document.getElementById('studentBranch').textContent = '--';
+        document.getElementById('studentUniversity').textContent = '--';
+        document.getElementById('studentLocation').textContent = '--';
     }
 
     // Run system checks
@@ -66,9 +108,7 @@ async function initializeLaunchScreen() {
             const statusEl = document.getElementById('connectionStatus');
             if (statusEl) {
                 statusEl.textContent = dbStatus.connected ? 'DB Connected' : 'DB Offline';
-                statusEl.className = dbStatus.connected
-                    ? 'text-green-400 font-mono'
-                    : 'text-red-400 font-mono';
+                statusEl.className = `profile-value ${dbStatus.connected ? 'status-pill-ok' : 'status-pill-warn'}`;
             }
         } catch (error) {
             console.warn('Database status unavailable:', error);
@@ -91,6 +131,21 @@ async function initializeLaunchScreen() {
     // Update clock
     updateClock();
     setInterval(updateClock, 1000);
+}
+
+function formatExamWindow(startTime, endTime) {
+    if (!startTime || !endTime) return '--';
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        return '--';
+    }
+
+    const options = { hour: '2-digit', minute: '2-digit' };
+    const dateOptions = { month: 'short', day: '2-digit' };
+    const startLabel = `${start.toLocaleDateString('en-US', dateOptions)} ${start.toLocaleTimeString('en-US', options)}`;
+    const endLabel = `${end.toLocaleDateString('en-US', dateOptions)} ${end.toLocaleTimeString('en-US', options)}`;
+    return `${startLabel} → ${endLabel}`;
 }
 
 async function runSystemChecks() {
@@ -214,6 +269,12 @@ function updateStatusCard(card, isActive) {
         }
     }
 
+    const statusName = card.getAttribute('data-status');
+    if (statusName && Object.prototype.hasOwnProperty.call(systemStatus, statusName)) {
+        systemStatus[statusName] = isActive;
+        updateSystemAlerts();
+    }
+
     // Update status dot
     if (statusDot) {
         statusDot.className = `status-dot ${isActive ? 'is-ok' : 'is-error'}`;
@@ -232,6 +293,32 @@ function updateStatusCard(card, isActive) {
             errorMessage.classList.remove('d-none');
         }
     }
+}
+
+function updateSystemAlerts() {
+    const alertBox = document.getElementById('systemAlerts');
+    if (!alertBox) return;
+
+    const failing = Object.entries(systemStatus)
+        .filter(([, value]) => value === false)
+        .map(([key]) => key);
+
+    if (failing.length === 0) {
+        alertBox.classList.add('d-none');
+        alertBox.textContent = '';
+        return;
+    }
+
+    const labels = {
+        internet: 'Internet',
+        camera: 'Webcam',
+        microphone: 'Microphone',
+        lock: 'Browser Lock'
+    };
+
+    const list = failing.map(key => labels[key] || key).join(', ');
+    alertBox.textContent = `Issues detected: ${list}. Resolve to proceed smoothly.`;
+    alertBox.classList.remove('d-none');
 }
 
 function updateClock() {

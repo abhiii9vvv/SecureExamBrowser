@@ -1,3 +1,4 @@
+import sys
 import cv2
 import numpy as np
 from model_registry import ensure_models, get_model_path
@@ -16,9 +17,9 @@ class IdentityMatcher:
         
         try:
             self.net = cv2.dnn.readNetFromONNX(self.model_path)
-            print(f"✓ SFace model loaded successfully")
+            print("✓ SFace model loaded successfully", file=sys.stderr)
         except Exception as e:
-            print(f"⚠ ONNX model failed to load, using histogram fallback: {e}")
+            print(f"⚠ ONNX model failed to load, using histogram fallback: {e}", file=sys.stderr)
             self.use_fallback = True
 
     @staticmethod
@@ -85,16 +86,6 @@ class IdentityMatcher:
         return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-8))
 
     def match(self, embedding_a: np.ndarray, embedding_b: np.ndarray, threshold: float = 0.5) -> dict:
-        # DEV MODE: Always return match=True for testing
-        DEV_MODE = True
-        
-        if DEV_MODE:
-            return {
-                "match": True,
-                "score": 0.95,
-                "threshold": threshold,
-            }
-        
         score = self.cosine_similarity(embedding_a, embedding_b)
         return {
             "match": score >= threshold,

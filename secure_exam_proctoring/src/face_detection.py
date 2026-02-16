@@ -54,20 +54,6 @@ class FaceDetector:
         Returns:
             dict: Detection results with face count, boxes, and status
         """
-        # DEV MODE: Always return 1 valid face for testing
-        DEV_MODE = True
-        
-        if DEV_MODE:
-            # Return a fake detection with one face in center of frame
-            h, w = frame.shape[:2]
-            fake_box = (w//4, h//4, 3*w//4, 3*h//4)
-            return {
-                'face_count': 1,
-                'faces': [{'bbox': fake_box, 'confidence': 0.95}],
-                'status': "✓ VALID FACE",
-                'color': (0, 255, 0)
-            }
-        
         results = self.model(frame, conf=self.confidence, verbose=False)
         faces = []
         

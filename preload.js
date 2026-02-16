@@ -16,10 +16,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getActiveSessions: () => ipcRenderer.invoke('get-active-sessions'),
   getUserProfile: (userId) => ipcRenderer.invoke('get-user-profile', userId),
   getActiveExam: () => ipcRenderer.invoke('get-active-exam'),
+  getExamQuestions: (examId) => ipcRenderer.invoke('get-exam-questions', examId),
   startExamSession: (payload) => ipcRenderer.invoke('start-exam-session', payload),
   endExamSession: (sessionId, status) => ipcRenderer.invoke('end-exam-session', sessionId, status),
   saveExamSubmission: (submissionData) => ipcRenderer.invoke('save-exam-submission', submissionData),
   saveBiometricData: (userId, biometricType, data) => ipcRenderer.invoke('save-biometric-data', userId, biometricType, data),
+  login: (username, password) => ipcRenderer.invoke('login', username, password),
 
   // Verification (AI)
   verifyFrame: (payload) => ipcRenderer.invoke('verify-frame', payload),

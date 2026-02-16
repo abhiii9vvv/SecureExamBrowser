@@ -31,8 +31,8 @@
     </header>
 
     <main class="container-fluid app-main app-compact">
-        <div class="row g-4">
-            <section class="col-lg-7 camera-panel">
+        <div class="verification-layout">
+            <section class="camera-panel">
                 <div class="app-card p-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div class="app-section-title">Live Camera Feed</div>
@@ -77,7 +77,7 @@
                 </div>
             </section>
 
-            <aside class="col-lg-5">
+            <aside class="verification-side">
                 <div class="app-card p-4 mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div class="app-section-title">Verification Progress</div>
@@ -86,6 +86,16 @@
                     <div class="progress progress-thin" role="progressbar" aria-label="Verification progress">
                         <div class="progress-bar bg-dark progress-bar-zero" data-progress-bar></div>
                     </div>
+                </div>
+
+                <div class="app-card p-4 mb-3">
+                    <div class="app-section-title mb-2">Quick Guidance</div>
+                    <div class="text-muted small">Keep your face centered and well-lit.</div>
+                    <ul class="helper-list mt-3">
+                        <li>Look straight at the camera</li>
+                        <li>Remove face coverings</li>
+                        <li>Minimize background movement</li>
+                    </ul>
                 </div>
 
                 <div class="d-flex flex-column gap-3">

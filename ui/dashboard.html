@@ -37,49 +37,41 @@
   <main class="container-fluid app-main app-compact">
     <div class="row g-4">
       <div class="col-xl-9">
-        <div class="row g-3">
-          <div class="col-md-6 col-xl-3">
-            <div class="app-card p-3 h-100 fade-up">
-              <div class="d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="text-muted small">Active Examinees</div>
-                  <div class="fs-3 fw-bold" id="activeCount">0</div>
-                </div>
-                <span class="material-symbols-outlined">group</span>
+        <div class="dashboard-kpi-grid">
+          <div class="app-card p-3 kpi-card fade-up">
+            <div class="kpi-header">
+              <div>
+                <div class="text-muted small">Active Examinees</div>
+                <div class="fs-3 fw-bold" id="activeCount">0</div>
               </div>
+              <span class="material-symbols-outlined kpi-icon">group</span>
             </div>
           </div>
-          <div class="col-md-6 col-xl-3">
-            <div class="app-card p-3 h-100 fade-up stagger-1">
-              <div class="d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="text-muted small">Critical Flags</div>
-                  <div class="fs-3 fw-bold" id="criticalCount">0</div>
-                </div>
-                <span class="material-symbols-outlined">report</span>
+          <div class="app-card p-3 kpi-card fade-up stagger-1">
+            <div class="kpi-header">
+              <div>
+                <div class="text-muted small">Critical Flags</div>
+                <div class="fs-3 fw-bold" id="criticalCount">0</div>
               </div>
+              <span class="material-symbols-outlined kpi-icon">report</span>
             </div>
           </div>
-          <div class="col-md-6 col-xl-3">
-            <div class="app-card p-3 h-100 fade-up stagger-2">
-              <div class="d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="text-muted small">Network Health</div>
-                  <div class="fs-3 fw-bold">99.9%</div>
-                </div>
-                <span class="material-symbols-outlined">wifi</span>
+          <div class="app-card p-3 kpi-card fade-up stagger-2">
+            <div class="kpi-header">
+              <div>
+                <div class="text-muted small">Network Health</div>
+                <div class="fs-3 fw-bold">99.9%</div>
               </div>
+              <span class="material-symbols-outlined kpi-icon">wifi</span>
             </div>
           </div>
-          <div class="col-md-6 col-xl-3">
-            <div class="app-card p-3 h-100 fade-up stagger-3">
-              <div class="d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="text-muted small">Pending Verifications</div>
-                  <div class="fs-3 fw-bold">12</div>
-                </div>
-                <span class="material-symbols-outlined">badge</span>
+          <div class="app-card p-3 kpi-card fade-up stagger-3">
+            <div class="kpi-header">
+              <div>
+                <div class="text-muted small">Pending Verifications</div>
+                <div class="fs-3 fw-bold">12</div>
               </div>
+              <span class="material-symbols-outlined kpi-icon">badge</span>
             </div>
           </div>
         </div>
@@ -99,6 +91,24 @@
       </div>
 
       <aside class="col-xl-3">
+        <div class="app-card p-4 mb-3">
+          <h2 class="app-section-title">Today Summary</h2>
+          <div class="summary-list">
+            <div class="summary-item">
+              <span class="summary-label">DB Status</span>
+              <span class="summary-value" id="dashboardDbStatus">--</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Active Sessions</span>
+              <span class="summary-value" id="dashboardActive">--</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Violations Today</span>
+              <span class="summary-value" id="dashboardViolations">--</span>
+            </div>
+          </div>
+        </div>
+
         <div class="app-card p-4 h-100">
           <h2 class="app-section-title">Incident Log</h2>
           <p class="text-muted small">Realtime alerts and audit trail</p>

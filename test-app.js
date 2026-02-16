@@ -38,9 +38,10 @@ const requiredFiles = [
   'script.js',
   'preload.js',
   'package.json',
+  'ui/login.html',
   'ui/launch.html',
-  'ui/launch.js',
-  'ui/launch.css',
+  'ui/js/launch.js',
+  'ui/js/login.js',
   'database/config.js',
   'database/database.js'
 ];

@@ -12,73 +12,56 @@
     <link rel="stylesheet" href="css/accessibility.css" />
     <link rel="stylesheet" href="css/theme.css" />
 </head>
-<body class="app-bg app-fullscreen">
-    <header class="app-header">
-        <div class="container-fluid py-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div class="d-flex align-items-center gap-3">
-                <div class="status-icon is-ok">
-                    <span class="material-symbols-outlined">verified_user</span>
-                </div>
-                <div>
-                    <div class="app-title">Sharda University</div>
-                    <div class="app-subtitle">B.Tech - Data Structures & Algorithms</div>
-                </div>
+<body class="app-bg app-fullscreen exam-body">
+    <!-- Compact Timer Bar with Navigation -->
+    <div class="exam-timer-bar">
+        <!-- Navigation Arrows on Left -->
+        <div class="header-nav-left">
+            <button class="header-nav-btn-compact" data-nav-prev disabled>
+                <span class="material-symbols-outlined">chevron_left</span>
+            </button>
+            <div class="header-nav-info-compact">
+                <span data-nav-current>1</span>/<span data-nav-total>50</span>
             </div>
-            <div class="d-flex align-items-center gap-3">
-                <div class="app-mono small">Time Remaining</div>
-                <div class="app-mono fs-5 fw-semibold" data-timer-container>
-                    <span data-timer>02:00:00</span>
-                </div>
-                <div class="d-none d-lg-flex align-items-center gap-2">
-                    <div class="small text-muted">Progress</div>
-                    <div class="app-mono small" data-progress-text>3/50 (6%)</div>
-                    <div class="progress progress-compact" role="progressbar" aria-label="Exam progress">
-                        <div class="progress-bar bg-dark" data-progress-bar></div>
-                    </div>
-                </div>
-            </div>
+            <button class="header-nav-btn-compact" data-nav-next>
+                <span class="material-symbols-outlined">chevron_right</span>
+            </button>
         </div>
-    </header>
 
-    <main class="container-fluid app-main app-compact" data-exam-scroll>
-        <div class="row g-4">
-            <aside class="col-lg-3 camera-panel">
-                <div class="app-card p-3 mb-3">
-                    <div class="app-section-title mb-2">Question Navigator</div>
-                    <div class="question-grid" data-question-grid></div>
-                </div>
-                <div class="app-card p-3">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="status-icon">
-                            <span class="material-symbols-outlined">videocam</span>
-                        </div>
-                        <div>
-                            <div class="fw-semibold">Live Proctoring</div>
-                            <div class="text-muted small">Camera feed active</div>
-                        </div>
-                    </div>
-                    <div class="proctoring-frame compact ratio-4-3 mt-3">
-                        <video id="proctoring-video" autoplay></video>
-                        <canvas id="proctoring-canvas"></canvas>
-                        <div class="proctoring-status" id="proctoring-status">Initializing camera...</div>
-                    </div>
-                </div>
-            </aside>
+        <div class="exam-meta">
+            <div class="exam-meta-title" id="examTitleHeader">Active Exam</div>
+            <div class="exam-meta-sub" id="examCodeHeader">Exam ID: --</div>
+        </div>
 
-            <section class="col-lg-9">
-                <div class="question-card p-4 mb-3">
-                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="badge text-bg-dark" data-question-badge>Question 1</span>
-                            <span class="badge text-bg-light border" data-section-badge>General</span>
-                        </div>
-                        <button class="btn btn-outline-dark btn-sm" onclick="showInstructions()">
-                            Instructions
-                        </button>
+        <div class="exam-timer">
+            <span class="material-symbols-outlined exam-timer-icon">schedule</span>
+            <span class="app-mono fw-semibold" data-timer-container>
+                <span data-timer>02:00:00</span>
+            </span>
+        </div>
+
+        <div class="exam-actions">
+            <span class="app-mono small" data-progress-text>0/50</span>
+            <button class="btn btn-dark btn-sm" data-submit-exam>Submit</button>
+        </div>
+    </div>
+
+    <main class="container-fluid exam-main" data-exam-scroll>
+        <div class="exam-content-full">
+            <!-- MCQ Panel -->
+            <div class="question-card p-4 mb-3" data-mcq-container>
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge text-bg-dark" data-question-badge>Question 1</span>
+                        <span class="badge text-bg-light border" data-section-badge>General</span>
                     </div>
-                    <h2 class="app-title" data-question-text>Loading question...</h2>
-                    <div class="mt-2 text-muted small" data-question-subtext></div>
-                    <div class="mt-4 d-flex flex-column gap-3" data-mcq-panel>
+                    <button class="btn btn-outline-dark btn-sm" onclick="showInstructions()">
+                        Instructions
+                    </button>
+                </div>
+                <h2 class="app-title" data-question-text>Loading question...</h2>
+                <div class="mt-2 text-muted small" data-question-subtext></div>
+                <div class="mt-4 d-flex flex-column gap-3" data-mcq-panel>
                         <label class="option-card d-flex align-items-center" data-option-label>
                             <input class="form-check-input me-2" type="radio" name="answer" />
                             <span class="option-indicator">A</span>
@@ -99,51 +82,64 @@
                             <span class="option-indicator">D</span>
                             <span data-option-text>Option D</span>
                         </label>
-                    </div>
-                    <div class="mt-4 d-none" data-coding-panel>
-                        <div class="app-card app-card-muted p-3 mb-3">
-                            <div class="fw-semibold">Problem</div>
+                </div>
+            </div>
+            
+            <!-- Coding Panel - LeetCode Style Split Layout -->
+            <div class="coding-split-container d-none" data-coding-container>
+                <div class="coding-left-panel">
+                    <div class="p-4">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <span class="badge text-bg-dark" data-coding-question-badge>Question 1</span>
+                            <button class="btn btn-outline-dark btn-sm" onclick="showInstructions()">
+                                Instructions
+                            </button>
+                        </div>
+                        <h3 class="fw-bold mb-3" data-coding-question-text>Coding Problem</h3>
+                        <div class="mb-3">
+                            <div class="fw-semibold mb-2">Problem</div>
                             <p class="mb-2" data-coding-prompt></p>
+                        </div>
+                        <div class="mb-3">
+                            <div class="fw-semibold mb-2">Constraints</div>
                             <div class="small text-muted" data-coding-constraints></div>
                         </div>
-                        <div class="app-card app-card-muted p-3 mb-3">
-                            <div class="fw-semibold">Examples</div>
+                        <div class="mb-3">
+                            <div class="fw-semibold mb-2">Examples</div>
                             <div class="small" data-coding-examples></div>
                         </div>
-                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                            <label class="fw-semibold" for="codeLanguage">Code Editor</label>
-                            <select class="form-select form-select-sm select-compact" id="codeLanguage" aria-label="Code language">
-                                <option value="javascript">JavaScript</option>
-                                <option value="python">Python</option>
-                                <option value="cpp">C++</option>
-                            </select>
-                        </div>
-                        <label class="visually-hidden" for="codeEditor">Code editor</label>
-                        <textarea class="form-control app-mono code-editor" id="codeEditor" rows="10" placeholder="Write your solution here..."></textarea>
-                        <div class="d-flex flex-wrap gap-2 mt-3">
-                            <button class="btn btn-outline-dark" id="runCode">Run</button>
-                            <button class="btn btn-dark" id="submitCode">Submit</button>
-                        </div>
-                        <div class="app-card app-card-muted p-3 mt-3">
-                            <div class="fw-semibold">Output</div>
-                            <pre class="mb-0 app-mono" id="codeOutput">Ready.</pre>
-                        </div>
                     </div>
                 </div>
-
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                    <div class="auto-save-indicator" data-auto-save>
-                        <span class="auto-save-dot" data-auto-save-dot></span>
-                        <span>Auto-save idle</span>
+                <div class="coding-right-panel">
+                    <div class="coding-editor-header">
+                        <label class="fw-semibold">Code</label>
+                        <select class="form-select form-select-sm select-compact" id="codeLanguage" aria-label="Code language">
+                            <option value="javascript">JavaScript</option>
+                            <option value="python">Python</option>
+                            <option value="cpp">C++</option>
+                        </select>
                     </div>
-                    <div class="d-flex flex-wrap gap-2">
-                        <button class="btn btn-outline-dark" data-prev-question>Previous</button>
-                        <button class="btn btn-outline-dark" data-flag>Flag</button>
-                        <button class="btn btn-dark" data-next-question>Next</button>
-                        <button class="btn btn-dark" data-submit-exam>Submit</button>
+                    <label class="visually-hidden" for="codeEditor">Code editor</label>
+                    <textarea class="form-control app-mono code-editor" id="codeEditor" rows="10" placeholder="Write your solution here..."></textarea>
+                    <div class="coding-actions">
+                        <button class="btn btn-outline-dark" id="runCode">▶ Run</button>
+                        <button class="btn btn-dark" id="submitCode">Submit</button>
+                    </div>
+                    <div class="coding-output">
+                        <div class="fw-semibold mb-2">Output</div>
+                        <pre class="mb-0 app-mono" id="codeOutput">Ready.</pre>
                     </div>
                 </div>
-            </section>
+            </div>
+            
+            <!-- Bottom Navigation -->
+            <div class="exam-navigation">
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-outline-dark" data-prev-question>← Previous</button>
+                    <button class="btn btn-outline-dark" data-flag>🚩 Flag</button>
+                    <button class="btn btn-dark" data-next-question>Next →</button>
+                </div>
+            </div>
         </div>
     </main>
 

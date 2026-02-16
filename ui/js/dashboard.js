@@ -20,15 +20,32 @@ async function updateDashboardStats() {
 
     const activeCountEl = document.getElementById('activeCount');
     const criticalCountEl = document.getElementById('criticalCount');
+    const summaryActive = document.getElementById('dashboardActive');
+    const summaryViolations = document.getElementById('dashboardViolations');
 
     try {
         const result = await window.electronAPI.getDashboardStats();
         if (result.success && result.data) {
             if (activeCountEl) activeCountEl.textContent = result.data.active_sessions || 0;
             if (criticalCountEl) criticalCountEl.textContent = result.data.today_violations || 0;
+            if (summaryActive) summaryActive.textContent = result.data.active_sessions || 0;
+            if (summaryViolations) summaryViolations.textContent = result.data.today_violations || 0;
         }
     } catch (error) {
         console.warn('Failed to load dashboard stats:', error);
+    }
+}
+
+async function updateDashboardStatus() {
+    if (!window.electronAPI || !window.electronAPI.getDatabaseStatus) return;
+    const statusEl = document.getElementById('dashboardDbStatus');
+    if (!statusEl) return;
+
+    try {
+        const status = await window.electronAPI.getDatabaseStatus();
+        statusEl.textContent = status.connected ? 'Connected' : 'Offline';
+    } catch (error) {
+        statusEl.textContent = 'Unknown';
     }
 }
 
@@ -104,11 +121,13 @@ async function loadActiveSessions() {
 document.addEventListener('DOMContentLoaded', () => {
     updateDashboardStats();
     loadActiveSessions();
+    updateDashboardStatus();
 
     // Refresh every 15 seconds
     setInterval(() => {
         updateDashboardStats();
         loadActiveSessions();
+        updateDashboardStatus();
     }, 15000);
 
     console.log('Dashboard initialized');

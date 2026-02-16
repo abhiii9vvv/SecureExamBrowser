@@ -14,12 +14,46 @@ let examState = {
 let questionsData = [];
 let currentSection = '';
 
-// Load questions from JSON
-async function loadQuestionsFromJSON() {
+// Load questions from database or fallback JSON
+async function loadQuestions() {
+    const examId = Number(localStorage.getItem('currentExamId'));
+    if (window.electronAPI && window.electronAPI.getExamQuestions && examId) {
+        try {
+            const result = await window.electronAPI.getExamQuestions(examId);
+            if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+                questionsData = result.data.map((row, index) => {
+                    let options = row.options;
+                    if (typeof options === 'string') {
+                        try {
+                            options = JSON.parse(options);
+                        } catch (error) {
+                            options = [];
+                        }
+                    }
+
+                    return {
+                        question: row.question_text,
+                        options: options || [],
+                        correct_index: row.correct_index,
+                        order_index: row.order_index || (index + 1),
+                        section: 'General',
+                        type: 'mcq'
+                    };
+                });
+
+                examState.totalQuestions = questionsData.length;
+                console.log(`Loaded ${questionsData.length} questions from database`);
+                return true;
+            }
+        } catch (error) {
+            console.warn('Database questions unavailable, falling back:', error);
+        }
+    }
+
     try {
         const response = await fetch('../ques.json');
         const data = await response.json();
-        
+
         // Flatten all sections into single array
         questionsData = [];
         Object.keys(data).forEach(section => {
@@ -31,7 +65,7 @@ async function loadQuestionsFromJSON() {
                 });
             });
         });
-        
+
         examState.totalQuestions = questionsData.length;
         console.log(`Loaded ${questionsData.length} questions from ${Object.keys(data).length} sections`);
         return true;
@@ -43,13 +77,27 @@ async function loadQuestionsFromJSON() {
 
 // Initialize exam when page loads
 document.addEventListener('DOMContentLoaded', async () => {
-    await loadQuestionsFromJSON();
+    await loadQuestions();
     initializeExam();
     initializeExamSession();
     initializeProctoringCamera();
     startTimer();
-    generateQuestionGrid();
+    updateQuestionNavigation();
     loadQuestion(examState.currentQuestion);
+    
+    // Setup navigation arrow buttons
+    const prevBtn = document.querySelector('[data-nav-prev]');
+    const nextBtn = document.querySelector('[data-nav-next]');
+    if (prevBtn) prevBtn.addEventListener('click', () => {
+        if (examState.currentQuestion > 1) {
+            goToQuestion(examState.currentQuestion - 1);
+        }
+    });
+    if (nextBtn) nextBtn.addEventListener('click', () => {
+        if (examState.currentQuestion < examState.totalQuestions) {
+            goToQuestion(examState.currentQuestion + 1);
+        }
+    });
 
     const runButton = document.getElementById('runCode');
     if (runButton) {
@@ -76,6 +124,13 @@ async function initializeExam() {
     } catch (error) {
         console.warn('System info unavailable:', error);
     }
+
+    const examTitle = document.getElementById('examTitleHeader');
+    const examCode = document.getElementById('examCodeHeader');
+    const storedName = localStorage.getItem('currentExamName');
+    const storedCode = localStorage.getItem('currentExamCode');
+    if (examTitle) examTitle.textContent = storedName || 'Active Exam';
+    if (examCode) examCode.textContent = storedCode ? `Exam ID: ${storedCode}` : 'Exam ID: --';
 }
 
 async function initializeExamSession() {
@@ -163,31 +218,37 @@ function updateTimerDisplay() {
 
 // Generate question navigator grid
 function generateQuestionGrid() {
-    const gridContainer = document.querySelector('[data-question-grid]');
-    if (!gridContainer) return;
+    updateQuestionNavigation();
+}
+
+function updateQuestionNavigation() {
+    const currentEl = document.querySelector('[data-nav-current]');
+    const totalEl = document.querySelector('[data-nav-total]');
+    const prevBtn = document.querySelector('[data-nav-prev]');
+    const nextBtn = document.querySelector('[data-nav-next]');
+    const answeredEl = document.querySelector('[data-answered-count]');
+    const flaggedEl = document.querySelector('[data-flagged-count]');
+    const remainingEl = document.querySelector('[data-remaining-count]');
     
-    gridContainer.innerHTML = '';
+    if (currentEl) currentEl.textContent = examState.currentQuestion;
+    if (totalEl) totalEl.textContent = examState.totalQuestions;
     
-    for (let i = 1; i <= examState.totalQuestions; i++) {
-        const button = document.createElement('button');
-        button.textContent = i;
-        button.onclick = () => goToQuestion(i);
-        
-        // Determine button state
-        button.className = 'question-button position-relative';
-        if (i === examState.currentQuestion) {
-            button.classList.add('is-current');
-        } else if (examState.answers[i] !== undefined) {
-            button.classList.add('is-answered');
-        }
-        
-        // Add flag indicator if flagged
-        if (examState.flags[i]) {
-            button.classList.add('is-flagged');
-        }
-        
-        gridContainer.appendChild(button);
+    // Update button states
+    if (prevBtn) {
+        prevBtn.disabled = examState.currentQuestion <= 1;
     }
+    if (nextBtn) {
+        nextBtn.disabled = examState.currentQuestion >= examState.totalQuestions;
+    }
+    
+    // Update counts
+    const answeredCount = Object.keys(examState.answers).length;
+    const flaggedCount = Object.keys(examState.flags).length;
+    const remainingCount = examState.totalQuestions - answeredCount;
+    
+    if (answeredEl) answeredEl.textContent = answeredCount;
+    if (flaggedEl) flaggedEl.textContent = flaggedCount;
+    if (remainingEl) remainingEl.textContent = remainingCount;
 }
 
 // Load question data
@@ -226,17 +287,39 @@ function loadQuestion(questionNumber) {
         subtext.textContent = questionData.section ? `Section: ${questionData.section}` : '';
     }
 
-    const mcqPanel = document.querySelector('[data-mcq-panel]');
-    const codingPanel = document.querySelector('[data-coding-panel]');
+    const mcqContainer = document.querySelector('[data-mcq-container]');
+    const codingContainer = document.querySelector('[data-coding-container]');
     const isCoding = questionData.type === 'coding';
-    if (mcqPanel) {
-        mcqPanel.classList.toggle('d-none', isCoding);
+    
+    // Toggle containers
+    if (mcqContainer) {
+        if (isCoding) {
+            mcqContainer.classList.add('d-none');
+        } else {
+            mcqContainer.classList.remove('d-none');
+        }
     }
-    if (codingPanel) {
-        codingPanel.classList.toggle('d-none', !isCoding);
+    if (codingContainer) {
+        if (isCoding) {
+            codingContainer.classList.remove('d-none');
+        } else {
+            codingContainer.classList.add('d-none');
+        }
     }
     
-    // Update options
+    // Update badges for coding
+    if (isCoding) {
+        const codingBadge = document.querySelector('[data-coding-question-badge]');
+        if (codingBadge) {
+            codingBadge.textContent = `Question ${questionNumber}`;
+        }
+        const codingQuestionText = document.querySelector('[data-coding-question-text]');
+        if (codingQuestionText) {
+            codingQuestionText.textContent = questionData.question || questionData.title || 'Coding Problem';
+        }
+    }
+    
+    // Update options for MCQ
     const optionLabels = document.querySelectorAll('[data-option-label]');
     if (!isCoding && questionData.options) {
         questionData.options.forEach((option, index) => {
@@ -297,8 +380,8 @@ function loadQuestion(questionNumber) {
         }
     }
     
-    // Update grid
-    generateQuestionGrid();
+    // Update navigation
+    updateQuestionNavigation();
     
     // Scroll to top
     const mainElement = document.querySelector('[data-exam-scroll]');
@@ -595,26 +678,31 @@ async function restartProctoringCamera(video) {
 }
 
 function startProctoringOverlay(video, canvas) {
+    // Resize canvas to match video
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
     // Simulate face detection with bounding box
     setInterval(() => {
         if (!proctoringContext) return;
 
+        // Sync canvas size with video
+        if (canvas.width !== video.videoWidth && video.videoWidth > 0) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+        }
+
         proctoringContext.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Draw face bounding box (simulated)
+        // Draw face bounding box (simulated) - smaller for compact view
         const boxX = canvas.width / 4;
         const boxY = canvas.height / 6;
         const boxW = canvas.width / 2;
         const boxH = canvas.height / 1.5;
 
-        proctoringContext.strokeStyle = '#00ff00';
-        proctoringContext.lineWidth = 2;
+        proctoringContext.strokeStyle = '#16a34a';
+        proctoringContext.lineWidth = 3;
         proctoringContext.strokeRect(boxX, boxY, boxW, boxH);
-
-        // Draw confidence text
-        proctoringContext.fillStyle = '#00ff00';
-        proctoringContext.font = '12px monospace';
-        proctoringContext.fillText('Face: 98%', boxX, boxY - 5);
     }, 100);
 }
 
@@ -622,20 +710,17 @@ function updateProctoringStatus(message, type = 'success') {
     const statusDiv = document.getElementById('proctoring-status');
     if (!statusDiv) return;
 
-    const colors = {
-        success: { icon: 'check_circle', color: 'green' },
-        warning: { icon: 'warning', color: 'yellow' },
-        error: { icon: 'error', color: 'red' }
-    };
-
-    const config = colors[type] || colors.success;
-
-    statusDiv.innerHTML = `
-        <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-${config.color}-500 text-sm">${config.icon}</span>
-            <span class="text-xs text-${config.color}-400 font-medium">${message}</span>
-        </div>
-    `;
+    // Simple status indicator for small overlay
+    if (type === 'success') {
+        statusDiv.textContent = '\u2713';
+        statusDiv.style.background = 'rgba(22, 163, 74, 0.9)';
+    } else if (type === 'warning') {
+        statusDiv.textContent = '!';
+        statusDiv.style.background = 'rgba(234, 179, 8, 0.9)';
+    } else {
+        statusDiv.textContent = '\u2717';
+        statusDiv.style.background = 'rgba(220, 38, 38, 0.9)';
+    }
 }
 
 // Clean up camera on page unload

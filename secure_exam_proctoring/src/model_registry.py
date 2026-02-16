@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 from urllib.request import urlretrieve
 
@@ -48,9 +49,9 @@ def ensure_models(download_missing: bool = True):
             continue
 
         if download_missing:
-            print(f"Downloading model: {name}")
+            print(f"Downloading model: {name}", file=sys.stderr)
             urlretrieve(url, model_path)
-            print(f"✓ Saved: {model_path}")
+            print(f"✓ Saved: {model_path}", file=sys.stderr)
 
 
 def get_model_path(name: str) -> str:

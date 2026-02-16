@@ -1,6 +1,7 @@
 const { app, BrowserWindow, globalShortcut, ipcMain, dialog, screen } = require('electron')
 const path = require('node:path')
 const { spawn } = require('node:child_process')
+const bcrypt = require('bcrypt')
 const DatabaseService = require('./database/database')
 
 // Global variables
@@ -34,6 +35,10 @@ function startVerifyProcess() {
       verifyBuffer = verifyBuffer.slice(lineIndex + 1)
       if (!line) continue
       try {
+        if (line[0] !== '{' || line[line.length - 1] !== '}') {
+          console.warn('Verification stdout (non-JSON):', line)
+          continue
+        }
         const msg = JSON.parse(line)
         const pending = verifyPending.get(msg.id)
         if (pending) {
@@ -98,10 +103,72 @@ async function initDatabase() {
     dbReady = true
     dbLastError = null
     console.log('✅ Database initialized')
+
+    await seedDemoData()
   } catch (error) {
     dbReady = false
     dbLastError = error.message
     console.error('⚠️ Database connection failed - running in offline mode')
+  }
+}
+
+async function seedDemoData() {
+  if (!dbReady) return
+
+  try {
+    let demoUser = await db.getUserByUsername('demo.student')
+    if (!demoUser) {
+      const passwordHash = await bcrypt.hash('Demo@123', 10)
+      const demoUserId = await db.createUser({
+        username: 'demo.student',
+        password_hash: passwordHash,
+        full_name: 'Abhinav Tiwary',
+        email: 'abhinav.tiwary@example.com',
+        student_id: 'SEB-0001',
+        role: 'student'
+      })
+
+      demoUser = { user_id: demoUserId }
+      console.log('✅ Demo user created:', demoUserId)
+    } else {
+      await db.query(
+        'UPDATE users SET full_name = ?, email = ?, student_id = ? WHERE user_id = ?',
+        ['Abhinav Tiwary', 'abhinav.tiwary@example.com', 'SEB-0001', demoUser.user_id]
+      )
+    }
+
+    const examCount = await db.getExamCount()
+    if (examCount === 0) {
+      const now = new Date()
+      const startTime = new Date(now.getTime() - 60 * 60 * 1000)
+      const endTime = new Date(now.getTime() + 6 * 60 * 60 * 1000)
+      let demoOwnerId = demoUser ? demoUser.user_id : null
+      if (!demoOwnerId) {
+        const firstUser = await db.queryOne('SELECT user_id FROM users ORDER BY user_id LIMIT 1')
+        demoOwnerId = firstUser ? firstUser.user_id : null
+      }
+
+      if (!demoOwnerId) {
+        console.warn('Demo exam skipped: no users available to own exam')
+        return
+      }
+
+      await db.createExam({
+        exam_name: 'Demo Assessment',
+        exam_code: 'DEMO-001',
+        exam_url: 'https://example.com/demo-exam',
+        allowed_domains: ['example.com'],
+        duration_minutes: 120,
+        start_time: startTime,
+        end_time: endTime,
+        security_level: 2,
+        created_by: demoOwnerId
+      })
+
+      console.log('✅ Demo exam created')
+    }
+  } catch (error) {
+    console.warn('Demo seed skipped:', error.message)
   }
 }
 
@@ -130,8 +197,8 @@ function createWindow () {
     }
   })
 
-  // Load the launch screen
-  mainWindow.loadFile('ui/launch.html')
+  // Load the login screen
+  mainWindow.loadFile('ui/login.html')
   
   // Development mode - allow closing without restrictions
   mainWindow.on('close', (e) => {
@@ -237,6 +304,7 @@ function setupIpcHandlers() {
   ipcMain.handle('get-system-info', async () => {
     return {
       platform: process.platform,
+      arch: process.arch,
       version: app.getVersion(),
       isOnline: true, // Can be enhanced with actual check
       sessionId: generateSessionId(),
@@ -288,6 +356,19 @@ function setupIpcHandlers() {
   // User profile
   ipcMain.handle('get-user-profile', async (event, userId) => {
     try {
+      if (!dbReady && Number(userId) === -1) {
+        return {
+          success: true,
+          data: {
+            user_id: -1,
+            username: 'demo.student',
+            full_name: 'Abhinav Tiwary',
+            student_id: 'SEB-0001',
+            role: 'student'
+          }
+        }
+      }
+
       const user = await db.getUserById(userId)
       return { success: true, data: user }
     } catch (error) {
@@ -296,13 +377,90 @@ function setupIpcHandlers() {
     }
   })
 
+  // Login
+  ipcMain.handle('login', async (event, username, password) => {
+    try {
+      if (!dbReady) {
+        if (username === 'demo.student' && password === 'Demo@123') {
+          return {
+            success: true,
+            data: {
+              user_id: -1,
+              username: 'demo.student',
+              full_name: 'Abhinav Tiwary',
+              role: 'student',
+              student_id: 'SEB-0001'
+            }
+          }
+        }
+        return { success: false, error: 'Database not connected' }
+      }
+
+      if (!dbReady) {
+        return { success: false, error: 'Database not connected' }
+      }
+
+      const user = await db.getUserByUsername(username)
+      if (!user) {
+        return { success: false, error: 'Invalid username or password' }
+      }
+
+      const valid = await bcrypt.compare(password, user.password_hash)
+      if (!valid) {
+        return { success: false, error: 'Invalid username or password' }
+      }
+
+      return {
+        success: true,
+        data: {
+          user_id: user.user_id,
+          username: user.username,
+          full_name: user.full_name,
+          role: user.role,
+          student_id: user.student_id
+        }
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
   // Active exam (first available)
   ipcMain.handle('get-active-exam', async () => {
     try {
+      if (!dbReady) {
+        return {
+          success: true,
+          data: {
+            exam_id: 0,
+            exam_name: 'Demo Assessment',
+            exam_code: 'DEMO-001',
+            exam_url: 'https://example.com/demo-exam',
+            duration_minutes: 120
+          }
+        }
+      }
+
       const exams = await db.getActiveExams()
       return { success: true, data: exams && exams.length > 0 ? exams[0] : null }
     } catch (error) {
       console.error('Active exam error:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
+  // Exam questions
+  ipcMain.handle('get-exam-questions', async (event, examId) => {
+    try {
+      if (!dbReady) {
+        return { success: false, error: 'Database not connected' }
+      }
+
+      const questions = await db.getExamQuestions(examId)
+      return { success: true, data: questions }
+    } catch (error) {
+      console.error('Exam questions error:', error)
       return { success: false, error: error.message }
     }
   })

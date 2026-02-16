@@ -150,6 +150,15 @@ class DatabaseService {
     }
 
     /**
+     * Get total user count
+     */
+    async getUserCount() {
+        const sql = 'SELECT COUNT(*) AS count FROM users';
+        const row = await this.queryOne(sql);
+        return row ? row.count : 0;
+    }
+
+    /**
      * Update user trust score
      */
     async updateTrustScore(userId) {
@@ -216,6 +225,28 @@ class DatabaseService {
     async getExamByCode(examCode) {
         const sql = 'SELECT * FROM exams WHERE exam_code = ? AND is_active = TRUE';
         return await this.queryOne(sql, [examCode]);
+    }
+
+    /**
+     * Get questions for an exam
+     */
+    async getExamQuestions(examId) {
+        const sql = `
+            SELECT question_text, options, correct_index, order_index
+            FROM exam_questions
+            WHERE exam_id = ?
+            ORDER BY order_index ASC
+        `;
+        return await this.query(sql, [examId]);
+    }
+
+    /**
+     * Get total exam count
+     */
+    async getExamCount() {
+        const sql = 'SELECT COUNT(*) AS count FROM exams';
+        const row = await this.queryOne(sql);
+        return row ? row.count : 0;
     }
 
     // ============================================

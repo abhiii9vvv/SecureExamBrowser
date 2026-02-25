@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Active Exam Interface</title>
+    <title>Exam Interface</title>
     <link href="https://fonts.googleapis.com" rel="preconnect" />
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -13,23 +13,48 @@
     <link rel="stylesheet" href="css/theme.css" />
 </head>
 <body class="app-bg app-fullscreen exam-body">
-    <!-- Compact Timer Bar with Navigation -->
-    <div class="exam-timer-bar">
+    <div class="exam-shell">
+        <nav class="exam-side-nav" aria-label="Primary">
+            <div class="exam-side-brand">
+                <span class="material-symbols-outlined">shield</span>
+            </div>
+            <button class="exam-side-link" type="button" onclick="window.location.href='dashboard.html'" aria-label="Dashboard">
+                <span class="material-symbols-outlined">dashboard</span>
+                <span class="exam-side-label">Dashboard</span>
+            </button>
+            <button class="exam-side-link is-active" type="button" aria-current="page">
+                <span class="material-symbols-outlined">description</span>
+                <span class="exam-side-label">Exams</span>
+            </button>
+            <button class="exam-side-link" type="button" aria-label="Profile" disabled aria-disabled="true">
+                <span class="material-symbols-outlined">person</span>
+                <span class="exam-side-label">Profile</span>
+            </button>
+            <div class="exam-side-spacer"></div>
+            <button class="exam-side-link" type="button" aria-label="Help" disabled aria-disabled="true">
+                <span class="material-symbols-outlined">help</span>
+                <span class="exam-side-label">Help</span>
+            </button>
+        </nav>
+
+        <div class="exam-shell-main">
+            <!-- Compact Timer Bar with Navigation -->
+            <div class="exam-timer-bar">
         <!-- Navigation Arrows on Left -->
         <div class="header-nav-left">
-            <button class="header-nav-btn-compact" data-nav-prev disabled>
+            <button class="header-nav-btn-compact" data-nav-prev type="button" onclick="previousQuestion()" disabled>
                 <span class="material-symbols-outlined">chevron_left</span>
             </button>
             <div class="header-nav-info-compact">
                 <span data-nav-current>1</span>/<span data-nav-total>50</span>
             </div>
-            <button class="header-nav-btn-compact" data-nav-next>
+            <button class="header-nav-btn-compact" data-nav-next type="button" onclick="nextQuestion()">
                 <span class="material-symbols-outlined">chevron_right</span>
             </button>
         </div>
 
-        <div class="exam-meta">
-            <div class="exam-meta-title" id="examTitleHeader">Active Exam</div>
+            <div class="exam-meta">
+            <div class="exam-meta-title" id="examTitleHeader">Assessment</div>
             <div class="exam-meta-sub" id="examCodeHeader">Exam ID: --</div>
         </div>
 
@@ -46,22 +71,25 @@
         </div>
     </div>
 
-    <main class="container-fluid exam-main" data-exam-scroll>
-        <div class="exam-content-full">
-            <!-- MCQ Panel -->
-            <div class="question-card p-4 mb-3" data-mcq-container>
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge text-bg-dark" data-question-badge>Question 1</span>
-                        <span class="badge text-bg-light border" data-section-badge>General</span>
-                    </div>
-                    <button class="btn btn-outline-dark btn-sm" onclick="showInstructions()">
-                        Instructions
-                    </button>
-                </div>
-                <h2 class="app-title" data-question-text>Loading question...</h2>
-                <div class="mt-2 text-muted small" data-question-subtext></div>
-                <div class="mt-4 d-flex flex-column gap-3" data-mcq-panel>
+            <main class="container-fluid exam-main" data-exam-scroll>
+                <div class="exam-content-full">
+                    <div class="exam-layout">
+                        <div class="exam-main-col">
+                    <!-- MCQ Panel -->
+                    <div class="question-card p-4 mb-3" data-mcq-container>
+                        <div class="card-header">
+                            <div>
+                                <div class="card-title" data-question-badge>Question 1</div>
+                                <div class="card-subtitle" data-section-badge>General</div>
+                            </div>
+                            <button class="btn btn-outline-dark btn-sm" onclick="showInstructions()">
+                                Instructions
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <h2 class="app-title" data-question-text>Loading question...</h2>
+                            <div class="mt-2 text-muted small" data-question-subtext></div>
+                            <div class="mt-4 d-flex flex-column gap-3" data-mcq-panel>
                         <label class="option-card d-flex align-items-center" data-option-label>
                             <input class="form-check-input me-2" type="radio" name="answer" />
                             <span class="option-indicator">A</span>
@@ -82,68 +110,107 @@
                             <span class="option-indicator">D</span>
                             <span data-option-text>Option D</span>
                         </label>
-                </div>
-            </div>
-            
-            <!-- Coding Panel - LeetCode Style Split Layout -->
-            <div class="coding-split-container d-none" data-coding-container>
-                <div class="coding-left-panel">
-                    <div class="p-4">
-                        <div class="d-flex align-items-center justify-content-between mb-3">
-                            <span class="badge text-bg-dark" data-coding-question-badge>Question 1</span>
-                            <button class="btn btn-outline-dark btn-sm" onclick="showInstructions()">
-                                Instructions
-                            </button>
+                            </div>
                         </div>
-                        <h3 class="fw-bold mb-3" data-coding-question-text>Coding Problem</h3>
-                        <div class="mb-3">
-                            <div class="fw-semibold mb-2">Problem</div>
-                            <p class="mb-2" data-coding-prompt></p>
+                    </div>
+                    
+                    <!-- Coding Panel - LeetCode Style Split Layout -->
+                    <div class="coding-split-container d-none" data-coding-container>
+                        <div class="coding-left-panel">
+                            <div class="p-4">
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <span class="badge text-bg-dark" data-coding-question-badge>Question 1</span>
+                                    <button class="btn btn-outline-dark btn-sm" onclick="showInstructions()">
+                                        Instructions
+                                    </button>
+                                </div>
+                                <h3 class="fw-bold mb-3" data-coding-question-text>Coding Problem</h3>
+                                <div class="mb-3">
+                                    <div class="fw-semibold mb-2">Problem</div>
+                                    <p class="mb-2" data-coding-prompt></p>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="fw-semibold mb-2">Constraints</div>
+                                    <div class="small text-muted" data-coding-constraints></div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="fw-semibold mb-2">Examples</div>
+                                    <div class="small" data-coding-examples></div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="mb-3">
-                            <div class="fw-semibold mb-2">Constraints</div>
-                            <div class="small text-muted" data-coding-constraints></div>
-                        </div>
-                        <div class="mb-3">
-                            <div class="fw-semibold mb-2">Examples</div>
-                            <div class="small" data-coding-examples></div>
+                        <div class="coding-right-panel">
+                            <div class="coding-editor-header">
+                                <label class="fw-semibold">Code</label>
+                                <select class="form-select form-select-sm select-compact" id="codeLanguage" aria-label="Code language">
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="python">Python</option>
+                                    <option value="cpp">C++</option>
+                                </select>
+                            </div>
+                            <label class="visually-hidden" for="codeEditor">Code editor</label>
+                            <textarea class="form-control app-mono code-editor" id="codeEditor" rows="10" placeholder="Write your solution here..."></textarea>
+                            <div class="coding-actions">
+                                <button class="btn btn-outline-dark" id="runCode">▶ Run</button>
+                                <button class="btn btn-dark" id="submitCode">Submit</button>
+                            </div>
+                            <div class="coding-output">
+                                <div class="fw-semibold mb-2">Output</div>
+                                <pre class="mb-0 app-mono" id="codeOutput">Ready.</pre>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="coding-right-panel">
-                    <div class="coding-editor-header">
-                        <label class="fw-semibold">Code</label>
-                        <select class="form-select form-select-sm select-compact" id="codeLanguage" aria-label="Code language">
-                            <option value="javascript">JavaScript</option>
-                            <option value="python">Python</option>
-                            <option value="cpp">C++</option>
-                        </select>
-                    </div>
-                    <label class="visually-hidden" for="codeEditor">Code editor</label>
-                    <textarea class="form-control app-mono code-editor" id="codeEditor" rows="10" placeholder="Write your solution here..."></textarea>
-                    <div class="coding-actions">
-                        <button class="btn btn-outline-dark" id="runCode">▶ Run</button>
-                        <button class="btn btn-dark" id="submitCode">Submit</button>
-                    </div>
-                    <div class="coding-output">
-                        <div class="fw-semibold mb-2">Output</div>
-                        <pre class="mb-0 app-mono" id="codeOutput">Ready.</pre>
+
+                        <aside class="exam-side-col">
+                            <div class="app-card p-3">
+                                <div class="card-header">
+                                    <div>
+                                        <div class="card-title">Progress</div>
+                                        <div class="card-subtitle">Stay on track</div>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="summary-list">
+                                        <div class="summary-item">
+                                            <span class="summary-label">Answered</span>
+                                            <span class="summary-value" data-answered-count>0</span>
+                                        </div>
+                                        <div class="summary-item">
+                                            <span class="summary-label">Flagged</span>
+                                            <span class="summary-value" data-flagged-count>0</span>
+                                        </div>
+                                        <div class="summary-item">
+                                            <span class="summary-label">Remaining</span>
+                                            <span class="summary-value" data-remaining-count>0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="app-card p-3 mt-3">
+                                <div class="card-header">
+                                    <div>
+                                        <div class="card-title">Tips</div>
+                                        <div class="card-subtitle">Quick reminders</div>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="helper-list">
+                                        <li>Review flagged questions before submit</li>
+                                        <li>Keep an eye on the timer</li>
+                                        <li>Answer all questions if possible</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </aside>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Bottom Navigation -->
-            <div class="exam-navigation">
-                <div class="d-flex flex-wrap gap-2">
-                    <button class="btn btn-outline-dark" data-prev-question>← Previous</button>
-                    <button class="btn btn-outline-dark" data-flag>🚩 Flag</button>
-                    <button class="btn btn-dark" data-next-question>Next →</button>
-                </div>
-            </div>
+            </main>
         </div>
-    </main>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/code-runner.js"></script>
     <script src="js/exam.js"></script>
 </body>
 </html>

@@ -11,9 +11,9 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-    outline: 3px solid #0066cc;
+    outline: 3px solid #0b3d91;
     outline-offset: 2px;
-    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.3);
+    box-shadow: 0 0 0 3px rgba(11, 61, 145, 0.3);
 }
 
 /* Enhanced Focus for Primary Actions */
@@ -21,22 +21,22 @@ button.btn-primary:focus-visible,
 button.btn-dark:focus-visible,
 button[aria-label*="next"]:focus-visible,
 button[aria-label*="submit"]:focus-visible {
-    outline: 3px solid #111111;
+    outline: 3px solid #0b1b3a;
     outline-offset: 3px;
-    box-shadow: 0 0 0 4px rgba(17, 17, 17, 0.2);
+    box-shadow: 0 0 0 4px rgba(11, 27, 58, 0.2);
 }
 
 /* Focus for Radio Buttons and Checkboxes */
 input[type="radio"]:focus-visible,
 input[type="checkbox"]:focus-visible {
-    outline: 2px solid #0066cc;
+    outline: 2px solid #0b3d91;
     outline-offset: 3px;
 }
 
 /* Focus for Question Navigator Buttons */
 button.question-button:focus-visible,
 button[aria-label*="question"]:focus-visible {
-    outline: 2px solid #0066cc;
+    outline: 2px solid #0b3d91;
     outline-offset: 1px;
     z-index: 20;
 }
@@ -61,7 +61,7 @@ button[aria-label*="question"]:focus-visible {
     position: absolute;
     top: -40px;
     left: 0;
-    background: #0066cc;
+    background: #0b3d91;
     color: white;
     padding: 8px 16px;
     text-decoration: none;

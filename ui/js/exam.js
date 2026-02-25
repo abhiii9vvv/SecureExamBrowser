@@ -1,5 +1,10 @@
 // Exam Screen JavaScript
 
+const UI_ONLY = true;
+
+// Code runner instance
+const codeRunner = new CodeRunner();
+
 // Exam state management
 let examState = {
     currentQuestion: 1,
@@ -14,34 +19,67 @@ let examState = {
 let questionsData = [];
 let currentSection = '';
 
+function normalizeQuestionRow(row, index) {
+    // Parse JSON fields
+    let options = row.options;
+    if (typeof options === 'string') {
+        try { options = JSON.parse(options); } catch (e) { options = []; }
+    }
+
+    let testCases = row.test_cases;
+    if (typeof testCases === 'string') {
+        try { testCases = JSON.parse(testCases); } catch (e) { testCases = []; }
+    }
+
+    let examples = row.examples;
+    if (typeof examples === 'string') {
+        try { examples = JSON.parse(examples); } catch (e) { examples = []; }
+    }
+
+    let constraints = row.constraints;
+    if (typeof constraints === 'string') {
+        try { constraints = JSON.parse(constraints); } catch (e) { constraints = []; }
+    }
+
+    let starterCode = row.starter_code;
+    if (typeof starterCode === 'string') {
+        try { starterCode = JSON.parse(starterCode); } catch (e) { starterCode = null; }
+    }
+
+    const isCoding = row.question_type === 'coding';
+
+    return {
+        id: row.id || row.question_id,
+        question: row.question_text,
+        title: row.title || row.question_text,
+        type: isCoding ? 'coding' : 'mcq',
+        difficulty: row.difficulty,
+        options: options || [],
+        correct_index: row.correct_index,
+        testCases: testCases || [],
+        examples: examples || [],
+        constraints: constraints || [],
+        starterCode: starterCode || '',
+        prompt: row.question_text,
+        order_index: row.order_index || (index + 1),
+        section: 'General',
+        points: row.points || 1.0
+    };
+}
+
+function setQuestionsFromRows(rows) {
+    questionsData = rows.map((row, index) => normalizeQuestionRow(row, index));
+    examState.totalQuestions = questionsData.length;
+}
+
 // Load questions from database or fallback JSON
 async function loadQuestions() {
     const examId = Number(localStorage.getItem('currentExamId'));
-    if (window.electronAPI && window.electronAPI.getExamQuestions && examId) {
+    if (!UI_ONLY && window.electronAPI && window.electronAPI.getExamQuestions && examId) {
         try {
             const result = await window.electronAPI.getExamQuestions(examId);
             if (result.success && Array.isArray(result.data) && result.data.length > 0) {
-                questionsData = result.data.map((row, index) => {
-                    let options = row.options;
-                    if (typeof options === 'string') {
-                        try {
-                            options = JSON.parse(options);
-                        } catch (error) {
-                            options = [];
-                        }
-                    }
-
-                    return {
-                        question: row.question_text,
-                        options: options || [],
-                        correct_index: row.correct_index,
-                        order_index: row.order_index || (index + 1),
-                        section: 'General',
-                        type: 'mcq'
-                    };
-                });
-
-                examState.totalQuestions = questionsData.length;
+                setQuestionsFromRows(result.data);
                 console.log(`Loaded ${questionsData.length} questions from database`);
                 return true;
             }
@@ -77,23 +115,34 @@ async function loadQuestions() {
 
 // Initialize exam when page loads
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log('=== Exam Initialization Started ===');
     await loadQuestions();
+    console.log('Questions loaded:', questionsData.length, 'Total:', examState.totalQuestions);
+    console.log('First 3 questions:', questionsData.slice(0, 3).map(q => ({type: q.type, title: q.title || q.question})));
     initializeExam();
-    initializeExamSession();
-    initializeProctoringCamera();
+    if (!UI_ONLY) {
+        initializeExamSession();
+        initializeProctoringCamera();
+    } else {
+        updateProctoringStatus('OK', 'success');
+    }
     startTimer();
     updateQuestionNavigation();
     loadQuestion(examState.currentQuestion);
+    console.log('=== Exam Initialization Complete ===');
     
     // Setup navigation arrow buttons
     const prevBtn = document.querySelector('[data-nav-prev]');
     const nextBtn = document.querySelector('[data-nav-next]');
+    console.log('Navigation buttons found:', {prev: !!prevBtn, next: !!nextBtn});
     if (prevBtn) prevBtn.addEventListener('click', () => {
+        console.log('Previous clicked, current:', examState.currentQuestion);
         if (examState.currentQuestion > 1) {
             goToQuestion(examState.currentQuestion - 1);
         }
     });
     if (nextBtn) nextBtn.addEventListener('click', () => {
+        console.log('Next clicked, current:', examState.currentQuestion, 'total:', examState.totalQuestions);
         if (examState.currentQuestion < examState.totalQuestions) {
             goToQuestion(examState.currentQuestion + 1);
         }
@@ -112,12 +161,65 @@ document.addEventListener('DOMContentLoaded', async () => {
             submitCodeSimulated();
         });
     }
+
+    // Submit exam button
+    const submitExamBtn = document.querySelector('[data-submit-exam]');
+    if (submitExamBtn) {
+        submitExamBtn.addEventListener('click', () => {
+            goToSubmission();
+        });
+    }
+
+    // Language selector change handler
+    const languageSelect = document.getElementById('codeLanguage');
+    if (languageSelect) {
+        languageSelect.addEventListener('change', (e) => {
+            const questionIndex = examState.currentQuestion - 1;
+            const questionData = questionsData[questionIndex];
+            
+            if (questionData && questionData.type === 'coding') {
+                const codeEditor = document.getElementById('codeEditor');
+                const selectedLanguage = e.target.value;
+                
+                // Check if there's saved code for this question
+                const savedAnswer = examState.answers[examState.currentQuestion];
+                const hasSavedCode = savedAnswer && savedAnswer.code;
+                
+                // Only update if no saved code or user confirms
+                if (!hasSavedCode) {
+                    // Load starter code for selected language
+                    if (questionData.starterCode && questionData.starterCode[selectedLanguage]) {
+                        codeEditor.value = questionData.starterCode[selectedLanguage];
+                    }
+                } else if (savedAnswer.language !== selectedLanguage) {
+                    // User changed language after writing code - warn them
+                    const confirmed = confirm(
+                        'Changing language will load the starter code for the new language.\n' +
+                        'Your current code will be lost.\n\n' +
+                        'Do you want to continue?'
+                    );
+                    
+                    if (confirmed) {
+                        if (questionData.starterCode && questionData.starterCode[selectedLanguage]) {
+                            codeEditor.value = questionData.starterCode[selectedLanguage];
+                        }
+                        // Clear the saved answer since we're switching languages
+                        delete examState.answers[examState.currentQuestion];
+                        updateQuestionNavigation();
+                    } else {
+                        // Revert selection
+                        e.target.value = savedAnswer.language;
+                    }
+                }
+            }
+        });
+    }
 });
 
 // Initialize exam with system info
 async function initializeExam() {
     try {
-        if (window.electronAPI && window.electronAPI.getSystemInfo) {
+        if (!UI_ONLY && window.electronAPI && window.electronAPI.getSystemInfo) {
             const systemInfo = await window.electronAPI.getSystemInfo();
             console.log('System info loaded:', systemInfo);
         }
@@ -127,13 +229,18 @@ async function initializeExam() {
 
     const examTitle = document.getElementById('examTitleHeader');
     const examCode = document.getElementById('examCodeHeader');
-    const storedName = localStorage.getItem('currentExamName');
-    const storedCode = localStorage.getItem('currentExamCode');
-    if (examTitle) examTitle.textContent = storedName || 'Active Exam';
-    if (examCode) examCode.textContent = storedCode ? `Exam ID: ${storedCode}` : 'Exam ID: --';
+    const storedName = localStorage.getItem('currentExamName') || '';
+    const storedCode = localStorage.getItem('currentExamCode') || '';
+    const safeName = /demo/i.test(storedName) ? '' : storedName;
+    const safeCode = /demo/i.test(storedCode) ? '' : storedCode;
+    if (examTitle) examTitle.textContent = safeName || 'Assessment';
+    if (examCode) examCode.textContent = safeCode ? `Exam ID: ${safeCode}` : 'Exam ID: --';
 }
 
 async function initializeExamSession() {
+    if (UI_ONLY) {
+        return;
+    }
     const userId = Number(localStorage.getItem('currentUserId'));
     const examId = Number(localStorage.getItem('currentExamId'));
     if (!userId || !examId) {
@@ -236,9 +343,11 @@ function updateQuestionNavigation() {
     // Update button states
     if (prevBtn) {
         prevBtn.disabled = examState.currentQuestion <= 1;
+        console.log('Prev button disabled:', prevBtn.disabled, 'Current:', examState.currentQuestion);
     }
     if (nextBtn) {
         nextBtn.disabled = examState.currentQuestion >= examState.totalQuestions;
+        console.log('Next button disabled:', nextBtn.disabled, 'Current:', examState.currentQuestion, 'Total:', examState.totalQuestions);
     }
     
     // Update counts
@@ -253,6 +362,7 @@ function updateQuestionNavigation() {
 
 // Load question data
 function loadQuestion(questionNumber) {
+    console.log('loadQuestion called:', questionNumber, 'Total questions:', examState.totalQuestions);
     examState.currentQuestion = questionNumber;
     
     // Get question data
@@ -260,9 +370,11 @@ function loadQuestion(questionNumber) {
     const questionData = questionsData[questionIndex];
     
     if (!questionData) {
-        console.warn('Question data not found for:', questionNumber);
+        console.error('Question data not found for:', questionNumber, 'Index:', questionIndex, 'Available:', questionsData.length);
         return;
     }
+    
+    console.log('Loading question:', {number: questionNumber, type: questionData.type, title: questionData.title || questionData.question});
     
     // Update question number display
     const questionBadge = document.querySelector('[data-question-badge]');
@@ -311,17 +423,73 @@ function loadQuestion(questionNumber) {
     if (isCoding) {
         const codingBadge = document.querySelector('[data-coding-question-badge]');
         if (codingBadge) {
-            codingBadge.textContent = `Question ${questionNumber}`;
+            const difficultyBadge = questionData.difficulty ? 
+                `<span class="badge bg-${questionData.difficulty === 'easy' ? 'success' : questionData.difficulty === 'medium' ? 'warning' : 'danger'}">${questionData.difficulty}</span>` : '';
+            codingBadge.innerHTML = `Question ${questionNumber} ${difficultyBadge}`;
         }
         const codingQuestionText = document.querySelector('[data-coding-question-text]');
         if (codingQuestionText) {
-            codingQuestionText.textContent = questionData.question || questionData.title || 'Coding Problem';
+            codingQuestionText.textContent = questionData.title || 'Coding Problem';
         }
-    }
-    
-    // Update options for MCQ
-    const optionLabels = document.querySelectorAll('[data-option-label]');
-    if (!isCoding && questionData.options) {
+
+        // Update prompt
+        const prompt = document.querySelector('[data-coding-prompt]');
+        if (prompt) {
+            prompt.textContent = questionData.prompt || '';
+        }
+
+        // Update constraints
+        const constraints = document.querySelector('[data-coding-constraints]');
+        if (constraints && questionData.constraints) {
+            constraints.innerHTML = questionData.constraints.map(c => `<div>• ${c}</div>`).join('');
+        }
+
+        // Update examples
+        const examples = document.querySelector('[data-coding-examples]');
+        if (examples && questionData.examples) {
+            examples.innerHTML = questionData.examples.map((ex, idx) => `
+                <div class="mb-2 p-2" style="background: #f8f9fa; border-radius: 4px;">
+                    <div class="fw-semibold">Example ${idx + 1}:</div>
+                    <div class="mt-1"><strong>Input:</strong> ${ex.input}</div>
+                    <div><strong>Output:</strong> ${ex.output}</div>
+                    ${ex.explanation ? `<div class="text-muted small">${ex.explanation}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        // Set starter code
+        const codeEditor = document.getElementById('codeEditor');
+        const languageSelect = document.getElementById('codeLanguage');
+        const currentLanguage = languageSelect ? languageSelect.value : 'javascript';
+        
+        if (codeEditor) {
+            if (savedAnswer && savedAnswer.code) {
+                codeEditor.value = savedAnswer.code;
+                if (languageSelect && savedAnswer.language) {
+                    languageSelect.value = savedAnswer.language;
+                }
+            } else {
+                // Load starter code for selected language
+                let starterCode = '';
+                if (questionData.starterCode) {
+                    if (typeof questionData.starterCode === 'object') {
+                        starterCode = questionData.starterCode[currentLanguage] || '';
+                    } else {
+                        starterCode = questionData.starterCode;
+                    }
+                }
+                codeEditor.value = starterCode;
+            }
+        }
+
+        // Clear output
+        const output = document.getElementById('codeOutput');
+        if (output) {
+            output.textContent = 'Ready to run tests...';
+            output.style.color = '';
+        }
+    } else {
+        const optionLabels = document.querySelectorAll('[data-option-label]');
         questionData.options.forEach((option, index) => {
             if (optionLabels[index]) {
                 const optionText = optionLabels[index].querySelector('[data-option-text]');
@@ -411,6 +579,7 @@ function previousQuestion() {
 }
 
 function goToQuestion(questionNumber) {
+    console.log('goToQuestion called:', questionNumber);
     saveCurrentAnswer();
     loadQuestion(questionNumber);
 }
@@ -422,11 +591,20 @@ function saveCurrentAnswer() {
 
     if (questionData.type === 'coding') {
         const codeEditor = document.getElementById('codeEditor');
+        const languageSelect = document.getElementById('codeLanguage');
+        
         if (codeEditor) {
+            const code = codeEditor.value.trim();
+            const language = languageSelect ? languageSelect.value : 'javascript';
+            
             examState.answers[examState.currentQuestion] = {
                 type: 'coding',
-                value: codeEditor.value
+                code: code,
+                language: language,
+                value: code, // Keep for backward compatibility
+                timestamp: Date.now()
             };
+            
             showAutoSaveIndicator();
         }
         return;
@@ -437,6 +615,24 @@ function saveCurrentAnswer() {
         const radioButtons = Array.from(document.querySelectorAll('input[name="answer"]'));
         const answerIndex = radioButtons.indexOf(selectedRadio);
         examState.answers[examState.currentQuestion] = answerIndex;
+        
+        // Save to database
+        const sessionId = localStorage.getItem('currentSessionId');
+        if (!UI_ONLY && sessionId && questionData && window.electronAPI) {
+            window.electronAPI.saveMCQAnswer({
+                sessionId: sessionId,
+                questionId: questionData.id,
+                selectedOption: answerIndex
+            }).then(response => {
+                if (response.success) {
+                    console.log(`MCQ answer saved to database for question ${examState.currentQuestion}`);
+                } else {
+                    console.error('Failed to save MCQ answer to database:', response.error);
+                }
+            }).catch(error => {
+                console.error('Error saving MCQ answer:', error);
+            });
+        }
         
         // Show auto-save indication
         showAutoSaveIndicator();
@@ -468,33 +664,198 @@ function showAutoSaveIndicator() {
     }
 }
 
-function runCodeSimulated() {
+async function runCodeSimulated() {
     const output = document.getElementById('codeOutput');
     const codeEditor = document.getElementById('codeEditor');
+    const languageSelect = document.getElementById('codeLanguage');
+    
     if (!output || !codeEditor) return;
 
     const code = codeEditor.value.trim();
+    const language = languageSelect ? languageSelect.value : 'javascript';
+    
     if (!code) {
-        output.textContent = 'No code to run.';
+        output.textContent = 'Error: No code to run.';
+        output.style.color = '#dc3545';
         return;
     }
 
-    output.textContent = 'Running sample tests...\n\nTest 1: Passed\nTest 2: Passed\n\nOutput: [0, 1]';
+    // Get current question data
+    const questionIndex = examState.currentQuestion - 1;
+    const questionData = questionsData[questionIndex];
+
+    if (!questionData || questionData.type !== 'coding') {
+        output.textContent = 'Error: Not a coding question.';
+        output.style.color = '#dc3545';
+        return;
+    }
+
+    if (!questionData.testCases || questionData.testCases.length === 0) {
+        output.textContent = 'Error: No test cases available for this question.';
+        output.style.color = '#dc3545';
+        return;
+    }
+
+    // Show running message
+    output.textContent = 'Running sample tests...\n';
+    output.style.color = '#0d6efd';
+
+    try {
+        // Run sample test cases (non-hidden only)
+        const result = await codeRunner.runSampleTests(code, questionData.testCases, language);
+
+        if (!result.success) {
+            output.textContent = `Error: ${result.error}`;
+            output.style.color = '#dc3545';
+            return;
+        }
+
+        // Format and display results
+        const formattedOutput = codeRunner.formatResults(result);
+        output.textContent = formattedOutput;
+        
+        if (result.allPassed) {
+            output.style.color = '#198754';
+        } else {
+            output.style.color = '#dc3545';
+        }
+
+    } catch (error) {
+        output.textContent = `Runtime Error: ${error.message}`;
+        output.style.color = '#dc3545';
+    }
 }
 
-function submitCodeSimulated() {
+async function submitCodeSimulated() {
     const output = document.getElementById('codeOutput');
     const codeEditor = document.getElementById('codeEditor');
+    const languageSelect = document.getElementById('codeLanguage');
+    
     if (!output || !codeEditor) return;
 
     const code = codeEditor.value.trim();
+    const language = languageSelect ? languageSelect.value : 'javascript';
+    
     if (!code) {
-        output.textContent = 'Submission failed: code is empty.';
+        output.textContent = 'Error: Cannot submit empty code.';
+        output.style.color = '#dc3545';
         return;
     }
 
-    output.textContent = 'Submitting...\n\nResult: Accepted (simulated)';
-    saveCurrentAnswer();
+    // Get current question data
+    const questionIndex = examState.currentQuestion - 1;
+    const questionData = questionsData[questionIndex];
+
+    if (!questionData || questionData.type !== 'coding') {
+        output.textContent = 'Error: Not a coding question.';
+        output.style.color = '#dc3545';
+        return;
+    }
+
+    if (!questionData.testCases || questionData.testCases.length === 0) {
+        output.textContent = 'Error: No test cases available for this question.';
+        output.style.color = '#dc3545';
+        return;
+    }
+
+    // Show submitting message
+    output.textContent = 'Submitting and running all test cases (including hidden)...\n';
+    output.style.color = '#0d6efd';
+
+    try {
+        // Run all test cases (including hidden ones)
+        const result = await codeRunner.submitCode(code, questionData.testCases, language);
+
+        if (!result.success) {
+            output.textContent = `Error: ${result.error}`;
+            output.style.color = '#dc3545';
+            return;
+        }
+
+        // Format results
+        let submissionOutput = `\n=== SUBMISSION RESULT ===\n`;
+        submissionOutput += `Status: ${result.status}\n`;
+        submissionOutput += `Test Cases: ${result.passed}/${result.total} passed\n`;
+        submissionOutput += `Total Time: ${result.totalTime}ms\n\n`;
+
+        // Show visible test results
+        result.results.forEach((testResult, index) => {
+            if (!questionData.testCases[index].hidden) {
+                submissionOutput += `Test ${index + 1}: ${testResult.passed ? '✓ Passed' : '✗ Failed'}\n`;
+                if (!testResult.passed && testResult.error) {
+                    submissionOutput += `  Error: ${testResult.error}\n`;
+                }
+            }
+        });
+
+        const hiddenTests = questionData.testCases.filter(tc => tc.hidden).length;
+        if (hiddenTests > 0) {
+            const hiddenPassed = result.results
+                .filter((r, i) => questionData.testCases[i].hidden)
+                .filter(r => r.passed).length;
+            submissionOutput += `\nHidden Tests: ${hiddenPassed}/${hiddenTests} passed\n`;
+        }
+
+        output.textContent = submissionOutput;
+        
+        if (result.allPassed) {
+            output.style.color = '#198754';
+            output.textContent += '\n✓ Accepted! Your solution is correct.\n';
+        } else {
+            output.style.color = '#dc3545';
+            output.textContent += '\n✗ Wrong Answer. Please review your solution.\n';
+        }
+
+        // Save the answer
+        saveCodeAnswer(code, language, result);
+
+    } catch (error) {
+        output.textContent = `Runtime Error: ${error.message}`;
+        output.style.color = '#dc3545';
+    }
+}
+
+function saveCodeAnswer(code, language, result) {
+    const questionNumber = examState.currentQuestion;
+    const questionData = questionsData[questionNumber - 1];
+    
+    examState.answers[questionNumber] = {
+        type: 'coding',
+        code: code,
+        language: language,
+        status: result.status,
+        passed: result.passed,
+        total: result.total,
+        allPassed: result.allPassed,
+        timestamp: Date.now()
+    };
+
+    updateQuestionNavigation();
+    
+    // Save to database
+    const sessionId = localStorage.getItem('currentSessionId');
+    if (!UI_ONLY && sessionId && questionData && window.electronAPI) {
+        window.electronAPI.saveCodeAnswer({
+            sessionId: sessionId,
+            questionId: questionData.id,
+            code: code,
+            language: language,
+            testResults: result.results,
+            passedTests: result.passed,
+            totalTests: result.total,
+            executionTime: result.totalTime || 0
+        }).then(response => {
+            if (response.success) {
+                console.log(`Code answer saved to database for question ${questionNumber}`);
+            } else {
+                console.error('Failed to save code answer to database:', response.error);
+            }
+        }).catch(error => {
+            console.error('Error saving code answer:', error);
+        });
+    }
+    
+    console.log(`Code answer saved for question ${questionNumber}:`, result.status);
 }
 
 // Simulate auto-save every 30 seconds
@@ -543,7 +904,7 @@ function goToSubmission() {
     // Save exam state to localStorage for submission page
     localStorage.setItem('examState', JSON.stringify(examState));
     
-    if (window.electronAPI && window.electronAPI.navigateTo) {
+    if (!UI_ONLY && window.electronAPI && window.electronAPI.navigateTo) {
         window.electronAPI.navigateTo('submission');
     } else {
         window.location.href = 'submission.html';
@@ -593,6 +954,10 @@ let proctoringContext = null;
 let proctoringMonitorInterval = null;
 
 async function initializeProctoringCamera() {
+    if (UI_ONLY) {
+        updateProctoringStatus('OK', 'success');
+        return;
+    }
     try {
         const video = document.getElementById('proctoring-video');
         const canvas = document.getElementById('proctoring-canvas');

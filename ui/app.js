@@ -2,6 +2,8 @@
 // Secure Exam Browser - Client-Side Application Logic
 // ============================================================================
 
+const UI_ONLY = true;
+
 class SecureExamApp {
     constructor() {
         this.currentScreen = 'launch';
@@ -79,6 +81,15 @@ class SecureExamApp {
     }
 
     async runSystemChecks() {
+        if (UI_ONLY) {
+            this.systemChecks.internet = true;
+            this.systemChecks.camera = true;
+            this.systemChecks.microphone = true;
+            this.systemChecks.lock = true;
+            this.updateSystemStatus();
+            return;
+        }
+
         // Check internet connection
         this.systemChecks.internet = navigator.onLine;
         
@@ -140,7 +151,7 @@ class SecureExamApp {
         console.log(`Navigating to: ${screen}`);
         
         // Log activity if electronAPI is available
-        if (window.electronAPI && window.electronAPI.logActivity) {
+        if (!UI_ONLY && window.electronAPI && window.electronAPI.logActivity) {
             const sessionId = Number(localStorage.getItem('currentSessionId'));
             if (sessionId) {
                 await window.electronAPI.logActivity('NAVIGATION', {
@@ -151,7 +162,7 @@ class SecureExamApp {
         }
 
         // Use electronAPI navigation if available
-        if (window.electronAPI && window.electronAPI.navigateTo) {
+        if (!UI_ONLY && window.electronAPI && window.electronAPI.navigateTo) {
             try {
                 await window.electronAPI.navigateTo(screen);
                 this.currentScreen = screen;

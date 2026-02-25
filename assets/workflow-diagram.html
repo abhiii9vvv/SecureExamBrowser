@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Secure Exam Browser — Workflow Diagram</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body { background: #0f1117; display: flex; flex-direction: column; align-items: center; padding: 32px; font-family: sans-serif; }
+    h2 { color: #e2e8f0; margin-bottom: 24px; letter-spacing: 0.5px; }
+    #diagram-box { background: #1e2230; border-radius: 12px; padding: 32px; max-width: 1100px; width: 100%; }
+    button {
+      margin-top: 28px;
+      padding: 10px 28px;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+  <h2>Secure Exam Browser — Full Workflow</h2>
+  <div id="diagram-box">
+    <div class="mermaid">
+flowchart TD
+    A([Electron App Start\nscript.js]) --> B[login.html\nAdmin / Student Login]
+
+    B -->|Admin credentials| C[dashboard.html\nAdmin Panel]
+    B -->|Student credentials| D[launch.html\nPre-Exam Checks]
+
+    C --> C1[Monitor Active Sessions]
+    C --> C2[View Audit / Violation Logs]
+    C --> C3[KPI Stats: Active · Violations]
+    C --> C4[Force Exit / Revoke Session]
+
+    D --> D1{System Checks}
+    D1 -->|Internet ✓| D2[Camera Check ✓]
+    D1 -->|Fail| D_FAIL([Block — Show Error])
+    D2 -->|Mic ✓| D3[Lockdown Mode ✓]
+    D3 -->|All passed| E[verification.html\nBiometric Verification]
+
+    E --> E1[Camera Stream Start]
+    E1 --> E2[Face Detection\n30 stable frames]
+    E2 --> E3[Liveness Check\nMotion Score]
+    E3 --> E4[Identity Match\nEnroll / Verify]
+    E4 -->|Verified ✓| F[exam.html\nExam Session]
+    E4 -->|Failed / Locked| E_FAIL([Lock Verification\nLog Incident])
+
+    F --> F1[Load Questions\nfrom DB / ques.json]
+    F1 --> F2[MCQ Questions\nMultiple Choice]
+    F1 --> F3[Coding Questions\nCode Runner IDE]
+    F2 --> F4[Flag / Unflag\nNavigate Questions]
+    F3 --> F4
+    F4 --> F5{Timer\n2h Countdown}
+    F5 -->|Time Up| G[submission.html]
+    F5 -->|Student Submits| G
+
+    G --> G1[Review Stats\nAnswered · Unanswered · Flagged]
+    G1 --> G2{Confirm Submit?}
+    G2 -->|No| F
+    G2 -->|Yes| G3[Submit to Backend\nRecord Session]
+    G3 --> H([Session End\nRelease Kiosk Lock])
+
+    subgraph Electron Main Process
+        M1[Kiosk / Fullscreen Mode]
+        M2[Block: Alt+F4 · Esc · F11 · Alt+Tab]
+        M3[Block External Navigation]
+        M4[IPC Bridge — preload.js]
+        M5[Admin Exit Shortcut]
+    end
+
+    A -.->|Controls| M1
+    M4 -.->|electronAPI calls| D
+    M4 -.->|electronAPI calls| E
+    M4 -.->|electronAPI calls| F
+    M4 -.->|electronAPI calls| G
+    </div>
+  </div>
+  <div style="display:flex;gap:12px;margin-top:28px;">
+    <button onclick="downloadSVG()">⬇ Download as SVG</button>
+    <button onclick="downloadPNG()" style="background:#10b981;">⬇ Download as PNG</button>
+  </div>
+
+  <script>
+    const DIAGRAM_SOURCE = `flowchart TD
+    A([Electron App Start\nscript.js]) --> B[login.html\nAdmin / Student Login]
+    B -->|Admin credentials| C[dashboard.html\nAdmin Panel]
+    B -->|Student credentials| D[launch.html\nPre-Exam Checks]
+    C --> C1[Monitor Active Sessions]
+    C --> C2[View Audit / Violation Logs]
+    C --> C3[KPI Stats: Active · Violations]
+    C --> C4[Force Exit / Revoke Session]
+    D --> D1{System Checks}
+    D1 -->|Internet ✓| D2[Camera Check ✓]
+    D1 -->|Fail| D_FAIL([Block — Show Error])
+    D2 -->|Mic ✓| D3[Lockdown Mode ✓]
+    D3 -->|All passed| E[verification.html\nBiometric Verification]
+    E --> E1[Camera Stream Start]
+    E1 --> E2[Face Detection\n30 stable frames]
+    E2 --> E3[Liveness Check\nMotion Score]
+    E3 --> E4[Identity Match\nEnroll / Verify]
+    E4 -->|Verified ✓| F[exam.html\nExam Session]
+    E4 -->|Failed / Locked| E_FAIL([Lock Verification\nLog Incident])
+    F --> F1[Load Questions\nfrom DB / ques.json]
+    F1 --> F2[MCQ Questions\nMultiple Choice]
+    F1 --> F3[Coding Questions\nCode Runner IDE]
+    F2 --> F4[Flag / Unflag\nNavigate Questions]
+    F3 --> F4
+    F4 --> F5{Timer\n2h Countdown}
+    F5 -->|Time Up| G[submission.html]
+    F5 -->|Student Submits| G
+    G --> G1[Review Stats\nAnswered · Unanswered · Flagged]
+    G1 --> G2{Confirm Submit?}
+    G2 -->|No| F
+    G2 -->|Yes| G3[Submit to Backend\nRecord Session]
+    G3 --> H([Session End\nRelease Kiosk Lock])
+    subgraph Electron Main Process
+        M1[Kiosk / Fullscreen Mode]
+        M2[Block: Alt+F4 · Esc · F11 · Alt+Tab]
+        M3[Block External Navigation]
+        M4[IPC Bridge — preload.js]
+        M5[Admin Exit Shortcut]
+    end
+    A -.->|Controls| M1
+    M4 -.->|electronAPI calls| D
+    M4 -.->|electronAPI calls| E
+    M4 -.->|electronAPI calls| F
+    M4 -.->|electronAPI calls| G`;
+
+    mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+
+    function getSVGString() {
+      const svgEl = document.querySelector('#diagram-box svg');
+      if (!svgEl) return null;
+      const serializer = new XMLSerializer();
+      let str = serializer.serializeToString(svgEl);
+      if (!str.includes('xmlns=')) str = str.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+      return str;
+    }
+
+    function downloadSVG() {
+      let svgStr = getSVGString();
+      if (!svgStr) { alert('Diagram not ready yet.'); return; }
+
+      // Inject dark background rect right after the opening <svg ...> tag
+      svgStr = svgStr.replace(/(<svg[^>]*>)/, '$1<rect width="100%" height="100%" fill="#1e2230"/>');
+
+      const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+      const link = document.createElement('a');
+      link.download = 'secure-exam-browser-workflow.svg';
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }
+
+    async function downloadPNG() {
+      // Use mermaid.render() to get a clean SVG, then encode as base64 data URL
+      // to avoid tainted canvas from blob:// protocol
+      let svgStr;
+      try {
+        const { svg } = await mermaid.render('png-export', DIAGRAM_SOURCE);
+        svgStr = svg;
+      } catch(e) {
+        svgStr = getSVGString();
+      }
+      if (!svgStr) { alert('Diagram not ready yet.'); return; }
+
+      // Parse dimensions from SVG
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgStr, 'image/svg+xml');
+      const svgNode = doc.querySelector('svg');
+      const vb = svgNode?.getAttribute('viewBox');
+      let w = parseFloat(svgNode?.getAttribute('width')) || 0;
+      let h = parseFloat(svgNode?.getAttribute('height')) || 0;
+      if (vb) {
+        const parts = vb.split(/\s+/);
+        if (!w) w = parseFloat(parts[2]) || 1200;
+        if (!h) h = parseFloat(parts[3]) || 900;
+      }
+      if (!w) w = 1200;
+      if (!h) h = 900;
+
+      // Force explicit width/height on the SVG so canvas renders at full size
+      svgStr = svgStr.replace(/<svg([^>]*)>/, (match, attrs) => {
+        attrs = attrs.replace(/width="[^"]*"/, '').replace(/height="[^"]*"/, '');
+        return `<svg${attrs} width="${w}" height="${h}">`;
+      });
+
+      const scale = 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = w * scale;
+      canvas.height = h * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#1e2230';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.scale(scale, scale);
+
+      // Use base64 data URL instead of blob URL — avoids tainted canvas
+      const b64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));
+      const img = new Image();
+      img.onload = function () {
+        ctx.drawImage(img, 0, 0, w, h);
+        const link = document.createElement('a');
+        link.download = 'secure-exam-browser-workflow.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      };
+      img.onerror = () => alert('PNG render failed. Try the SVG download.');
+      img.src = b64;
+    }
+  </script>
+</body>
+</html>

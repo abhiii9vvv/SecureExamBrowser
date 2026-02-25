@@ -77,42 +77,59 @@
         </div>
 
         <div class="app-card p-4 mt-4">
-          <div class="d-flex align-items-center justify-content-between mb-3">
-            <h2 class="app-section-title mb-0">Live Monitoring</h2>
+          <div class="card-header">
+            <div>
+              <div class="card-title">Live Monitoring</div>
+              <div class="card-subtitle">Active session snapshots</div>
+            </div>
             <div class="btn-group btn-group-sm">
               <button class="btn btn-dark" type="button">Grid</button>
               <button class="btn btn-outline-dark" type="button">List</button>
             </div>
           </div>
-          <div class="row g-3" id="activeSessionsGrid">
-            <div class="col-12 text-center text-muted py-4" id="activeSessionsEmpty">No active sessions</div>
+          <div class="card-body">
+            <div class="row g-3" id="activeSessionsGrid">
+              <div class="col-12 text-center text-muted py-4" id="activeSessionsEmpty">No active sessions</div>
+            </div>
           </div>
         </div>
       </div>
 
       <aside class="col-xl-3">
         <div class="app-card p-4 mb-3">
-          <h2 class="app-section-title">Today Summary</h2>
-          <div class="summary-list">
-            <div class="summary-item">
-              <span class="summary-label">DB Status</span>
-              <span class="summary-value" id="dashboardDbStatus">--</span>
+          <div class="card-header">
+            <div>
+              <div class="card-title">Today Summary</div>
+              <div class="card-subtitle">Key system signals</div>
             </div>
-            <div class="summary-item">
-              <span class="summary-label">Active Sessions</span>
-              <span class="summary-value" id="dashboardActive">--</span>
-            </div>
-            <div class="summary-item">
-              <span class="summary-label">Violations Today</span>
-              <span class="summary-value" id="dashboardViolations">--</span>
+          </div>
+          <div class="card-body">
+            <div class="summary-list">
+              <div class="summary-item">
+                <span class="summary-label">DB Status</span>
+                <span class="summary-value" id="dashboardDbStatus">--</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Active Sessions</span>
+                <span class="summary-value" id="dashboardActive">--</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Violations Today</span>
+                <span class="summary-value" id="dashboardViolations">--</span>
+              </div>
             </div>
           </div>
         </div>
 
         <div class="app-card p-4 h-100">
-          <h2 class="app-section-title">Incident Log</h2>
-          <p class="text-muted small">Realtime alerts and audit trail</p>
-          <div class="border-top pt-3">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Incident Log</div>
+              <div class="card-subtitle">Realtime alerts and audit trail</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="border-top pt-3">
             <div class="d-flex justify-content-between align-items-start mb-3">
               <div>
                 <div class="fw-semibold">Tab switch detected</div>
@@ -128,6 +145,7 @@
               <span class="badge text-bg-light border">2m</span>
             </div>
             <button class="btn btn-outline-dark w-100" onclick="showIncidentLog()">View full log</button>
+            </div>
           </div>
         </div>
       </aside>

@@ -1,4 +1,6 @@
-// Launch Screen JavaScript
+// Launch Screen JavaScript - Refactored
+
+const UI_ONLY = true;
 
 // Initialize launch screen
 const systemStatus = {
@@ -7,12 +9,17 @@ const systemStatus = {
     microphone: null,
     lock: null
 };
+
+let biometricVerified = UI_ONLY ? true : false;
+let examScheduled = UI_ONLY ? true : false;
+
 async function initializeLaunchScreen() {
-    const proceedButton = document.querySelector('button[aria-label="Proceed to biometric verification"]');
+    const startExamButton = document.getElementById('startExamButton');
+    const verificationButton = document.querySelector('.btn-verification-start');
     let hasActiveExam = false;
     let hasUserProfile = false;
 
-    if (window.electronAPI && window.electronAPI.getSystemInfo) {
+    if (!UI_ONLY && window.electronAPI && window.electronAPI.getSystemInfo) {
         try {
             const info = await window.electronAPI.getSystemInfo();
             document.getElementById('systemInfo').textContent = `${info.platform} ${info.arch}`;
@@ -25,39 +32,35 @@ async function initializeLaunchScreen() {
     }
 
     // Load active exam (production data)
-    if (window.electronAPI && window.electronAPI.getActiveExam) {
+    if (!UI_ONLY && window.electronAPI && window.electronAPI.getActiveExam) {
         try {
             const examResult = await window.electronAPI.getActiveExam();
             if (examResult.success && examResult.data) {
                 const exam = examResult.data;
-                const examName = document.getElementById('examName');
-                const examCode = document.getElementById('examCode');
-                const examTitle = document.getElementById('examTitle');
-                const examCodeInline = document.getElementById('examCodeInline');
-                const examDuration = document.getElementById('examDuration');
-                const examWindow = document.getElementById('examWindow');
-                const examUrl = document.getElementById('examUrl');
-                if (examName) examName.textContent = exam.exam_name;
-                if (examCode) examCode.textContent = exam.exam_code;
-                if (examTitle) examTitle.textContent = exam.exam_name || '--';
-                if (examCodeInline) examCodeInline.textContent = exam.exam_code || '--';
-                if (examDuration) {
-                    examDuration.textContent = exam.duration_minutes
-                        ? `${exam.duration_minutes} minutes`
-                        : '--';
+                
+                // Update exam details
+                updateDetailValue('examTitle', exam.exam_name);
+                updateDetailValue('examCodeInline', exam.exam_code);
+                updateDetailValue('examDuration', exam.duration_minutes ? `${exam.duration_minutes} minutes` : null);
+                updateDetailValue('examWindow', formatExamWindow(exam.start_time, exam.end_time));
+                
+                const examUrl = exam.exam_url || '';
+                const examUrlEl = document.getElementById('examUrl');
+                if (examUrlEl) {
+                    if (examUrl) {
+                        examUrlEl.innerHTML = `<a href="${examUrl}" target="_blank">${examUrl}</a>`;
+                    } else {
+                        examUrlEl.innerHTML = '<span class="empty-state">Not available</span>';
+                    }
                 }
-                if (examWindow) {
-                    examWindow.textContent = formatExamWindow(exam.start_time, exam.end_time);
-                }
-                if (examUrl) {
-                    const url = exam.exam_url || '';
-                    examUrl.innerHTML = url ? `<a href="${url}">${url}</a>` : '--';
-                }
+                
                 localStorage.setItem('currentExamName', exam.exam_name || '');
                 localStorage.setItem('currentExamCode', exam.exam_code || '');
                 localStorage.setItem('currentExamDuration', exam.duration_minutes || '');
                 localStorage.setItem('currentExamId', exam.exam_id);
+                
                 hasActiveExam = true;
+                examScheduled = true;
             }
         } catch (error) {
             console.error('Failed to load active exam:', error);
@@ -66,12 +69,12 @@ async function initializeLaunchScreen() {
 
     // Load current user profile (production data)
     const userId = Number(localStorage.getItem('currentUserId'));
-    if (window.electronAPI && window.electronAPI.getUserProfile && userId) {
+    if (!UI_ONLY && window.electronAPI && window.electronAPI.getUserProfile && userId) {
         try {
             const userResult = await window.electronAPI.getUserProfile(userId);
             if (userResult.success && userResult.data) {
                 document.getElementById('studentName').textContent = userResult.data.full_name || 'Student';
-                document.getElementById('studentId').textContent = userResult.data.student_id || '--';
+                updateDetailValue('studentId', userResult.data.student_id);
                 hasUserProfile = true;
             }
         } catch (error) {
@@ -79,66 +82,117 @@ async function initializeLaunchScreen() {
         }
     }
 
+    // Load profile details from localStorage
     const storedCourse = localStorage.getItem('currentUserCourse');
     const storedBranch = localStorage.getItem('currentUserBranch');
     const storedUniversity = localStorage.getItem('currentUserUniversity');
     const storedLocation = localStorage.getItem('currentUserLocation');
 
-    if (storedCourse) document.getElementById('studentCourse').textContent = storedCourse;
-    if (storedBranch) document.getElementById('studentBranch').textContent = storedBranch;
-    if (storedUniversity) document.getElementById('studentUniversity').textContent = storedUniversity;
-    if (storedLocation) document.getElementById('studentLocation').textContent = storedLocation;
+    updateDetailValue('studentCourse', storedCourse);
+    updateDetailValue('studentBranch', storedBranch);
+    updateDetailValue('studentUniversity', storedUniversity);
+    updateDetailValue('studentLocation', storedLocation);
 
     if (!hasUserProfile) {
         document.getElementById('studentName').textContent = 'Not signed in';
-        document.getElementById('studentId').textContent = '--';
-        document.getElementById('studentCourse').textContent = '--';
-        document.getElementById('studentBranch').textContent = '--';
-        document.getElementById('studentUniversity').textContent = '--';
-        document.getElementById('studentLocation').textContent = '--';
     }
 
     // Run system checks
+    if (UI_ONLY) {
+        examScheduled = true;
+        biometricVerified = true;
+        const storedName = localStorage.getItem('currentExamName') || '';
+        const storedCode = localStorage.getItem('currentExamCode') || '';
+        if (!storedName || /demo/i.test(storedName)) {
+            localStorage.setItem('currentExamName', 'Assessment');
+        }
+        if (!storedCode || /demo/i.test(storedCode)) {
+            localStorage.setItem('currentExamCode', 'EXAM-001');
+        }
+    }
     await runSystemChecks();
 
     // Update database connectivity status
-    if (window.electronAPI && window.electronAPI.getDatabaseStatus) {
+    if (!UI_ONLY && window.electronAPI && window.electronAPI.getDatabaseStatus) {
         try {
             const dbStatus = await window.electronAPI.getDatabaseStatus();
             const statusEl = document.getElementById('connectionStatus');
             if (statusEl) {
-                statusEl.textContent = dbStatus.connected ? 'DB Connected' : 'DB Offline';
-                statusEl.className = `profile-value ${dbStatus.connected ? 'status-pill-ok' : 'status-pill-warn'}`;
+                statusEl.textContent = dbStatus.connected ? 'Connected' : 'Offline';
+                statusEl.style.color = dbStatus.connected ? '#059669' : '#d97706';
             }
         } catch (error) {
             console.warn('Database status unavailable:', error);
         }
     }
 
-    // Enable proceed button for demo mode (no database requirement)
-    if (proceedButton) {
-        // Always enable for demo/testing
-        proceedButton.disabled = false;
-        proceedButton.classList.remove('opacity-60', 'cursor-not-allowed');
-        proceedButton.title = '';
-        
-        // Show warning if no data loaded (but still allow proceeding)
-        if (!hasActiveExam || !hasUserProfile) {
-            console.warn('Demo mode: Proceeding without full database setup');
-        }
+    // Update global exam status
+    updateGlobalExamStatus();
+
+    // Setup verification button
+    if (verificationButton) {
+        verificationButton.addEventListener('click', async (e) => {
+            e.preventDefault();
+            console.log('Verification button clicked - navigating to verification...');
+            
+            if (!UI_ONLY && window.electronAPI && window.electronAPI.navigateTo) {
+                try {
+                    await window.electronAPI.navigateTo('verification');
+                } catch (error) {
+                    console.error('Navigation failed:', error);
+                    window.location.href = 'verification.html';
+                }
+            } else {
+                window.location.href = 'verification.html';
+            }
+        });
     }
-    
+
+    // Setup start exam button
+    if (startExamButton) {
+        startExamButton.addEventListener('click', async (e) => {
+            e.preventDefault();
+            console.log('Start exam button clicked');
+            
+            // Navigate to exam page
+            if (!UI_ONLY && window.electronAPI && window.electronAPI.navigateTo) {
+                try {
+                    await window.electronAPI.navigateTo('exam');
+                } catch (error) {
+                    console.error('Navigation failed:', error);
+                    window.location.href = 'exam.html';
+                }
+            } else {
+                window.location.href = 'exam.html';
+            }
+        });
+    }
+
     // Update clock
     updateClock();
     setInterval(updateClock, 1000);
 }
 
+function updateDetailValue(elementId, value) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    if (value && value !== '--' && value !== '') {
+        element.textContent = value;
+        // Remove empty state if exists
+        const emptyState = element.querySelector('.empty-state');
+        if (emptyState) {
+            element.textContent = value;
+        }
+    }
+}
+
 function formatExamWindow(startTime, endTime) {
-    if (!startTime || !endTime) return '--';
+    if (!startTime || !endTime) return null;
     const start = new Date(startTime);
     const end = new Date(endTime);
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-        return '--';
+        return null;
     }
 
     const options = { hour: '2-digit', minute: '2-digit' };
@@ -149,180 +203,228 @@ function formatExamWindow(startTime, endTime) {
 }
 
 async function runSystemChecks() {
+    if (UI_ONLY) {
+        systemStatus.internet = true;
+        systemStatus.camera = true;
+        systemStatus.microphone = true;
+        systemStatus.lock = true;
+        updateCheckItem('internet', true);
+        updateCheckItem('camera', true);
+        updateCheckItem('microphone', true);
+        updateCheckItem('lock', true);
+        updateProgressSummary();
+        updateSystemAlerts();
+        updateGlobalExamStatus();
+        return;
+    }
+
     console.log('Starting system checks...');
     
-    // Check internet
-    const internetCheck = document.querySelector('[data-status="internet"]');
-    if (internetCheck) {
-        setLoadingState(internetCheck, true);
-        await new Promise(resolve => setTimeout(resolve, 800));
-        const isOnline = navigator.onLine;
-        console.log('Internet check:', isOnline);
-        updateStatusCard(internetCheck, isOnline);
-        setLoadingState(internetCheck, false);
-    }
+    // Internet check
+    setCheckLoading('internet', 'Checking internet connection...');
+    await new Promise(resolve => setTimeout(resolve, 300));
+    systemStatus.internet = navigator.onLine;
+    updateCheckItem('internet', systemStatus.internet);
 
-    // Check camera
-    const cameraCheck = document.querySelector('[data-status="camera"]');
-    if (cameraCheck) {
-        setLoadingState(cameraCheck, true);
-        try {
-            console.log('Requesting camera permission...');
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { 
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                } 
-            });
-            console.log('Camera granted:', stream);
-            stream.getTracks().forEach(track => {
-                console.log('Stopping track:', track);
-                track.stop();
-            });
-            updateStatusCard(cameraCheck, true);
-        } catch (error) {
-            console.error('Camera error:', error);
-            updateStatusCard(cameraCheck, false);
+    // Camera check  
+    setCheckLoading('camera', 'Detecting camera...');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        systemStatus.camera = videoDevices.length > 0;
+        if (systemStatus.camera) {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            stream.getTracks().forEach(track => track.stop());
         }
-        setLoadingState(cameraCheck, false);
+    } catch (error) {
+        console.warn('Camera check failed:', error);
+        systemStatus.camera = false;
     }
+    updateCheckItem('camera', systemStatus.camera);
 
-    // Check microphone
-    const micCheck = document.querySelector('[data-status="microphone"]');
-    if (micCheck) {
-        setLoadingState(micCheck, true);
-        await new Promise(resolve => setTimeout(resolve, 300));
-        try {
-            console.log('Requesting microphone permission...');
+    // Microphone check
+    setCheckLoading('microphone', 'Detecting microphone...');
+    await new Promise(resolve => setTimeout(resolve, 300));
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioDevices = devices.filter(d => d.kind === 'audioinput');
+        systemStatus.microphone = audioDevices.length > 0;
+        if (systemStatus.microphone) {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            console.log('Microphone granted:', stream);
-            stream.getTracks().forEach(track => {
-                console.log('Stopping track:', track);
-                track.stop();
-            });
-            updateStatusCard(micCheck, true);
+            stream.getTracks().forEach(track => track.stop());
+        }
+    } catch (error) {
+        console.warn('Microphone check failed:', error);
+        systemStatus.microphone = false;
+    }
+    updateCheckItem('microphone', systemStatus.microphone);
+
+    // Lock mode check
+    setCheckLoading('lock', 'Verifying lockdown mode...');
+    await new Promise(resolve => setTimeout(resolve, 800));
+    if (!UI_ONLY && window.electronAPI && window.electronAPI.getLockStatus) {
+        try {
+            const lockStatus = await window.electronAPI.getLockStatus();
+            systemStatus.lock = lockStatus.enabled === true;
         } catch (error) {
-            console.error('Microphone error:', error);
-            updateStatusCard(micCheck, false);
+            console.warn('Lock status check failed:', error);
+            systemStatus.lock = false;
         }
-        setLoadingState(micCheck, false);
+    } else {
+        systemStatus.lock = false;
     }
+    updateCheckItem('lock', systemStatus.lock);
 
-    // Browser lock check
-    const lockCheck = document.querySelector('[data-status="lock"]');
-    if (lockCheck) {
-        setLoadingState(lockCheck, true);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        // Check if running in fullscreen or Electron kiosk mode
-        const isLocked = document.fullscreenElement !== null || 
-                        (window.electronAPI !== undefined) ||
-                        window.innerHeight === screen.height;
-        console.log('Browser lock status:', isLocked);
-        updateStatusCard(lockCheck, isLocked);
-        setLoadingState(lockCheck, false);
-    }
-    
-    console.log('System checks completed');
+    console.log('System checks completed:', systemStatus);
+    updateProgressSummary();
+    updateSystemAlerts();
+    updateGlobalExamStatus();
 }
 
-function setLoadingState(card, isLoading) {
-    const statusText = card.querySelector('.status-text');
-    const statusDot = card.querySelector('[data-status-dot]');
-    const icon = card.querySelector('[data-status-icon]');
+function setCheckLoading(checkId, message) {
+    const checkItem = document.querySelector(`[data-status="${checkId}"]`);
+    if (!checkItem) return;
+
+    const statusIcon = checkItem.querySelector('.checklist-status span');
+    const statusText = checkItem.querySelector('[data-check-text]');
+
+    checkItem.removeAttribute('data-check-pass');
+    if (statusIcon) statusIcon.textContent = 'schedule';
+    if (statusText) statusText.textContent = message || 'Checking...';
+}
+
+function updateCheckItem(checkId, passed) {
+    const checkItem = document.querySelector(`[data-status="${checkId}"]`);
+    if (!checkItem) return;
+
+    const statusIcon = checkItem.querySelector('.checklist-status span');
+    const statusText = checkItem.querySelector('[data-check-text]');
+
+    checkItem.setAttribute('data-check-pass', passed ? 'true' : 'false');
     
-    if (isLoading) {
-        if (statusText) {
-            statusText.textContent = 'Checking...';
-            statusText.style.opacity = '0.6';
-        }
-        if (statusDot) {
-            statusDot.className = 'status-dot is-loading';
-        }
-        if (icon) {
-            icon.className = 'status-icon is-loading';
-        }
+    if (passed) {
+        if (statusIcon) statusIcon.textContent = 'check_circle';
+        if (statusText) statusText.textContent = 'Ready';
+    } else {
+        if (statusIcon) statusIcon.textContent = 'cancel';
+        if (statusText) statusText.textContent = 'Failed';
     }
 }
 
-function updateStatusCard(card, isActive) {
-    const statusText = card.querySelector('.status-text');
-    const statusDot = card.querySelector('[data-status-dot]');
-    const icon = card.querySelector('[data-status-icon]');
-    const errorMessage = card.querySelector('.error-message');
+function updateProgressSummary() {
+    const checksPassedCount = Object.values(systemStatus).filter(v => v === true).length;
+    const totalChecks = Object.keys(systemStatus).length;
     
-    console.log('Updating card:', card.getAttribute('data-status'), 'Active:', isActive);
+    const percentComplete = (checksPassedCount / totalChecks) * 100;
     
-    // Reset loading state
-    if (statusText) {
-        statusText.style.opacity = '1';
+    // Update progress text
+    const progressCount = document.getElementById('checksPassedCount');
+    if (progressCount) {
+        progressCount.textContent = checksPassedCount;
     }
-
-    // Update text
-    if (statusText) {
-        const statusName = card.getAttribute('data-status');
-        if (statusName === 'internet') {
-            statusText.textContent = isActive ? 'Connected' : 'Disconnected';
-        } else if (statusName === 'lock') {
-            statusText.textContent = isActive ? 'Locked' : 'Unlocked';
-        } else {
-            statusText.textContent = isActive ? 'Active' : 'Inactive';
-        }
-    }
-
-    const statusName = card.getAttribute('data-status');
-    if (statusName && Object.prototype.hasOwnProperty.call(systemStatus, statusName)) {
-        systemStatus[statusName] = isActive;
-        updateSystemAlerts();
-    }
-
-    // Update status dot
-    if (statusDot) {
-        statusDot.className = `status-dot ${isActive ? 'is-ok' : 'is-error'}`;
-    }
-
-    // Update icon container
-    if (icon) {
-        icon.className = `status-icon ${isActive ? 'is-ok' : 'is-error'}`;
-    }
-
-    // Show/hide error message
-    if (errorMessage) {
-        if (isActive) {
-            errorMessage.classList.add('d-none');
-        } else {
-            errorMessage.classList.remove('d-none');
-        }
+    
+    // Update progress bar
+    const progressBar = document.querySelector('.checksProgressBar');
+    if (progressBar) {
+        progressBar.style.width = `${percentComplete}%`;
+        progressBar.setAttribute('aria-valuenow', percentComplete);
     }
 }
 
 function updateSystemAlerts() {
-    const alertBox = document.getElementById('systemAlerts');
-    if (!alertBox) return;
+    const alertContainer = document.getElementById('systemAlerts');
+    if (!alertContainer) return;
 
-    const failing = Object.entries(systemStatus)
-        .filter(([, value]) => value === false)
-        .map(([key]) => key);
+    const failedChecks = [];
+    if (!systemStatus.internet) failedChecks.push('Internet connection');
+    if (!systemStatus.camera) failedChecks.push('Camera access');
+    if (!systemStatus.microphone) failedChecks.push('Microphone access');
+    if (!systemStatus.lock) failedChecks.push('Lockdown mode');
 
-    if (failing.length === 0) {
-        alertBox.classList.add('d-none');
-        alertBox.textContent = '';
+    if (failedChecks.length === 0) {
+        alertContainer.classList.add('d-none');
+        alertContainer.innerHTML = '';
+    } else {
+        alertContainer.classList.remove('d-none');
+        const alertText = `Please resolve: ${failedChecks.join(', ')}`;
+        alertContainer.innerHTML = `
+            <div class="alert alert-warning mb-0" role="alert">
+                <span class="material-symbols-outlined" style="vertical-align: middle;">warning</span>
+                ${alertText}
+            </div>
+        `;
+    }
+}
+
+function updateGlobalExamStatus() {
+    const statusBadge = document.querySelector('.exam-status-badge');
+    const startExamButton = document.getElementById('startExamButton');
+    
+    if (!statusBadge) return;
+
+    if (UI_ONLY) {
+        statusBadge.setAttribute('data-status', 'ready');
+        const statusText = statusBadge.querySelector('.exam-status-text');
+        const statusIcon = statusBadge.querySelector('.exam-status-icon');
+        if (statusText) statusText.textContent = 'Ready to Start';
+        if (statusIcon) statusIcon.textContent = 'check_circle';
+        if (startExamButton) startExamButton.disabled = false;
         return;
     }
-
-    const labels = {
-        internet: 'Internet',
-        camera: 'Webcam',
-        microphone: 'Microphone',
-        lock: 'Browser Lock'
-    };
-
-    const list = failing.map(key => labels[key] || key).join(', ');
-    alertBox.textContent = `Issues detected: ${list}. Resolve to proceed smoothly.`;
-    alertBox.classList.remove('d-none');
+    
+    // Determine overall status
+    const allChecksPassed = Object.values(systemStatus).every(v => v === true);
+    const anyCheckRunning = Object.values(systemStatus).some(v => v === null);
+    
+    let status = 'checking';
+    
+    if (!examScheduled) {
+        status = 'not-scheduled';
+    } else if (anyCheckRunning) {
+        status = 'checking';
+    } else if (!allChecksPassed || !biometricVerified) {
+        status = 'issues';
+    } else {
+        status = 'ready';
+    }
+    
+    // Update badge
+    statusBadge.setAttribute('data-status', status);
+    
+    const statusText = statusBadge.querySelector('.exam-status-text');
+    const statusIcon = statusBadge.querySelector('.exam-status-icon');
+    
+    if (statusText) {
+        switch(status) {
+            case 'not-scheduled':
+                statusText.textContent = 'No Exam Scheduled';
+                if (statusIcon) statusIcon.textContent = 'event_busy';
+                break;
+            case 'checking':
+                statusText.textContent = 'Checking readiness...';
+                if (statusIcon) statusIcon.textContent = 'schedule';
+                break;
+            case 'issues':
+                statusText.textContent = 'System Issues Detected';
+                if (statusIcon) statusIcon.textContent = 'warning';
+                break;
+            case 'ready':
+                statusText.textContent = 'Ready to Start';
+                if (statusIcon) statusIcon.textContent = 'check_circle';
+                break;
+        }
+    }
+    
+    // Update start exam button
+    if (startExamButton) {
+        const canStart = status === 'ready';
+        startExamButton.disabled = !canStart;
+    }
 }
 
 function updateClock() {
-    const clockElement = document.getElementById('clock');
+    const clockElement = document.getElementById('currentTime');
     if (!clockElement) return;
     const now = new Date();
     clockElement.textContent = now.toLocaleTimeString('en-US', { 
@@ -333,48 +435,37 @@ function updateClock() {
     });
 }
 
-// Navigate to verification
-const proceedButton = document.querySelector('button[aria-label="Proceed to biometric verification"]');
-if (proceedButton) {
-    proceedButton.addEventListener('click', async (e) => {
-        e.preventDefault();
-        console.log('Proceed button clicked - navigating to verification...');
-        
-        if (window.electronAPI && window.electronAPI.navigateTo) {
-            try {
-                await window.electronAPI.navigateTo('verification');
-            } catch (error) {
-                console.error('Navigation failed:', error);
-                window.location.href = 'verification.html';
-            }
-        } else {
-            window.location.href = 'verification.html';
-        }
-    });
-} else {
-    console.error('Proceed button not found!');
-}
-
 // Real-time internet monitoring
 window.addEventListener('online', () => {
-    console.log('Internet connection restored');
-    const internetCheck = document.querySelector('[data-status="internet"]');
-    if (internetCheck) {
-        updateStatusCard(internetCheck, true);
+    if (UI_ONLY) {
+        return;
     }
+    console.log('Internet connection restored');
+    systemStatus.internet = true;
+    updateCheckItem('internet', true);
+    updateProgressSummary();
+    updateSystemAlerts();
+    updateGlobalExamStatus();
 });
 
 window.addEventListener('offline', () => {
-    console.log('Internet connection lost');
-    const internetCheck = document.querySelector('[data-status="internet"]');
-    if (internetCheck) {
-        updateStatusCard(internetCheck, false);
+    if (UI_ONLY) {
+        return;
     }
+    console.log('Internet connection lost');
+    systemStatus.internet = false;
+    updateCheckItem('internet', false);
+    updateProgressSummary();
+    updateSystemAlerts();
+    updateGlobalExamStatus();
 });
 
 // Monitor device changes
 if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
     navigator.mediaDevices.addEventListener('devicechange', async () => {
+        if (UI_ONLY) {
+            return;
+        }
         console.log('Media devices changed - rechecking...');
         await runSystemChecks();
     });

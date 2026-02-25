@@ -1,5 +1,7 @@
 // Dashboard JavaScript
 
+const UI_ONLY = true;
+
 // Show incident log (called from KPI tooltip)
 function showIncidentLog() {
     // Scroll to audit log sidebar
@@ -16,7 +18,17 @@ function showIncidentLog() {
 }
 
 async function updateDashboardStats() {
-    if (!window.electronAPI || !window.electronAPI.getDashboardStats) return;
+    if (UI_ONLY || !window.electronAPI || !window.electronAPI.getDashboardStats) {
+        const activeCountEl = document.getElementById('activeCount');
+        const criticalCountEl = document.getElementById('criticalCount');
+        const summaryActive = document.getElementById('dashboardActive');
+        const summaryViolations = document.getElementById('dashboardViolations');
+        if (activeCountEl) activeCountEl.textContent = 0;
+        if (criticalCountEl) criticalCountEl.textContent = 0;
+        if (summaryActive) summaryActive.textContent = 0;
+        if (summaryViolations) summaryViolations.textContent = 0;
+        return;
+    }
 
     const activeCountEl = document.getElementById('activeCount');
     const criticalCountEl = document.getElementById('criticalCount');
@@ -37,7 +49,11 @@ async function updateDashboardStats() {
 }
 
 async function updateDashboardStatus() {
-    if (!window.electronAPI || !window.electronAPI.getDatabaseStatus) return;
+    if (UI_ONLY || !window.electronAPI || !window.electronAPI.getDatabaseStatus) {
+        const statusEl = document.getElementById('dashboardDbStatus');
+        if (statusEl) statusEl.textContent = 'UI Only';
+        return;
+    }
     const statusEl = document.getElementById('dashboardDbStatus');
     if (!statusEl) return;
 
@@ -105,7 +121,10 @@ function renderActiveSessions(sessions) {
 }
 
 async function loadActiveSessions() {
-    if (!window.electronAPI || !window.electronAPI.getActiveSessions) return;
+    if (UI_ONLY || !window.electronAPI || !window.electronAPI.getActiveSessions) {
+        renderActiveSessions([]);
+        return;
+    }
 
     try {
         const result = await window.electronAPI.getActiveSessions();

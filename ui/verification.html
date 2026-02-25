@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>AI Biometric Verification</title>
+    <title>Biometric Verification</title>
     <link href="https://fonts.googleapis.com" rel="preconnect" />
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -17,11 +17,11 @@
         <div class="container-fluid py-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div class="d-flex align-items-center gap-3">
                 <div class="status-icon is-ok">
-                    <span class="material-symbols-outlined">school</span>
+                    <span class="material-symbols-outlined">shield</span>
                 </div>
                 <div>
-                    <div class="app-title">Biometric Verification</div>
-                    <div class="app-subtitle">Secure identity validation</div>
+                    <div class="app-title">Sharda University Secure Exam Browser</div>
+                    <div class="app-subtitle">Biometric verification in progress</div>
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2">
@@ -34,53 +34,53 @@
         <div class="verification-layout">
             <section class="camera-panel">
                 <div class="app-card p-3">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div class="app-section-title">Live Camera Feed</div>
-                        <span class="badge text-bg-light border app-mono">AI Scan Active</span>
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">Biometric Verification</div>
+                            <div class="card-subtitle">Secure identity validation</div>
+                        </div>
+                        <span class="badge text-bg-light border app-mono">Active</span>
                     </div>
-                    <div class="proctoring-frame tall" id="cameraFeed">
-                        <video id="videoElement" autoplay class="is-hidden"></video>
-                        <canvas id="faceOverlay"></canvas>
-                        <div id="cameraPlaceholder" class="d-flex align-items-center justify-content-center text-muted">
-                            Initializing camera...
+                    <div class="card-body">
+                        <div class="proctoring-frame tall" id="cameraFeed">
+                            <video id="videoElement" autoplay class="is-hidden"></video>
+                            <canvas id="faceOverlay"></canvas>
+                            <div id="cameraPlaceholder" class="d-flex align-items-center justify-content-center text-muted">
+                                Initializing camera...
+                            </div>
                         </div>
+                        <div class="mt-3 is-hidden" id="warningContainer"></div>
+                        <div class="stat-grid mt-3">
+                            <div class="metric-card">
+                                <div class="metric-label">Confidence</div>
+                                <div class="metric-value" id="confidenceValue">--</div>
+                                <div class="metric-sub" id="faceScore">0%</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Face Status</div>
+                                <div class="metric-value" id="faceStatusValue">Searching</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Liveness</div>
+                                <div class="metric-sub" id="livenessScore">Motion: 0% | Eyes: 0</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Identity</div>
+                                <div class="metric-sub" id="identityScore">0%</div>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-muted small app-mono">Light Level: <span id="lightLevelValue">--</span></div>
                     </div>
-                    <div class="mt-3 is-hidden" id="warningContainer"></div>
-                    <div class="row g-2 mt-3">
-                        <div class="col-md-3">
-                            <div class="app-card app-card-muted p-3">
-                                <div class="text-muted small">Confidence</div>
-                                <div class="app-mono fw-semibold" id="confidenceValue">--</div>
-                                <div class="app-mono small" id="faceScore">0%</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="app-card app-card-muted p-3">
-                                <div class="text-muted small">Face Status</div>
-                                <div class="app-mono fw-semibold" id="faceStatusValue">Searching</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="app-card app-card-muted p-3">
-                                <div class="text-muted small">Liveness</div>
-                                <div class="app-mono small" id="livenessScore">Motion: 0% | Eyes: 0</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="app-card app-card-muted p-3">
-                                <div class="text-muted small">Identity</div>
-                                <div class="app-mono small" id="identityScore">0%</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mt-2 text-muted small app-mono">Light Level: <span id="lightLevelValue">--</span></div>
                 </div>
             </section>
 
             <aside class="verification-side">
                 <div class="app-card p-4 mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div class="app-section-title">Verification Progress</div>
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">Verification Progress</div>
+                            <div class="card-subtitle">Step-by-step status</div>
+                        </div>
                         <div class="app-mono small" data-step-text>Step 1 of 4</div>
                     </div>
                     <div class="progress progress-thin" role="progressbar" aria-label="Verification progress">
@@ -89,8 +89,12 @@
                 </div>
 
                 <div class="app-card p-4 mb-3">
-                    <div class="app-section-title mb-2">Quick Guidance</div>
-                    <div class="text-muted small">Keep your face centered and well-lit.</div>
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">Quick Guidance</div>
+                            <div class="card-subtitle">Keep your face centered and well-lit.</div>
+                        </div>
+                    </div>
                     <ul class="helper-list mt-3">
                         <li>Look straight at the camera</li>
                         <li>Remove face coverings</li>

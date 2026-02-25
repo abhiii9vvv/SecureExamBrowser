@@ -1,8 +1,16 @@
 // Login Screen JavaScript
 
+const UI_ONLY = true;
+
 async function updateDbStatus() {
     const statusBadge = document.getElementById('dbStatus');
-    if (!statusBadge || !window.electronAPI || !window.electronAPI.getDatabaseStatus) return;
+    if (!statusBadge) return;
+
+    if (UI_ONLY || !window.electronAPI || !window.electronAPI.getDatabaseStatus) {
+        statusBadge.textContent = 'UI Only';
+        statusBadge.className = 'badge text-bg-secondary';
+        return;
+    }
 
     try {
         const status = await window.electronAPI.getDatabaseStatus();
@@ -47,8 +55,24 @@ async function handleLogin(event) {
     button.textContent = 'Signing In...';
 
     try {
-        if (!window.electronAPI || !window.electronAPI.login) {
-            showLoginError('Login service not available.');
+        if (UI_ONLY || !window.electronAPI || !window.electronAPI.login) {
+            const displayName = username.value.trim() || 'Candidate';
+            const localUser = {
+                user_id: -1,
+                full_name: displayName,
+                role: 'student',
+                student_id: 'SEB-LOCAL'
+            };
+
+            localStorage.setItem('currentUserId', localUser.user_id);
+            localStorage.setItem('currentUserName', localUser.full_name);
+            localStorage.setItem('currentUserRole', localUser.role);
+            localStorage.setItem('currentUserCourse', '');
+            localStorage.setItem('currentUserBranch', '');
+            localStorage.setItem('currentUserUniversity', '');
+            localStorage.setItem('currentUserLocation', '');
+
+            window.location.href = 'launch.html';
             return;
         }
 
@@ -77,26 +101,10 @@ async function handleLogin(event) {
     }
 }
 
-function prefillDemoCredentials() {
-    const username = document.getElementById('username');
-    const password = document.getElementById('password');
-
-    if (username) username.value = 'demo.student';
-    if (password) password.value = 'Demo@123';
-}
-
 function bindLoginShortcuts() {
-    const useDemo = document.getElementById('useDemo');
     const focusUsername = document.getElementById('focusUsername');
     const username = document.getElementById('username');
     const password = document.getElementById('password');
-
-    if (useDemo) {
-        useDemo.addEventListener('click', () => {
-            prefillDemoCredentials();
-            if (password) password.focus();
-        });
-    }
 
     if (focusUsername && username) {
         focusUsername.addEventListener('click', () => {
@@ -108,14 +116,12 @@ function bindLoginShortcuts() {
 // Initialize
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        prefillDemoCredentials();
         updateDbStatus();
         bindLoginShortcuts();
         const form = document.getElementById('loginForm');
         if (form) form.addEventListener('submit', handleLogin);
     });
 } else {
-    prefillDemoCredentials();
     updateDbStatus();
     bindLoginShortcuts();
     const form = document.getElementById('loginForm');

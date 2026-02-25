@@ -27,9 +27,9 @@
     --icon-xl: 48px;
     
     /* Status Colors - Enhanced visibility */
-    --status-online: #10b981;
-    --status-warning: #f59e0b;
-    --status-error: #ef4444;
+    --status-online: #16a34a;
+    --status-warning: #f4b740;
+    --status-error: #e07a7a;
     --status-neutral: #6b7280;
 }
 
@@ -162,8 +162,8 @@ button .material-symbols-outlined { font-size: var(--icon-sm); }
     top: -32px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(15, 25, 35, 0.95);
-    color: #94a3b8;
+    background: rgba(11, 27, 58, 0.95);
+    color: #d9e2f1;
     padding: 4px 8px;
     border-radius: 6px;
     font-size: 10px;
@@ -181,29 +181,29 @@ button .material-symbols-outlined { font-size: var(--icon-sm); }
 
 .question-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+    box-shadow: 0 4px 12px rgba(11, 61, 145, 0.25);
 }
 
 /* Question states with clear visual distinction */
 .question-btn.answered {
-    background: #334155;
-    color: #cbd5e1;
-    border: 1px solid #475569;
+    background: #e6ebf2;
+    color: #32405f;
+    border: 1px solid #cfd7e3;
 }
 
 .question-btn.current {
-    background: #0066cc;
+    background: #0b3d91;
     color: white;
-    border: 2px solid #0066cc;
-    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.2);
+    border: 2px solid #0b3d91;
+    box-shadow: 0 0 0 3px rgba(11, 61, 145, 0.2);
     transform: scale(1.05);
     z-index: 10;
 }
 
 .question-btn.unanswered {
-    background: #1e293b;
-    color: #64748b;
-    border: 1px solid #334155;
+    background: #f3f5f8;
+    color: #6b7a97;
+    border: 1px solid #dde3ec;
 }
 
 .question-btn.flagged::before {
@@ -213,9 +213,9 @@ button .material-symbols-outlined { font-size: var(--icon-sm); }
     right: 4px;
     width: 8px;
     height: 8px;
-    background: #f59e0b;
+    background: #f4b740;
     border-radius: 50%;
-    box-shadow: 0 0 6px rgba(245, 158, 11, 0.8);
+    box-shadow: 0 0 6px rgba(244, 183, 64, 0.6);
 }
 
 /* Hover states */
@@ -246,7 +246,7 @@ button .material-symbols-outlined { font-size: var(--icon-sm); }
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #94a3b8;
+    color: #7c8aa5;
     margin-bottom: var(--spacing-sm);
     display: flex;
     align-items: center;
@@ -265,7 +265,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Consistent button hierarchy */
 .btn-primary {
-    background: #0066cc;
+    background: #0b3d91;
     color: white;
     padding: 0.75rem 1.5rem;
     border-radius: 0.5rem;
@@ -274,7 +274,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-secondary {
-    background: rgba(255, 255, 255, 0.1);
+    background: #2f3ea8;
     color: white;
     padding: 0.75rem 1.5rem;
     border-radius: 0.5rem;
@@ -284,7 +284,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-ghost {
     background: transparent;
-    color: #94a3b8;
+    color: #6b7a97;
     padding: 0.5rem 1rem;
     border-radius: 0.5rem;
     font-weight: 500;
@@ -306,7 +306,7 @@ h1, h2, h3, h4, h5, h6 {
     flex-wrap: wrap;
     gap: var(--spacing-md);
     padding: var(--spacing-md);
-    background: rgba(0, 0, 0, 0.2);
+    background: #f2f5f9;
     border-radius: 0.5rem;
     margin-bottom: var(--spacing-md);
 }
@@ -316,7 +316,7 @@ h1, h2, h3, h4, h5, h6 {
     align-items: center;
     gap: var(--spacing-sm);
     font-size: 0.875rem;
-    color: #e2e8f0;
+    color: #4b5563;
 }
 
 .legend-indicator {
@@ -367,7 +367,7 @@ h1, h2, h3, h4, h5, h6 {
 
 @keyframes flash-success {
     0%, 100% { background-color: transparent; }
-    50% { background-color: rgba(16, 185, 129, 0.2); }
+    50% { background-color: rgba(22, 163, 74, 0.2); }
 }
 
 /* Error feedback */

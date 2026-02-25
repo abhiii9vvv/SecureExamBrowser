@@ -1,5 +1,7 @@
 // Submission Screen JavaScript
 
+const UI_ONLY = true;
+
 // Load exam state from localStorage
 let examState = null;
 let submissionStats = {
@@ -74,8 +76,17 @@ function loadExamState() {
         submissionStats.flagged = Object.keys(examState.flags || {}).length;
         submissionStats.timeRemaining = examState.timeRemaining || 0;
     } else {
-        examState = null;
-        setEmptyState('No active exam session found. Please return to the exam to continue.');
+        examState = {
+            currentQuestion: 1,
+            totalQuestions: 1,
+            answers: {},
+            flags: {},
+            timeRemaining: 0
+        };
+        submissionStats.answered = 0;
+        submissionStats.unanswered = 1;
+        submissionStats.flagged = 0;
+        submissionStats.timeRemaining = 0;
     }
 }
 
@@ -195,7 +206,7 @@ function updateTimerDisplay() {
 
 // Navigation functions
 function returnToExam() {
-    if (window.electronAPI && window.electronAPI.navigateTo) {
+    if (!UI_ONLY && window.electronAPI && window.electronAPI.navigateTo) {
         window.electronAPI.navigateTo('exam');
     } else {
         window.location.href = 'exam.html';
@@ -244,7 +255,7 @@ async function submitExam() {
         
         // Prepare submission data
         const sessionId = Number(localStorage.getItem('currentSessionId'));
-        if (!sessionId) {
+        if (!UI_ONLY && !sessionId) {
             throw new Error('No active session found');
         }
 
@@ -258,13 +269,13 @@ async function submitExam() {
         };
         
         // Save to database if electronAPI available
-        if (window.electronAPI && window.electronAPI.saveExamSubmission) {
+        if (!UI_ONLY && window.electronAPI && window.electronAPI.saveExamSubmission) {
             const result = await window.electronAPI.saveExamSubmission(submissionData);
             if (!result.success) {
                 throw new Error(result.error || 'Submission failed');
             }
 
-            if (window.electronAPI.endExamSession) {
+            if (!UI_ONLY && window.electronAPI.endExamSession) {
                 await window.electronAPI.endExamSession(sessionId, 'completed');
             }
         }
@@ -276,7 +287,7 @@ async function submitExam() {
         setTimeout(() => {
             alert('✅ Exam submitted successfully!\n\nYour answers have been recorded.');
             
-            if (window.electronAPI && window.electronAPI.navigateTo) {
+            if (!UI_ONLY && window.electronAPI && window.electronAPI.navigateTo) {
                 window.electronAPI.navigateTo('dashboard');
             } else {
                 window.location.href = 'dashboard.html';

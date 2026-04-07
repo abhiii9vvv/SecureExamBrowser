@@ -104,34 +104,65 @@ function setFlowNote(message, tone = 'warning') {
   note.setAttribute('data-flow-tone', tone)
 }
 
+function setActionHint(message, tone = 'neutral') {
+  const hint = document.querySelector('[data-action-hint]')
+  if (!hint) return
+  hint.textContent = message
+  hint.setAttribute('data-flow-tone', tone)
+}
+
+function setActionAvailability(selector, enabled, reason = '') {
+  document.querySelectorAll(selector).forEach((button) => {
+    button.disabled = !enabled
+    if (reason) {
+      button.title = reason
+      button.setAttribute('aria-label', `${button.textContent.trim()}. ${reason}`)
+    } else {
+      button.removeAttribute('title')
+      button.setAttribute('aria-label', button.textContent.trim())
+    }
+  })
+}
+
 function updateFlowSummary() {
   const sessionStatus = document.querySelector('[data-session-status]')
-  const startExamButton = document.querySelector('[data-start-exam]')
 
   if (!flowState.examScheduled) {
     if (sessionStatus) sessionStatus.textContent = 'No Exam Scheduled'
     setFlowNote('No active exam is assigned to your account yet.', 'neutral')
-    if (startExamButton) startExamButton.disabled = true
+    setActionHint('Exam gate is locked until an exam is scheduled.', 'neutral')
+    setActionAvailability('[data-open-launch]', false, 'No active exam is scheduled yet.')
+    setActionAvailability('[data-start-exam]', false, 'No active exam is scheduled yet.')
+    setActionAvailability('[data-open-verification]', true)
     return
   }
 
   if (!flowState.verified) {
-    if (sessionStatus) sessionStatus.textContent = 'Step 1: Verification'
+    if (sessionStatus) sessionStatus.textContent = 'Step 1: Verify Identity'
     setFlowNote('Step 1: Verify identity before running system checks.', 'warning')
-    if (startExamButton) startExamButton.disabled = false
+    setActionHint('Step 2 and Step 3 unlock automatically after verification succeeds.', 'warning')
+    setActionAvailability('[data-open-verification]', true)
+    setActionAvailability('[data-open-launch]', false, 'Complete Step 1 verification first.')
+    setActionAvailability('[data-start-exam]', false, 'Complete Step 1 verification first.')
     return
   }
 
   if (!flowState.databaseConnected || !flowState.online) {
-    if (sessionStatus) sessionStatus.textContent = 'Connectivity Required'
+    if (sessionStatus) sessionStatus.textContent = 'Step 2: Resolve Connectivity'
     setFlowNote('Database or network is offline. Fix connectivity before launch checks.', 'error')
-    if (startExamButton) startExamButton.disabled = true
+    setActionHint('You can still open Launch Pad, but exam start will stay blocked until connectivity recovers.', 'error')
+    setActionAvailability('[data-open-verification]', true)
+    setActionAvailability('[data-open-launch]', true)
+    setActionAvailability('[data-start-exam]', true)
     return
   }
 
   if (sessionStatus) sessionStatus.textContent = 'Step 2: System Checks'
   setFlowNote('Identity verified. Continue to Launch Pad and complete all readiness checks.', 'ok')
-  if (startExamButton) startExamButton.disabled = false
+  setActionHint('Step 2 is unlocked. Run system checks, then continue through the exam gate.', 'ok')
+  setActionAvailability('[data-open-verification]', true)
+  setActionAvailability('[data-open-launch]', true)
+  setActionAvailability('[data-start-exam]', true)
 }
 
 function loadUserCard() {

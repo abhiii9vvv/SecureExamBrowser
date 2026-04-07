@@ -58,6 +58,41 @@ function ensureTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'seb-run-'))
 }
 
+function isTransientCleanupError(error) {
+  return error && ['EBUSY', 'EPERM', 'ENOTEMPTY'].includes(error.code)
+}
+
+function deferTempDirCleanup(tempDir) {
+  fs.rm(tempDir, {
+    recursive: true,
+    force: true,
+    maxRetries: 8,
+    retryDelay: 120
+  }, () => {})
+}
+
+function cleanupTempDir(tempDir) {
+  try {
+    fs.rmSync(tempDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 8,
+      retryDelay: 120
+    })
+  } catch (error) {
+    if (isTransientCleanupError(error)) {
+      deferTempDirCleanup(tempDir)
+      return
+    }
+
+    if (error && error.code === 'ENOENT') {
+      return
+    }
+
+    deferTempDirCleanup(tempDir)
+  }
+}
+
 function normalizeTests(testCases, mode) {
   const relevant = mode === 'sample' ? testCases.filter((item) => !item.hidden) : testCases
   return relevant.map((testCase) => ({
@@ -293,6 +328,14 @@ class CodeExecutionService {
     this.runtimeCapabilities = runtimeCapabilities
   }
 
+  getPythonCommand() {
+    return this.runtimeCapabilities?.python?.command || 'python'
+  }
+
+  getCppCommand() {
+    return this.runtimeCapabilities?.cpp?.command || 'g++'
+  }
+
   async runCode({ sessionId = null, questionId, language, code, mode }) {
     const normalizedLanguage = language === 'c++' ? 'cpp' : language
     const capabilityKey = normalizedLanguage === 'javascript' ? 'node' : normalizedLanguage === 'python' ? 'python' : 'cpp'
@@ -318,7 +361,7 @@ class CodeExecutionService {
         executionOutcome = await this.runCpp(tempDir, question, tests, code)
       }
     } finally {
-      fs.rmSync(tempDir, { recursive: true, force: true })
+      cleanupTempDir(tempDir)
     }
 
     if (!executionOutcome.success) {
@@ -363,7 +406,7 @@ class CodeExecutionService {
   async runPython(tempDir, question, tests, code) {
     const runnerPath = path.join(tempDir, 'runner.py')
     fs.writeFileSync(runnerPath, buildPythonRunner(code, question.functionName, tests), 'utf8')
-    return this.parseExecutionResult(await runProcess('python', [runnerPath], { cwd: tempDir, timeoutMs: 7000 }), 'Python execution failed')
+    return this.parseExecutionResult(await runProcess(this.getPythonCommand(), [runnerPath], { cwd: tempDir, timeoutMs: 7000 }), 'Python execution failed')
   }
 
   async runCpp(tempDir, question, tests, code) {
@@ -371,20 +414,67 @@ class CodeExecutionService {
     const executablePath = path.join(tempDir, 'runner.exe')
     fs.writeFileSync(sourcePath, buildCppRunner(code, question.functionName, tests), 'utf8')
 
-    const compile = await runProcess('g++', ['-std=c++17', '-O2', sourcePath, '-o', executablePath], { cwd: tempDir, timeoutMs: 20000 })
-    if (compile.timedOut) return { success: false, error: 'C++ compilation timed out.' }
-    if (compile.code !== 0) return { success: false, error: compile.stderr.trim() || 'C++ compilation failed.' }
+    const compile = await runProcess(this.getCppCommand(), ['-std=c++17', '-O2', sourcePath, '-o', executablePath], { cwd: tempDir, timeoutMs: 20000 })
+    if (compile.timedOut) {
+      return {
+        success: false,
+        error: 'C++ compilation timed out.',
+        details: {
+          stage: 'compile',
+          stderr: String(compile.stderr || '').trim(),
+          stdout: String(compile.stdout || '').trim()
+        }
+      }
+    }
+    if (compile.code !== 0) {
+      return {
+        success: false,
+        error: compile.stderr.trim() || 'C++ compilation failed.',
+        details: {
+          stage: 'compile',
+          stderr: String(compile.stderr || '').trim(),
+          stdout: String(compile.stdout || '').trim(),
+          exitCode: compile.code
+        }
+      }
+    }
     return this.parseExecutionResult(await runProcess(executablePath, [], { cwd: tempDir, timeoutMs: 7000 }), 'C++ execution failed')
   }
 
   parseExecutionResult(result, fallbackMessage) {
-    if (result.timedOut) return { success: false, error: 'Execution timed out.' }
-    if (result.code !== 0) return { success: false, error: result.stderr.trim() || fallbackMessage }
+    if (result.timedOut) {
+      return {
+        success: false,
+        error: 'Execution timed out.',
+        details: {
+          stderr: String(result.stderr || '').trim(),
+          stdout: String(result.stdout || '').trim()
+        }
+      }
+    }
+    if (result.code !== 0) {
+      return {
+        success: false,
+        error: result.stderr.trim() || fallbackMessage,
+        details: {
+          stderr: String(result.stderr || '').trim(),
+          stdout: String(result.stdout || '').trim(),
+          exitCode: result.code
+        }
+      }
+    }
     try {
       const parsed = JSON.parse(result.stdout.trim())
       return { success: true, executionResults: parsed.results || [] }
     } catch (error) {
-      return { success: false, error: `Failed to parse execution output: ${result.stdout || result.stderr}` }
+      return {
+        success: false,
+        error: `Failed to parse execution output: ${result.stdout || result.stderr}`,
+        details: {
+          stderr: String(result.stderr || '').trim(),
+          stdout: String(result.stdout || '').trim()
+        }
+      }
     }
   }
 }

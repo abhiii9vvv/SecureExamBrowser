@@ -7,6 +7,7 @@ const systemStatus = {
 
 let examScheduled = false
 let biometricVerified = false
+let systemChecksRunning = false
 
 function setSystemAlert(message = '', level = 'warning') {
   const alert = document.getElementById('systemAlerts')
@@ -48,6 +49,36 @@ function updateDetailValue(elementId, value, fallback = 'Not specified') {
   const element = document.getElementById(elementId)
   if (!element) return
   element.textContent = value || fallback
+}
+
+function checkLabel(key) {
+  if (key === 'internet') return 'Internet'
+  if (key === 'camera') return 'Camera'
+  if (key === 'microphone') return 'Microphone'
+  return 'Secure Browser Mode'
+}
+
+function setStartExamHint(message) {
+  const hint = document.getElementById('startExamHint')
+  if (!hint) return
+  hint.textContent = message
+}
+
+function setRecheckState(running) {
+  const recheckButton = document.getElementById('recheckButton')
+  if (!recheckButton) return
+
+  recheckButton.disabled = running
+
+  const icon = recheckButton.querySelector('.material-symbols-outlined')
+  if (icon) {
+    icon.textContent = running ? 'sync' : 'refresh'
+  }
+
+  const label = recheckButton.querySelector('[data-recheck-label]')
+  if (label) {
+    label.textContent = running ? 'Checking...' : 'Recheck'
+  }
 }
 
 function formatExamWindow(startTime, endTime) {
@@ -151,24 +182,39 @@ function updateGlobalExamStatus() {
 
   const allChecksPassed = Object.values(systemStatus).every((value) => value === true)
   const pendingChecks = Object.values(systemStatus).some((value) => value === null)
+  const failedChecks = Object.entries(systemStatus)
+    .filter(([, value]) => value === false)
+    .map(([key]) => checkLabel(key))
+
   let status = 'checking'
   let label = 'Checking readiness...'
   let icon = 'schedule'
+  let hint = 'Blocked: checks are running.'
 
   if (!examScheduled) {
     status = 'not-scheduled'
     label = 'No exam scheduled'
     icon = 'event_busy'
-  } else if (pendingChecks) {
+    hint = 'Blocked: no scheduled exam is available for this account.'
+  } else if (systemChecksRunning || pendingChecks) {
     status = 'checking'
+    label = 'Checking readiness...'
+    icon = 'schedule'
+    hint = 'Blocked: system checks are still running.'
   } else if (!allChecksPassed || !biometricVerified) {
     status = 'issues'
     label = biometricVerified ? 'System issues detected' : 'Verification required'
     icon = 'warning'
+    if (!biometricVerified) {
+      hint = 'Blocked: complete biometric verification first.'
+    } else if (failedChecks.length > 0) {
+      hint = `Blocked: fix failed checks (${failedChecks.join(', ')}).`
+    }
   } else {
     status = 'ready'
     label = 'Ready to start'
     icon = 'check_circle'
+    hint = 'Ready: all checks passed. You can start the exam now.'
   }
 
   badge.setAttribute('data-status', status)
@@ -177,64 +223,89 @@ function updateGlobalExamStatus() {
   if (text) text.textContent = label
   if (iconNode) iconNode.textContent = icon
   startButton.disabled = status !== 'ready'
+  startButton.title = hint
+  startButton.setAttribute('aria-label', `Start exam. ${hint}`)
+  setStartExamHint(hint)
 }
 
 async function runSystemChecks() {
+  if (systemChecksRunning) return
+
+  systemChecksRunning = true
+  systemStatus.internet = null
+  systemStatus.camera = null
+  systemStatus.microphone = null
+  systemStatus.lock = null
+
+  setRecheckState(true)
   setSystemAlert('')
   setCheckLoading('internet', 'Checking internet connection...')
   setCheckLoading('camera', 'Detecting camera...')
   setCheckLoading('microphone', 'Detecting microphone...')
   setCheckLoading('lock', 'Checking secure browser mode...')
-
-  systemStatus.internet = navigator.onLine
-  updateCheckItem('internet', systemStatus.internet, systemStatus.internet ? 'Ready' : 'Offline')
-
-  const camera = await verifyMediaDevice('camera')
-  systemStatus.camera = camera.passed
-  updateCheckItem('camera', camera.passed, camera.reason)
-
-  const mic = await verifyMediaDevice('microphone')
-  systemStatus.microphone = mic.passed
-  updateCheckItem('microphone', mic.passed, mic.reason)
-
-  try {
-    let lockStatus = await window.electronAPI.getLockStatus()
-    if (!lockStatus.fullscreen) {
-      await window.electronAPI.setFullscreen(true)
-      lockStatus = await window.electronAPI.getLockStatus()
-    }
-    systemStatus.lock = lockStatus.enabled === true && lockStatus.fullscreen === true
-    updateCheckItem('lock', systemStatus.lock, systemStatus.lock ? 'Fullscreen secure mode active' : 'Fullscreen secure mode required')
-  } catch (error) {
-    systemStatus.lock = false
-    updateCheckItem('lock', false, 'Unable to verify lock state')
-  }
-
   updateProgressSummary()
-  updateVerificationPanel()
   updateGlobalExamStatus()
 
-  if (!systemStatus.internet) {
-    setSystemAlert('Internet appears offline. Reconnect and run checks again.', 'error')
-    return
-  }
+  try {
+    systemStatus.internet = navigator.onLine
+    updateCheckItem('internet', systemStatus.internet, systemStatus.internet ? 'Ready' : 'Offline')
 
-  if (!systemStatus.camera) {
-    setSystemAlert('Camera check failed. Allow camera permission and close apps using the webcam, then recheck.', 'error')
-    return
-  }
+    const camera = await verifyMediaDevice('camera')
+    systemStatus.camera = camera.passed
+    updateCheckItem('camera', camera.passed, camera.reason)
 
-  if (!systemStatus.lock) {
-    setSystemAlert('Secure fullscreen lock could not be validated. Recheck to continue.', 'warning')
-    return
-  }
+    const mic = await verifyMediaDevice('microphone')
+    systemStatus.microphone = mic.passed
+    updateCheckItem('microphone', mic.passed, mic.reason)
 
-  if (!biometricVerified) {
-    setSystemAlert('System checks passed. Complete biometric verification to unlock exam start.', 'info')
-    return
-  }
+    try {
+      let lockStatus = await window.electronAPI.getLockStatus()
+      if (!lockStatus.fullscreen) {
+        await window.electronAPI.setFullscreen(true)
+        lockStatus = await window.electronAPI.getLockStatus()
+      }
+      systemStatus.lock = lockStatus.enabled === true && lockStatus.fullscreen === true
+      updateCheckItem('lock', systemStatus.lock, systemStatus.lock ? 'Fullscreen secure mode active' : 'Fullscreen secure mode required')
+    } catch (error) {
+      systemStatus.lock = false
+      updateCheckItem('lock', false, 'Unable to verify lock state')
+    }
 
-  setSystemAlert('All checks passed. You can now start the exam.', 'success')
+    updateProgressSummary()
+    updateVerificationPanel()
+    updateGlobalExamStatus()
+
+    if (!systemStatus.internet) {
+      setSystemAlert('Internet appears offline. Reconnect and run checks again.', 'error')
+      return
+    }
+
+    if (!systemStatus.camera) {
+      setSystemAlert('Camera check failed. Allow camera permission and close apps using the webcam, then recheck.', 'error')
+      return
+    }
+
+    if (!systemStatus.microphone) {
+      setSystemAlert('Microphone check failed. Allow microphone permission and close apps using the mic, then recheck.', 'warning')
+      return
+    }
+
+    if (!systemStatus.lock) {
+      setSystemAlert('Secure fullscreen lock could not be validated. Recheck to continue.', 'warning')
+      return
+    }
+
+    if (!biometricVerified) {
+      setSystemAlert('System checks passed. Complete biometric verification to unlock exam start.', 'info')
+      return
+    }
+
+    setSystemAlert('All checks passed. You can now start the exam.', 'success')
+  } finally {
+    systemChecksRunning = false
+    setRecheckState(false)
+    updateGlobalExamStatus()
+  }
 }
 
 function updateClock() {
@@ -307,6 +378,7 @@ async function initializeLaunchScreen() {
   }
 
   updateVerificationPanel()
+  updateGlobalExamStatus()
   if (!biometricVerified) {
     setSystemAlert('Step 1 pending: complete biometric verification, then rerun readiness checks.', 'info')
   }
@@ -319,6 +391,14 @@ async function initializeLaunchScreen() {
     verifyButton.addEventListener('click', async (event) => {
       event.preventDefault()
       await window.electronAPI.navigateTo('verification')
+    })
+  }
+
+  const recheckButton = document.getElementById('recheckButton')
+  if (recheckButton) {
+    recheckButton.addEventListener('click', async (event) => {
+      event.preventDefault()
+      await runSystemChecks()
     })
   }
 

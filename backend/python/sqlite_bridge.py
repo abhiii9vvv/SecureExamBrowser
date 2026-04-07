@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 import sqlite3
 from datetime import datetime, timezone
@@ -14,6 +15,25 @@ def connect(db_path: str):
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA foreign_keys = ON')
     return conn
+
+
+def column_exists(conn, table_name: str, column_name: str) -> bool:
+    info = conn.execute(f'PRAGMA table_info({table_name})').fetchall()
+    return any(row['name'] == column_name for row in info)
+
+
+def add_column_if_missing(conn, table_name: str, column_name: str, column_sql: str) -> None:
+    if not column_exists(conn, table_name, column_name):
+        conn.execute(f'ALTER TABLE {table_name} ADD COLUMN {column_name} {column_sql}')
+
+
+def run_migrations(conn):
+    add_column_if_missing(conn, 'submissions', 'submission_hash', 'TEXT')
+    add_column_if_missing(conn, 'submissions', 'submission_count', 'INTEGER NOT NULL DEFAULT 1')
+    add_column_if_missing(conn, 'submissions', 'locked_at', 'TEXT')
+    add_column_if_missing(conn, 'biometric_records', 'session_id', 'INTEGER')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_submissions_submission_hash ON submissions(submission_hash)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_biometric_records_session_id ON biometric_records(session_id)')
 
 
 def create_schema(conn):
@@ -181,8 +201,27 @@ def create_schema(conn):
             synced_at TEXT,
             error_message TEXT
         );
+
+        CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+        CREATE INDEX IF NOT EXISTS idx_sessions_session_token ON sessions(session_token);
+        CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_sessions_exam_id ON sessions(exam_id);
+        CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
+        CREATE INDEX IF NOT EXISTS idx_answers_session_id ON answers(session_id);
+        CREATE INDEX IF NOT EXISTS idx_answers_question_id ON answers(question_id);
+        CREATE INDEX IF NOT EXISTS idx_questions_exam_id ON questions(exam_id);
+        CREATE INDEX IF NOT EXISTS idx_test_cases_question_id ON question_test_cases(question_id);
+        CREATE INDEX IF NOT EXISTS idx_submissions_session_id ON submissions(session_id);
+        CREATE INDEX IF NOT EXISTS idx_submissions_user_id_exam_id ON submissions(user_id, exam_id);
+        CREATE INDEX IF NOT EXISTS idx_incidents_user_id ON incidents(user_id);
+        CREATE INDEX IF NOT EXISTS idx_incidents_session_id ON incidents(session_id);
+        CREATE INDEX IF NOT EXISTS idx_incidents_created_at ON incidents(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_code_runs_session_id ON code_runs(session_id);
+        CREATE INDEX IF NOT EXISTS idx_code_runs_question_id ON code_runs(question_id);
+        CREATE INDEX IF NOT EXISTS idx_biometric_records_user_id ON biometric_records(user_id);
         '''
     )
+    run_migrations(conn)
     conn.commit()
 
 
@@ -295,6 +334,12 @@ def normalize_question(row, conn, include_tests=False):
         (row['id'],)
     ).fetchone()['count']
     payload['testCasesVisibleCount'] = visible_count
+
+    total_count = conn.execute(
+        'SELECT COUNT(*) AS count FROM question_test_cases WHERE question_id = ?',
+        (row['id'],)
+    ).fetchone()['count']
+    payload['testCasesTotalCount'] = total_count
 
     if include_tests:
         tests = conn.execute(
@@ -417,7 +462,15 @@ def action_login(conn, payload, _seed_path):
     if not row or row['password_hash'] != password:
         conn.execute(
             'INSERT INTO incidents (user_id, session_id, type, severity, message, details_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            (row['id'] if row else None, None, 'login_failed', 'low', f'Invalid login attempt for {username}', json.dumps({'username': username}), utc_now())
+            (
+                row['id'] if row else None,
+                None,
+                'authentication_failed',
+                'high',
+                f'Invalid login attempt for {username}',
+                json.dumps({'username': username}),
+                utc_now()
+            )
         )
         conn.commit()
         raise ValueError('Invalid username or password')
@@ -478,7 +531,15 @@ def action_get_exam_questions(conn, payload, _seed_path):
         'SELECT * FROM questions WHERE exam_id = ? ORDER BY order_index',
         (payload['examId'],)
     ).fetchall()
-    return [normalize_question(row, conn, include_tests=False) for row in rows]
+    items = [normalize_question(row, conn, include_tests=True) for row in rows]
+    for item in items:
+        if item.get('type') == 'coding':
+            visible_tests = [test for test in item.get('testCases', []) if not test.get('hidden')]
+            item['testCases'] = visible_tests
+            item['hiddenTestsCount'] = max(item.get('testCasesTotalCount', 0) - len(visible_tests), 0)
+        else:
+            item.pop('testCases', None)
+    return items
 
 
 def action_get_question_for_execution(conn, payload, _seed_path):
@@ -600,34 +661,80 @@ def action_get_session_state(conn, payload, _seed_path):
 
 def action_save_exam_submission(conn, payload, _seed_path):
     flagged_question_ids = payload.get('flaggedQuestionIds', [])
-    conn.execute(
-        'UPDATE sessions SET flagged_json = ?, remaining_seconds = ? WHERE id = ?',
-        (json.dumps(flagged_question_ids), payload.get('timeRemaining'), payload['sessionId'])
-    )
-    summary = compute_submission_summary(conn, payload['sessionId'], flagged_question_ids)
-    submitted_at = utc_now()
-    conn.execute(
-        '''
-        INSERT INTO submissions (session_id, user_id, exam_id, status, score, summary_json, submitted_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(session_id) DO UPDATE SET
-            status = excluded.status,
-            score = excluded.score,
-            summary_json = excluded.summary_json,
-            submitted_at = excluded.submitted_at
-        ''',
-        (
-            payload['sessionId'], payload['userId'], payload['examId'], summary['status'], summary['score'],
-            json.dumps(summary), submitted_at
+    session_id = payload['sessionId']
+
+    session = conn.execute('SELECT status FROM sessions WHERE id = ?', (session_id,)).fetchone()
+    if not session:
+        raise ValueError('Session not found')
+
+    existing_submission = conn.execute(
+        'SELECT summary_json, submitted_at, locked_at FROM submissions WHERE session_id = ?',
+        (session_id,)
+    ).fetchone()
+
+    if existing_submission and (session['status'] == 'completed' or existing_submission['locked_at']):
+        summary = parse_json(existing_submission['summary_json'], {})
+        summary['submittedAt'] = existing_submission['submitted_at']
+        summary['idempotent'] = True
+        return summary
+
+    conn.execute('BEGIN IMMEDIATE')
+    try:
+        conn.execute(
+            'UPDATE sessions SET flagged_json = ?, remaining_seconds = ? WHERE id = ?',
+            (json.dumps(flagged_question_ids), payload.get('timeRemaining'), session_id)
         )
-    )
-    conn.execute(
-        'UPDATE sessions SET status = ?, submitted_at = ?, remaining_seconds = ?, flagged_json = ? WHERE id = ?',
-        ('completed', submitted_at, payload.get('timeRemaining'), json.dumps(payload.get('flaggedQuestionIds', [])), payload['sessionId'])
-    )
-    conn.commit()
-    summary['submittedAt'] = submitted_at
-    return summary
+
+        summary = compute_submission_summary(conn, session_id, flagged_question_ids)
+        submitted_at = utc_now()
+        submission_hash = hashlib.sha256(
+            json.dumps(
+                {
+                    'sessionId': session_id,
+                    'flaggedQuestionIds': sorted(flagged_question_ids),
+                    'answers': summary.get('answers', {})
+                },
+                sort_keys=True
+            ).encode('utf-8')
+        ).hexdigest()
+
+        conn.execute(
+            '''
+            INSERT INTO submissions (session_id, user_id, exam_id, status, score, summary_json, submitted_at, submission_hash, submission_count, locked_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(session_id) DO UPDATE SET
+                status = excluded.status,
+                score = excluded.score,
+                summary_json = excluded.summary_json,
+                submitted_at = excluded.submitted_at,
+                submission_hash = excluded.submission_hash,
+                submission_count = submissions.submission_count + 1,
+                locked_at = COALESCE(submissions.locked_at, excluded.locked_at)
+            ''',
+            (
+                session_id,
+                payload['userId'],
+                payload['examId'],
+                summary['status'],
+                summary['score'],
+                json.dumps(summary),
+                submitted_at,
+                submission_hash,
+                1,
+                submitted_at
+            )
+        )
+
+        conn.execute(
+            'UPDATE sessions SET status = ?, submitted_at = ?, remaining_seconds = ?, flagged_json = ? WHERE id = ?',
+            ('completed', submitted_at, payload.get('timeRemaining'), json.dumps(flagged_question_ids), session_id)
+        )
+        conn.commit()
+        summary['submittedAt'] = submitted_at
+        return summary
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def action_get_submission_summary(conn, payload, _seed_path):
@@ -652,6 +759,8 @@ def action_get_dashboard_stats(conn, payload, _seed_path):
 
 
 def action_get_active_sessions(conn, payload, _seed_path):
+    limit = int(payload.get('limit', 100) or 100)
+    limit = max(1, min(limit, 500))
     rows = conn.execute(
         '''
         SELECT sessions.id, sessions.session_token, sessions.started_at, sessions.verification_status,
@@ -662,7 +771,9 @@ def action_get_active_sessions(conn, payload, _seed_path):
         JOIN exams ON exams.id = sessions.exam_id
         WHERE sessions.status = 'active'
         ORDER BY sessions.started_at DESC
+        LIMIT ?
         '''
+        , (limit,)
     ).fetchall()
     return [
         {
@@ -710,16 +821,28 @@ def action_get_recent_submissions(conn, payload, _seed_path):
 
 def action_save_biometric_data(conn, payload, _seed_path):
     now = utc_now()
+    session_id = payload.get('sessionId')
+
+    if not session_id:
+        session_row = conn.execute(
+            'SELECT id FROM sessions WHERE user_id = ? AND status = ? ORDER BY started_at DESC LIMIT 1',
+            (payload['userId'], 'active')
+        ).fetchone()
+        session_id = session_row['id'] if session_row else None
+
     conn.execute(
-        'INSERT INTO biometric_records (user_id, biometric_type, payload_json, created_at) VALUES (?, ?, ?, ?)',
-        (payload['userId'], payload['biometricType'], json.dumps(payload.get('payload', {})), now)
+        'INSERT INTO biometric_records (session_id, user_id, biometric_type, payload_json, created_at) VALUES (?, ?, ?, ?, ?)',
+        (session_id, payload['userId'], payload['biometricType'], json.dumps(payload.get('payload', {})), now)
     )
-    conn.execute(
-        'UPDATE sessions SET verification_status = ?, verification_completed_at = ? WHERE user_id = ? AND status = ?',
-        ('verified', now, payload['userId'], 'active')
-    )
+
+    if session_id:
+        conn.execute(
+            'UPDATE sessions SET verification_status = ?, verification_completed_at = ? WHERE id = ? AND status = ?',
+            ('verified', now, session_id, 'active')
+        )
+
     conn.commit()
-    return {'saved': True}
+    return {'saved': True, 'sessionId': session_id}
 
 
 def action_upsert_model_asset(conn, payload, _seed_path):

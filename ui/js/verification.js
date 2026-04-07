@@ -5,8 +5,54 @@ let verificationLocked = false
 let cameraVideo = null
 let enrollingIdentity = false
 let verificationStartedAt = 0
+let timerWarningState = {
+  warningShown: false,
+  dangerShown: false
+}
 
 const VERIFICATION_TIMEOUT_MS = 2 * 60 * 1000
+
+function formatRemainingTime(remainingMs) {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function updateVerificationTimer() {
+  const timer = document.querySelector('[data-verification-timer]')
+  if (!timer) return
+
+  if (verificationComplete) {
+    timer.textContent = 'Verified'
+    timer.setAttribute('data-timer-tone', 'ok')
+    return
+  }
+
+  const elapsed = Date.now() - verificationStartedAt
+  const remainingMs = Math.max(0, VERIFICATION_TIMEOUT_MS - elapsed)
+  timer.textContent = `${formatRemainingTime(remainingMs)} left`
+
+  if (remainingMs <= 30 * 1000) {
+    timer.setAttribute('data-timer-tone', 'danger')
+    if (!timerWarningState.dangerShown) {
+      timerWarningState.dangerShown = true
+      setWarning('Final 30 seconds: keep your face centered and complete verification now.', 'warning')
+    }
+    return
+  }
+
+  if (remainingMs <= 60 * 1000) {
+    timer.setAttribute('data-timer-tone', 'warning')
+    if (!timerWarningState.warningShown) {
+      timerWarningState.warningShown = true
+      setWarning('Less than 1 minute remaining. Stay still and look directly at the camera.', 'warning')
+    }
+    return
+  }
+
+  timer.setAttribute('data-timer-tone', 'normal')
+}
 
 function setStepState(index, state, label) {
   const cards = document.querySelectorAll('[data-step-card]')
@@ -166,6 +212,8 @@ async function runVerificationLoop() {
       return
     }
 
+    updateVerificationTimer()
+
     if (Date.now() - verificationStartedAt > VERIFICATION_TIMEOUT_MS) {
       verificationLocked = true
       clearInterval(verificationInterval)
@@ -215,6 +263,7 @@ async function runVerificationLoop() {
 
       if (result.face_count === 1 && result.has_reference && result.identity_match?.match && result.liveness?.is_live) {
         verificationComplete = true
+        updateVerificationTimer()
         updateProgress(100)
         setStepState(3, 'completed', 'Approved')
         localStorage.setItem('verificationComplete', 'true')
@@ -240,8 +289,10 @@ async function initializeVerification() {
     verificationLocked = false
     verificationComplete = false
     verificationStartedAt = Date.now()
+    timerWarningState = { warningShown: false, dangerShown: false }
     localStorage.removeItem('verificationComplete')
     setRetryVisibility(false)
+    updateVerificationTimer()
     await syncModels()
     await startCamera()
     await runVerificationLoop()

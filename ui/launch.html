@@ -27,29 +27,30 @@
                     <div class="action-bar-subtitle">Secure Exam Browser</div>
                 </div>
             </div>
-            
+
             <div class="action-bar-center">
                 <div class="exam-status-badge" id="globalExamStatus" data-status="checking" role="status" aria-live="polite">
                     <span class="material-symbols-outlined exam-status-icon">schedule</span>
                     <span class="exam-status-text">Checking readiness...</span>
                 </div>
             </div>
-            
+
             <div class="action-bar-right">
-                <button 
-                    id="startExamButton" 
-                    class="btn-start-exam" 
+                <button
+                    id="startExamButton"
+                    class="btn-start-exam"
                     disabled
                     aria-label="Start exam - requires all checks to pass"
                     title="Complete all system checks and verification to enable">
                     <span class="material-symbols-outlined">play_arrow</span>
                     <span>Start Exam</span>
                 </button>
+                <div class="start-exam-hint app-mono" id="startExamHint" aria-live="polite">
+                    Blocked: checks are running.
+                </div>
             </div>
         </div>
     </div>
-
-    <!-- Main Content -->
     <main id="main-content" class="launch-container" role="main">
         <div class="launch-layout">
             <!-- Left Column (70%) -->
@@ -61,12 +62,12 @@
                             <h2 id="readiness-heading" class="section-title">System Readiness</h2>
                             <p class="section-subtitle">Complete all checks to proceed</p>
                         </div>
-                        <button 
-                            onclick="runSystemChecks()" 
+                        <button
+                            id="recheckButton"
                             class="btn btn-outline-dark btn-sm"
                             aria-label="Recheck system requirements">
                             <span class="material-symbols-outlined">refresh</span>
-                            Recheck
+                            <span data-recheck-label>Recheck</span>
                         </button>
                     </div>
 

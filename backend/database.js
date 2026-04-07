@@ -8,6 +8,41 @@ class DatabaseService {
     this.dbPath = options.dbPath || path.join(this.rootDir, '.dist', 'secure-exam-browser.sqlite')
     this.seedPath = options.seedPath || path.join(this.rootDir, 'data', 'seed-data.json')
     this.bridgePath = options.bridgePath || path.join(this.rootDir, 'backend', 'python', 'sqlite_bridge.py')
+    this.defaultTimeoutMs = options.defaultTimeoutMs || 30000
+  }
+
+  getActionTimeoutMs(action) {
+    const writeActions = new Set([
+      'start_exam_session',
+      'end_exam_session',
+      'save_mcq_answer',
+      'save_code_answer',
+      'save_code_run',
+      'save_session_progress',
+      'save_exam_submission',
+      'save_biometric_data',
+      'upsert_model_asset',
+      'record_incident'
+    ])
+
+    if (action === 'sync_open_source_models') {
+      return 90000
+    }
+
+    if (writeActions.has(action)) {
+      return 45000
+    }
+
+    return this.defaultTimeoutMs
+  }
+
+  formatBridgeError(action, stderr, fallback) {
+    const text = String(stderr || '').trim()
+    if (!text) {
+      return fallback
+    }
+    const lastLine = text.split(/\r?\n/).filter(Boolean).pop()
+    return `${fallback}: ${lastLine}`
   }
 
   invoke(action, payload = {}) {
@@ -22,8 +57,32 @@ class DatabaseService {
         }
       )
 
+      const timeoutMs = this.getActionTimeoutMs(action)
       let stdout = ''
       let stderr = ''
+      let settled = false
+
+      const settle = (type, value) => {
+        if (settled) {
+          return
+        }
+        settled = true
+        clearTimeout(timer)
+        if (type === 'resolve') {
+          resolve(value)
+        } else {
+          reject(value)
+        }
+      }
+
+      const timer = setTimeout(() => {
+        try {
+          child.kill('SIGKILL')
+        } catch (error) {
+          // Process may already be closed.
+        }
+        settle('reject', new Error(`Database action timed out after ${timeoutMs}ms: ${action}`))
+      }, timeoutMs)
 
       child.stdout.on('data', (chunk) => {
         stdout += chunk.toString()
@@ -34,13 +93,17 @@ class DatabaseService {
       })
 
       child.on('error', (error) => {
-        reject(error)
+        settle('reject', new Error(`Database bridge process error for '${action}': ${error.message}`))
       })
 
       child.on('close', () => {
+        if (settled) {
+          return
+        }
+
         const output = String(stdout || '').trim()
         if (!output) {
-          reject(new Error(stderr ? String(stderr).trim() : `No output from database bridge for ${action}`))
+          settle('reject', new Error(this.formatBridgeError(action, stderr, `No output from database bridge for ${action}`)))
           return
         }
 
@@ -48,16 +111,16 @@ class DatabaseService {
         try {
           parsed = JSON.parse(output)
         } catch (error) {
-          reject(new Error(`Invalid database bridge response for ${action}: ${output}`))
+          settle('reject', new Error(`Invalid database bridge response for ${action}`))
           return
         }
 
         if (!parsed.success) {
-          reject(new Error(parsed.error || `Database action failed: ${action}`))
+          settle('reject', new Error(parsed.error || this.formatBridgeError(action, stderr, `Database action failed: ${action}`)))
           return
         }
 
-        resolve(parsed.data)
+        settle('resolve', parsed.data)
       })
 
       child.stdin.write(JSON.stringify(payload))
@@ -133,8 +196,8 @@ class DatabaseService {
     return this.invoke('get_dashboard_stats', {})
   }
 
-  getActiveSessions() {
-    return this.invoke('get_active_sessions', {})
+  getActiveSessions(limit = 100) {
+    return this.invoke('get_active_sessions', { limit })
   }
 
   getRecentSubmissions(limit = 10) {
@@ -142,7 +205,12 @@ class DatabaseService {
   }
 
   saveBiometricData(userId, biometricType, payload) {
-    return this.invoke('save_biometric_data', { userId, biometricType, payload })
+    return this.invoke('save_biometric_data', {
+      userId,
+      biometricType,
+      sessionId: payload?.sessionId || null,
+      payload
+    })
   }
 
   upsertModelAsset(asset) {

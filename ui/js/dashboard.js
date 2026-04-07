@@ -1,153 +1,110 @@
-// Dashboard JavaScript
-
-const UI_ONLY = true;
-
-// Show incident log (called from KPI tooltip)
-function showIncidentLog() {
-    // Scroll to audit log sidebar
-    const auditLog = document.querySelector('aside');
-    if (auditLog) {
-        auditLog.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        // Highlight it briefly
-        auditLog.style.outline = '2px solid #ef4444';
-        auditLog.style.outlineOffset = '4px';
-        setTimeout(() => {
-            auditLog.style.outline = '';
-        }, 2000);
-    }
-}
-
-async function updateDashboardStats() {
-    if (UI_ONLY || !window.electronAPI || !window.electronAPI.getDashboardStats) {
-        const activeCountEl = document.getElementById('activeCount');
-        const criticalCountEl = document.getElementById('criticalCount');
-        const summaryActive = document.getElementById('dashboardActive');
-        const summaryViolations = document.getElementById('dashboardViolations');
-        if (activeCountEl) activeCountEl.textContent = 0;
-        if (criticalCountEl) criticalCountEl.textContent = 0;
-        if (summaryActive) summaryActive.textContent = 0;
-        if (summaryViolations) summaryViolations.textContent = 0;
-        return;
-    }
-
-    const activeCountEl = document.getElementById('activeCount');
-    const criticalCountEl = document.getElementById('criticalCount');
-    const summaryActive = document.getElementById('dashboardActive');
-    const summaryViolations = document.getElementById('dashboardViolations');
-
-    try {
-        const result = await window.electronAPI.getDashboardStats();
-        if (result.success && result.data) {
-            if (activeCountEl) activeCountEl.textContent = result.data.active_sessions || 0;
-            if (criticalCountEl) criticalCountEl.textContent = result.data.today_violations || 0;
-            if (summaryActive) summaryActive.textContent = result.data.active_sessions || 0;
-            if (summaryViolations) summaryViolations.textContent = result.data.today_violations || 0;
-        }
-    } catch (error) {
-        console.warn('Failed to load dashboard stats:', error);
-    }
-}
-
-async function updateDashboardStatus() {
-    if (UI_ONLY || !window.electronAPI || !window.electronAPI.getDatabaseStatus) {
-        const statusEl = document.getElementById('dashboardDbStatus');
-        if (statusEl) statusEl.textContent = 'UI Only';
-        return;
-    }
-    const statusEl = document.getElementById('dashboardDbStatus');
-    if (!statusEl) return;
-
-    try {
-        const status = await window.electronAPI.getDatabaseStatus();
-        statusEl.textContent = status.connected ? 'Connected' : 'Offline';
-    } catch (error) {
-        statusEl.textContent = 'Unknown';
-    }
-}
-
 function renderActiveSessions(sessions) {
-    const grid = document.getElementById('activeSessionsGrid');
-    const emptyState = document.getElementById('activeSessionsEmpty');
+  const grid = document.getElementById('activeSessionsGrid')
+  if (!grid) return
+  grid.innerHTML = ''
 
-    if (!grid) return;
+  if (!sessions.length) {
+    grid.innerHTML = '<div class="col-12 text-center text-muted py-4">No active sessions</div>'
+    return
+  }
 
-    grid.innerHTML = '';
-
-    if (!sessions || sessions.length === 0) {
-        if (emptyState) {
-            grid.appendChild(emptyState);
-        } else {
-            const empty = document.createElement('div');
-            empty.className = 'col-span-full text-center text-slate-400 text-sm py-8';
-            empty.textContent = 'No active sessions';
-            grid.appendChild(empty);
-        }
-        return;
-    }
-
-    sessions.forEach(session => {
-        const card = document.createElement('div');
-        card.className = 'col-md-6 col-lg-4 col-xl-3';
-
-        const initials = (session.full_name || 'Student')
-            .split(' ')
-            .map(part => part[0])
-            .slice(0, 2)
-            .join('')
-            .toUpperCase();
-
-        const statusLabel = session.status === 'active' ? 'LIVE' : session.status;
-        const statusBadgeClass = session.status === 'active' ? 'text-bg-dark' : 'text-bg-light border';
-
-        card.innerHTML = `
-            <div class="app-card p-3 h-100">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div class="status-icon">
-                        <span class="material-symbols-outlined">person</span>
-                    </div>
-                    <span class="badge ${statusBadgeClass}">${statusLabel}</span>
-                </div>
-                <div class="mt-3">
-                    <div class="fw-semibold">${session.full_name || 'Student'}</div>
-                    <div class="text-muted small">ID: ${session.student_id || session.user_id}</div>
-                    <div class="text-muted small">${session.exam_name || 'Exam Session'}</div>
-                </div>
-                <div class="mt-3 app-mono text-muted">${initials}</div>
-            </div>
-        `;
-
-        grid.appendChild(card);
-    });
+  sessions.forEach((session) => {
+    const card = document.createElement('div')
+    card.className = 'col-md-6 col-lg-4 col-xl-3'
+    card.innerHTML = `
+      <div class="app-card p-3 h-100">
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="status-icon is-ok">
+            <span class="material-symbols-outlined">person</span>
+          </div>
+          <span class="badge text-bg-dark">LIVE</span>
+        </div>
+        <div class="mt-3">
+          <div class="fw-semibold">${session.fullName}</div>
+          <div class="text-muted small">ID: ${session.studentId}</div>
+          <div class="text-muted small">${session.examName}</div>
+          <div class="text-muted small">Verification: ${session.verificationStatus}</div>
+        </div>
+      </div>
+    `
+    grid.appendChild(card)
+  })
 }
 
-async function loadActiveSessions() {
-    if (UI_ONLY || !window.electronAPI || !window.electronAPI.getActiveSessions) {
-        renderActiveSessions([]);
-        return;
-    }
+function renderActivity(recentSubmissions, incidents) {
+  const container = document.querySelector('aside .app-card:last-child .border-top')
+  if (!container) return
+  container.innerHTML = ''
 
-    try {
-        const result = await window.electronAPI.getActiveSessions();
-        if (result.success) {
-            renderActiveSessions(result.data || []);
-        }
-    } catch (error) {
-        console.warn('Failed to load active sessions:', error);
-    }
+  const combined = [
+    ...incidents.map((item) => ({
+      kind: 'incident',
+      title: item.message,
+      subtitle: item.fullName ? `${item.fullName} (${item.studentId || 'N/A'})` : item.type,
+      badge: item.severity,
+      emphasis: 'text-bg-light border'
+    })),
+    ...recentSubmissions.map((item) => ({
+      kind: 'submission',
+      title: `Submission recorded: ${item.score}%`,
+      subtitle: `${item.fullName} - ${item.examName}`,
+      badge: item.status,
+      emphasis: 'text-bg-dark'
+    }))
+  ].slice(0, 6)
+
+  if (!combined.length) {
+    container.innerHTML = '<div class="text-muted small">No recent activity yet.</div>'
+    return
+  }
+
+  combined.forEach((item) => {
+    const row = document.createElement('div')
+    row.className = 'd-flex justify-content-between align-items-start mb-3'
+    row.innerHTML = `
+      <div>
+        <div class="fw-semibold">${item.title}</div>
+        <div class="text-muted small">${item.subtitle}</div>
+      </div>
+      <span class="badge ${item.emphasis}">${item.badge}</span>
+    `
+    container.appendChild(row)
+  })
 }
 
-// Initialize dashboard
+async function refreshDashboard() {
+  const stats = await window.electronAPI.getDashboardStats()
+  const sessions = await window.electronAPI.getActiveSessions()
+  const submissions = await window.electronAPI.getRecentSubmissions()
+  const incidents = await window.electronAPI.getRecentIncidents()
+  const dbStatus = await window.electronAPI.getDatabaseStatus()
+
+  document.getElementById('activeCount').textContent = String(stats.data.activeSessions || 0)
+  document.getElementById('criticalCount').textContent = String(stats.data.todayViolations || 0)
+  document.getElementById('dashboardDbStatus').textContent = dbStatus.connected ? 'Connected' : 'Offline'
+  document.getElementById('dashboardActive').textContent = String(stats.data.activeSessions || 0)
+  document.getElementById('dashboardViolations').textContent = String(stats.data.todayViolations || 0)
+
+  renderActiveSessions(sessions.data || [])
+  renderActivity(submissions.data || [], incidents.data || [])
+}
+
+function showIncidentLog() {
+  const activityCard = document.querySelector('aside .app-card:last-child')
+  if (activityCard) {
+    activityCard.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-    updateDashboardStats();
-    loadActiveSessions();
-    updateDashboardStatus();
+  const role = (localStorage.getItem('currentUserRole') || 'student').toLowerCase()
+  if (role !== 'admin') {
+    window.electronAPI.navigateTo('student-dashboard')
+    return
+  }
 
-    // Refresh every 15 seconds
-    setInterval(() => {
-        updateDashboardStats();
-        loadActiveSessions();
-        updateDashboardStatus();
-    }, 15000);
+  refreshDashboard()
+  setInterval(refreshDashboard, 15000)
+})
 
-    console.log('Dashboard initialized');
-});
+window.showIncidentLog = showIncidentLog

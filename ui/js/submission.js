@@ -1,316 +1,139 @@
-// Submission Screen JavaScript
+let submissionSummary = null
+let questions = []
 
-const UI_ONLY = true;
-
-// Load exam state from localStorage
-let examState = null;
-let submissionStats = {
-    answered: 0,
-    unanswered: 0,
-    flagged: 0,
-    timeRemaining: 0
-};
-
-// Confirmation dialog for submission
-function confirmSubmission() {
-    const unanswered = submissionStats.unanswered;
-    const flagged = submissionStats.flagged;
-    
-    let warningMessage = 'Are you sure you want to submit your exam?\n\n';
-    
-    if (unanswered > 0) {
-        warningMessage += `⚠️ You have ${unanswered} unanswered question${unanswered > 1 ? 's' : ''}.\n`;
-    }
-    
-    if (flagged > 0) {
-        warningMessage += `🚩 You have ${flagged} flagged question${flagged > 1 ? 's' : ''} for review.\n`;
-    }
-    
-    warningMessage += '\n✓ Once submitted, you cannot return to the exam.\n';
-    warningMessage += '✓ Your answers will be final and submitted for grading.';
-    
-    if (confirm(warningMessage)) {
-        submitExam();
-    }
+function getDashboardDestination() {
+  const role = (localStorage.getItem('currentUserRole') || 'student').toLowerCase()
+  return role === 'admin' ? 'dashboard' : 'student-dashboard'
 }
 
-function submitExam() {
-    // Show submission animation
-    const submitButton = document.querySelector('[data-submit-button]');
-    if (submitButton) {
-        submitButton.disabled = true;
-        submitButton.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Submitting...';
-    }
-    
-    setTimeout(() => {
-        alert('✅ Exam submitted successfully!\n\nYour submission has been recorded.');
-        console.log('Exam submitted:', examState);
-    }, 1500);
+function updateMetrics() {
+  if (!submissionSummary) return
+  const total = questions.length
+  const answered = submissionSummary.answered || 0
+  const unanswered = submissionSummary.unanswered ?? Math.max(total - answered, 0)
+  const flagged = submissionSummary.flagged || 0
+  const percentage = total > 0 ? Math.round((answered / total) * 100) : 0
+
+  const timer = document.querySelector('[data-timer-display]')
+  if (timer) {
+    const remaining = submissionSummary.remainingSeconds || 0
+    const hours = Math.floor(remaining / 3600)
+    const minutes = Math.floor((remaining % 3600) / 60)
+    const seconds = remaining % 60
+    timer.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+
+  document.querySelector('[data-radial-value]').textContent = `${percentage}%`
+  document.querySelector('[data-radial-meter]').style.background = `conic-gradient(#111111 0deg ${percentage * 3.6}deg, #e5e7eb ${percentage * 3.6}deg 360deg)`
+  document.querySelector('[data-metric="answered"] [data-metric-value]').textContent = String(answered)
+  document.querySelector('[data-metric="answered"] [data-metric-total]').textContent = `/ ${total}`
+  document.querySelector('[data-metric="unanswered"] [data-metric-value]').textContent = String(unanswered)
+  document.querySelector('[data-metric="unanswered"] [data-metric-total]').textContent = `/ ${total}`
+  document.querySelector('[data-metric="flagged"] [data-metric-value]').textContent = String(flagged)
+  document.querySelector('[data-metric="flagged"] [data-metric-total]').textContent = `/ ${total}`
 }
 
-function returnToExam() {
-    if (confirm('Return to exam? You can review and change your answers.')) {
-        window.location.href = 'exam.html';
-    }
+function renderGrid() {
+  const container = document.querySelector('[data-submission-grid]')
+  if (!container || !submissionSummary) return
+  container.innerHTML = ''
+
+  const flaggedIds = submissionSummary.flaggedQuestionIds || []
+  const answerMap = submissionSummary.answers || {}
+
+  questions.forEach((question, index) => {
+    const wrapper = document.createElement('div')
+    wrapper.className = 'col-2 col-sm-2 col-md-1'
+    const button = document.createElement('button')
+    button.className = 'question-button position-relative w-100'
+    button.textContent = String(index + 1)
+    if (answerMap[String(question.id)]) button.classList.add('is-answered')
+    if (flaggedIds.includes(question.id)) button.classList.add('is-flagged')
+    button.addEventListener('click', () => goToQuestion(index))
+    wrapper.appendChild(button)
+    container.appendChild(wrapper)
+  })
 }
 
-// Initialize submission page
-document.addEventListener('DOMContentLoaded', () => {
-    loadExamState();
-    if (examState) {
-        updateStatistics();
-        generateQuestionGrid();
-        updateTimerDisplay();
-    }
-});
+async function loadSummary() {
+  const sessionId = Number(localStorage.getItem('currentSessionId') || '0')
+  const examId = Number(localStorage.getItem('currentExamId') || '0')
+  const userName = localStorage.getItem('currentUserName') || 'Student'
+  const studentName = document.getElementById('studentName')
+  if (studentName) studentName.textContent = userName
 
-// Load exam state from previous page
-function loadExamState() {
-    const savedState = localStorage.getItem('examState');
-    if (savedState) {
-        examState = JSON.parse(savedState);
-        
-        // Calculate statistics
-        submissionStats.answered = Object.keys(examState.answers || {}).length;
-        submissionStats.unanswered = examState.totalQuestions - submissionStats.answered;
-        submissionStats.flagged = Object.keys(examState.flags || {}).length;
-        submissionStats.timeRemaining = examState.timeRemaining || 0;
-    } else {
-        examState = {
-            currentQuestion: 1,
-            totalQuestions: 1,
-            answers: {},
-            flags: {},
-            timeRemaining: 0
-        };
-        submissionStats.answered = 0;
-        submissionStats.unanswered = 1;
-        submissionStats.flagged = 0;
-        submissionStats.timeRemaining = 0;
-    }
+  const questionResult = await window.electronAPI.getExamQuestions(examId)
+  questions = (questionResult.data || []).sort((a, b) => a.orderIndex - b.orderIndex)
+
+  const sessionState = await window.electronAPI.getSessionState(sessionId)
+  const summaryResult = await window.electronAPI.getSubmissionSummary(sessionId)
+  submissionSummary = {
+    ...(summaryResult.data || {}),
+    remainingSeconds: sessionState.data?.remainingSeconds || 0,
+    flaggedQuestionIds: sessionState.data?.flaggedQuestionIds || summaryResult.data?.flaggedQuestionIds || [],
+    answers: sessionState.data?.answers || summaryResult.data?.answers || {}
+  }
+
+  updateMetrics()
+  renderGrid()
 }
 
-function setEmptyState(message) {
-    const submitButton = document.querySelector('[data-submit-button]');
-    if (submitButton) {
-        submitButton.disabled = true;
-        submitButton.classList.add('opacity-60', 'cursor-not-allowed');
-    }
-
-    const gridContainers = document.querySelectorAll('[data-submission-grid]');
-    gridContainers.forEach(container => {
-        container.innerHTML = `
-            <div class="col-12 text-center text-muted py-4">${message}</div>
-        `;
-    });
-}
-
-// Update statistics displays
-function updateStatistics() {
-    // Update timer widget
-    const timerDisplay = document.querySelector('[data-timer-display]');
-    if (timerDisplay) {
-        const hours = Math.floor(submissionStats.timeRemaining / 3600);
-        const minutes = Math.floor((submissionStats.timeRemaining % 3600) / 60);
-        const seconds = submissionStats.timeRemaining % 60;
-        timerDisplay.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }
-    
-    // Update answered widget
-    const answeredValue = document.querySelector('[data-metric="answered"] [data-metric-value]');
-    const answeredTotal = document.querySelector('[data-metric="answered"] [data-metric-total]');
-    if (answeredValue) {
-        answeredValue.textContent = submissionStats.answered;
-    }
-    if (answeredTotal) {
-        answeredTotal.textContent = `/ ${examState.totalQuestions}`;
-    }
-    
-    // Update radial progress
-    const percentage = Math.round((submissionStats.answered / examState.totalQuestions) * 100);
-    const radialValue = document.querySelector('[data-radial-value]');
-    if (radialValue) {
-        radialValue.textContent = `${percentage}%`;
-    }
-
-    const radialMeter = document.querySelector('[data-radial-meter]');
-    if (radialMeter) {
-        radialMeter.style.background = `conic-gradient(#111111 0deg ${percentage * 3.6}deg, #e5e7eb ${percentage * 3.6}deg 360deg)`;
-    }
-    
-    // Update metrics cards
-    updateMetricsCard('answered', submissionStats.answered, examState.totalQuestions);
-    updateMetricsCard('unanswered', submissionStats.unanswered, examState.totalQuestions);
-    updateMetricsCard('flagged', submissionStats.flagged, examState.totalQuestions);
-}
-
-function updateMetricsCard(type, value, total) {
-    const card = document.querySelector(`[data-metric="${type}"]`);
-    if (!card) return;
-    const valueDisplay = card.querySelector('[data-metric-value]');
-    if (valueDisplay) {
-        valueDisplay.textContent = value;
-    }
-    const totalDisplay = card.querySelector('[data-metric-total]');
-    if (totalDisplay) {
-        totalDisplay.textContent = `/ ${total}`;
-    }
-}
-
-// Generate question grid
-function generateQuestionGrid() {
-    const gridContainers = document.querySelectorAll('[data-submission-grid]');
-    
-    gridContainers.forEach(container => {
-        container.innerHTML = '';
-        
-        for (let i = 1; i <= examState.totalQuestions; i++) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'col-2 col-sm-2 col-md-1';
-
-            const button = document.createElement('button');
-            button.textContent = i;
-            button.onclick = () => goToQuestion(i);
-
-            // Determine button state
-            const isAnswered = examState.answers[i] !== undefined;
-            const isFlagged = examState.flags[i];
-
-            button.className = 'question-button position-relative w-100';
-
-            if (isAnswered) {
-                button.classList.add('is-answered');
-            }
-
-            if (isFlagged) {
-                button.classList.add('is-flagged');
-            }
-
-            wrapper.appendChild(button);
-            container.appendChild(wrapper);
-        }
-    });
-}
-
-// Timer countdown
-function updateTimerDisplay() {
-    setInterval(() => {
-        if (submissionStats.timeRemaining > 0) {
-            submissionStats.timeRemaining--;
-            updateStatistics();
-        } else {
-            autoSubmitExam();
-        }
-    }, 1000);
-}
-
-// Navigation functions
-function returnToExam() {
-    if (!UI_ONLY && window.electronAPI && window.electronAPI.navigateTo) {
-        window.electronAPI.navigateTo('exam');
-    } else {
-        window.location.href = 'exam.html';
-    }
-}
-
-function goToQuestion(questionNumber) {
-    // Update exam state with target question
-    examState.currentQuestion = questionNumber;
-    localStorage.setItem('examState', JSON.stringify(examState));
-    returnToExam();
-}
-
-// Submission confirmation
-function confirmSubmission() {
-    const unansweredCount = submissionStats.unanswered;
-    const flaggedCount = submissionStats.flagged;
-    
-    let message = 'Are you sure you want to submit your exam?\n\n';
-    message += `Answered: ${submissionStats.answered} / ${examState.totalQuestions}\n`;
-    
-    if (unansweredCount > 0) {
-        message += `\n⚠️ WARNING: ${unansweredCount} question(s) unanswered!\n`;
-    }
-    
-    if (flaggedCount > 0) {
-        message += `\n🚩 ${flaggedCount} question(s) are still flagged for review.\n`;
-    }
-    
-    message += '\nThis action cannot be undone.';
-    
-    if (confirm(message)) {
-        submitExam();
-    }
-}
-
-// Submit exam
 async function submitExam() {
-    try {
-        // Show loading state
-        const submitButton = document.querySelector('[data-submit-button]');
-        if (submitButton) {
-            submitButton.disabled = true;
-            submitButton.innerHTML = '<span class="material-symbols-outlined animate-spin">progress_activity</span> Submitting...';
-        }
-        
-        // Prepare submission data
-        const sessionId = Number(localStorage.getItem('currentSessionId'));
-        if (!UI_ONLY && !sessionId) {
-            throw new Error('No active session found');
-        }
+  const sessionId = Number(localStorage.getItem('currentSessionId') || '0')
+  const examId = Number(localStorage.getItem('currentExamId') || '0')
+  const userId = Number(localStorage.getItem('currentUserId') || '0')
+  const submitButton = document.querySelector('[data-submit-button]')
+  if (submitButton) {
+    submitButton.disabled = true
+    submitButton.innerHTML = '<span class="material-symbols-outlined animate-spin">progress_activity</span> Submitting...'
+  }
 
-        const submissionData = {
-            session_id: sessionId,
-            examState: examState,
-            submittedAt: new Date().toISOString(),
-            time_remaining: examState.timeRemaining,
-            answers: examState.answers,
-            flags: examState.flags
-        };
-        
-        // Save to database if electronAPI available
-        if (!UI_ONLY && window.electronAPI && window.electronAPI.saveExamSubmission) {
-            const result = await window.electronAPI.saveExamSubmission(submissionData);
-            if (!result.success) {
-                throw new Error(result.error || 'Submission failed');
-            }
-
-            if (!UI_ONLY && window.electronAPI.endExamSession) {
-                await window.electronAPI.endExamSession(sessionId, 'completed');
-            }
-        }
-        
-        // Clear localStorage
-        localStorage.removeItem('examState');
-        
-        // Navigate to dashboard or success page
-        setTimeout(() => {
-            alert('✅ Exam submitted successfully!\n\nYour answers have been recorded.');
-            
-            if (!UI_ONLY && window.electronAPI && window.electronAPI.navigateTo) {
-                window.electronAPI.navigateTo('dashboard');
-            } else {
-                window.location.href = 'dashboard.html';
-            }
-        }, 1000);
-        
-    } catch (error) {
-        console.error('Submission error:', error);
-        alert('❌ Error submitting exam. Please try again or contact support.');
-        
-        // Re-enable button
-        const submitButton = document.querySelector('[data-submit-button]');
-        if (submitButton) {
-            submitButton.disabled = false;
-            submitButton.innerHTML = 'Confirm Submission <span class="material-symbols-outlined">send</span>';
-        }
+  try {
+    const result = await window.electronAPI.saveExamSubmission({
+      sessionId,
+      examId,
+      userId,
+      flaggedQuestionIds: submissionSummary.flaggedQuestionIds || [],
+      timeRemaining: submissionSummary.remainingSeconds || 0
+    })
+    if (!result.success) {
+      throw new Error(result.error || 'Submission failed')
     }
+    localStorage.setItem('lastSubmissionScore', String(result.data.score ?? 0))
+    localStorage.setItem('lastSubmissionAt', new Date().toISOString())
+    localStorage.setItem('lastSubmissionExamName', localStorage.getItem('currentExamName') || '')
+    localStorage.removeItem('examUiState')
+    alert(`Exam submitted successfully. Score: ${result.data.score}%`)
+    await window.electronAPI.navigateTo(getDashboardDestination())
+  } catch (error) {
+    alert(error.message || 'Submission failed')
+    if (submitButton) {
+      submitButton.disabled = false
+      submitButton.innerHTML = 'Confirm Submission'
+    }
+  }
 }
 
-// Auto-submit when time runs out
-function autoSubmitExam() {
-    alert('⏰ Time is up! Your exam will be submitted automatically.');
-    submitExam();
+function confirmSubmission() {
+  if (!submissionSummary) return
+  const message = `Submit exam now?\n\nAnswered: ${submissionSummary.answered}/${questions.length}\nFlagged: ${submissionSummary.flagged}`
+  if (confirm(message)) {
+    submitExam()
+  }
 }
 
-// Update student name
+async function returnToExam() {
+  await window.electronAPI.navigateTo('exam')
+}
+
+function goToQuestion(index) {
+  localStorage.setItem('examUiState', JSON.stringify({
+    currentIndex: index,
+    timeRemaining: submissionSummary.remainingSeconds || 0
+  }))
+  returnToExam()
+}
+
+document.addEventListener('DOMContentLoaded', loadSummary)
+window.confirmSubmission = confirmSubmission
+window.returnToExam = returnToExam

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>Student Dashboard</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect" />
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="css/accessibility.css" />
+  <link rel="stylesheet" href="css/theme.css" />
+  <script src="js/student-dashboard.js" defer></script>
+</head>
+<body class="app-bg app-fullscreen">
+  <header class="app-header">
+    <div class="container-fluid py-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div class="d-flex align-items-center gap-3">
+        <div class="status-icon is-ok">
+          <span class="material-symbols-outlined">school</span>
+        </div>
+        <div>
+          <div class="app-title">Student Dashboard</div>
+          <div class="app-subtitle">Secure Exam Workspace</div>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-dark btn-sm" data-open-verification>Verify Identity</button>
+        <button class="btn btn-outline-dark btn-sm" data-open-launch>System Checks</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container-fluid app-main app-compact">
+    <div class="row g-4">
+      <section class="col-xl-8">
+        <div class="app-card p-4 student-hero-card fade-up">
+          <div class="card-header mb-3">
+            <div>
+              <div class="card-title">Welcome, <span data-student-name>Student</span></div>
+              <div class="card-subtitle">Track readiness and continue your scheduled exam flow.</div>
+            </div>
+            <span class="badge text-bg-light border app-mono" data-session-status>Session Ready</span>
+          </div>
+          <div class="student-hero-meta">
+            <div class="student-hero-item">
+              <div class="summary-label">Role</div>
+              <div class="summary-value">Student</div>
+            </div>
+            <div class="student-hero-item">
+              <div class="summary-label">Course</div>
+              <div class="summary-value" data-course>--</div>
+            </div>
+            <div class="student-hero-item">
+              <div class="summary-label">Branch</div>
+              <div class="summary-value" data-branch>--</div>
+            </div>
+            <div class="student-hero-item">
+              <div class="summary-label">Verification</div>
+              <div class="summary-value" data-verification-state>Pending</div>
+            </div>
+          </div>
+          <div class="flow-pill mt-3" data-flow-note data-flow-tone="warning">Step 1: Verify identity before running system checks.</div>
+        </div>
+
+        <div class="app-card p-4 mt-4 fade-up stagger-1">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Upcoming Exam</div>
+              <div class="card-subtitle">Latest exam assigned to your account</div>
+            </div>
+            <span class="badge text-bg-light border app-mono" data-exam-status>Checking</span>
+          </div>
+          <div class="info-list mt-3">
+            <div class="info-item">
+              <span class="info-label">Exam Name</span>
+              <span class="info-value" data-exam-name>Not scheduled</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Exam Code</span>
+              <span class="info-value" data-exam-code>--</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Duration</span>
+              <span class="info-value" data-exam-duration>--</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Window</span>
+              <span class="info-value" data-exam-window>Not set</span>
+            </div>
+          </div>
+          <div class="card-actions mt-4">
+            <div class="text-muted small">Run system checks before opening exam.</div>
+            <button class="btn btn-dark btn-sm" data-open-launch>Open Launch Pad</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="col-xl-4">
+        <div class="app-card p-4 mb-3 fade-up stagger-2">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Quick Status</div>
+              <div class="card-subtitle">Realtime indicators</div>
+            </div>
+          </div>
+          <div class="summary-list">
+            <div class="summary-item">
+              <span class="summary-label">Internet</span>
+              <span class="summary-value" data-online-state>Online</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Database</span>
+              <span class="summary-value" data-db-state>Checking...</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Verification</span>
+              <span class="summary-value" data-quick-verify>Pending</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="app-card p-4 mb-3 fade-up stagger-3">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Last Submission</div>
+              <div class="card-subtitle">Most recent exam result on this device</div>
+            </div>
+          </div>
+          <div class="student-score-card mt-2">
+            <div class="student-score-value" data-last-score>--%</div>
+            <div class="student-score-meta" data-last-exam>Exam: --</div>
+            <div class="student-score-meta" data-last-time>Submitted: --</div>
+          </div>
+        </div>
+
+        <div class="app-card p-4 h-100 fade-up stagger-4">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Actions</div>
+              <div class="card-subtitle">Complete in order for smooth start</div>
+            </div>
+          </div>
+          <div class="d-grid gap-2 mt-2">
+            <button class="btn btn-outline-dark" data-open-verification>1. Verify Identity</button>
+            <button class="btn btn-outline-dark" data-open-launch>2. Run System Checks</button>
+            <button class="btn btn-dark" data-start-exam>3. Continue To Exam Gate</button>
+            <button class="btn btn-light border" data-logout>Logout</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

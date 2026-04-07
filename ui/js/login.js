@@ -1,129 +1,102 @@
-// Login Screen JavaScript
+const DEFAULT_STUDENT_USERNAME = 'student'
+const DEFAULT_STUDENT_PASSWORD = 'student123'
 
-const UI_ONLY = true;
+function setCredentials(usernameValue, passwordValue) {
+  const username = document.getElementById('username')
+  const password = document.getElementById('password')
+  if (!username || !password) return
+  username.value = usernameValue
+  password.value = passwordValue
+}
+
+function showError(message) {
+  const errorElement = document.getElementById('loginError')
+  if (!errorElement) return
+  errorElement.textContent = message
+  errorElement.style.display = 'block'
+}
+
+function clearError() {
+  const errorElement = document.getElementById('loginError')
+  if (!errorElement) return
+  errorElement.textContent = ''
+  errorElement.style.display = 'none'
+}
+
+function resetSessionArtifacts() {
+  localStorage.removeItem('currentSessionId')
+  localStorage.removeItem('examUiState')
+  localStorage.removeItem('verificationComplete')
+  localStorage.removeItem('lastSubmissionScore')
+  localStorage.removeItem('lastSubmissionAt')
+  localStorage.removeItem('lastSubmissionExamName')
+}
 
 async function updateDbStatus() {
-    const statusBadge = document.getElementById('dbStatus');
-    if (!statusBadge) return;
+  const badge = document.getElementById('dbStatus')
+  if (!badge) return
 
-    if (UI_ONLY || !window.electronAPI || !window.electronAPI.getDatabaseStatus) {
-        statusBadge.textContent = 'UI Only';
-        statusBadge.className = 'badge text-bg-secondary';
-        return;
-    }
-
-    try {
-        const status = await window.electronAPI.getDatabaseStatus();
-        if (status.connected) {
-            statusBadge.textContent = 'DB Connected';
-            statusBadge.className = 'badge text-bg-success';
-        } else {
-            statusBadge.textContent = 'DB Offline';
-            statusBadge.className = 'badge text-bg-warning';
-        }
-    } catch (error) {
-        statusBadge.textContent = 'DB Unknown';
-        statusBadge.className = 'badge text-bg-secondary';
-    }
-}
-
-function showLoginError(message) {
-    const errorEl = document.getElementById('loginError');
-    if (!errorEl) return;
-    errorEl.textContent = message;
-    errorEl.style.display = 'block';
-}
-
-function clearLoginError() {
-    const errorEl = document.getElementById('loginError');
-    if (!errorEl) return;
-    errorEl.textContent = '';
-    errorEl.style.display = 'none';
+  try {
+    const status = await window.electronAPI.getDatabaseStatus()
+    badge.textContent = status.connected ? 'SQLite Ready' : 'SQLite Offline'
+    badge.className = status.connected ? 'status-pill-ok' : 'status-pill-warn'
+  } catch (error) {
+    badge.textContent = 'DB Error'
+    badge.className = 'status-pill-warn'
+  }
 }
 
 async function handleLogin(event) {
-    event.preventDefault();
-    clearLoginError();
+  event.preventDefault()
+  clearError()
 
-    const username = document.getElementById('username');
-    const password = document.getElementById('password');
-    const button = document.getElementById('loginButton');
+  const username = document.getElementById('username')
+  const password = document.getElementById('password')
+  const button = document.getElementById('loginButton')
+  if (!username || !password || !button) return
 
-    if (!username || !password || !button) return;
+  button.disabled = true
+  button.textContent = 'Signing In...'
 
-    button.disabled = true;
-    button.textContent = 'Signing In...';
-
-    try {
-        if (UI_ONLY || !window.electronAPI || !window.electronAPI.login) {
-            const displayName = username.value.trim() || 'Candidate';
-            const localUser = {
-                user_id: -1,
-                full_name: displayName,
-                role: 'student',
-                student_id: 'SEB-LOCAL'
-            };
-
-            localStorage.setItem('currentUserId', localUser.user_id);
-            localStorage.setItem('currentUserName', localUser.full_name);
-            localStorage.setItem('currentUserRole', localUser.role);
-            localStorage.setItem('currentUserCourse', '');
-            localStorage.setItem('currentUserBranch', '');
-            localStorage.setItem('currentUserUniversity', '');
-            localStorage.setItem('currentUserLocation', '');
-
-            window.location.href = 'launch.html';
-            return;
-        }
-
-        const result = await window.electronAPI.login(username.value.trim(), password.value);
-        if (!result.success) {
-            showLoginError(result.error || 'Login failed');
-            return;
-        }
-
-        localStorage.setItem('currentUserId', result.data.user_id);
-        localStorage.setItem('currentUserName', result.data.full_name || 'Student');
-        localStorage.setItem('currentUserRole', result.data.role || 'student');
-        localStorage.setItem('currentUserCourse', 'B.Tech');
-        localStorage.setItem('currentUserBranch', 'Computer Science & Engineering (CSE)');
-        localStorage.setItem('currentUserUniversity', 'Sharda University');
-        localStorage.setItem('currentUserLocation', 'Greater Noida, Uttar Pradesh');
-
-        const role = (result.data.role || 'student').toLowerCase();
-        const destination = role === 'admin' || role === 'instructor' ? 'dashboard' : 'launch';
-        await window.electronAPI.navigateTo(destination);
-    } catch (error) {
-        showLoginError(error.message || 'Login failed');
-    } finally {
-        button.disabled = false;
-        button.textContent = 'Sign In';
+  try {
+    resetSessionArtifacts()
+    const result = await window.electronAPI.login(username.value.trim(), password.value)
+    if (!result.success) {
+      throw new Error(result.error || 'Invalid username or password')
     }
+
+    const user = result.data
+    localStorage.setItem('currentUserId', String(user.userId))
+    localStorage.setItem('currentUserName', user.fullName || '')
+    localStorage.setItem('currentUserRole', user.role || 'student')
+    localStorage.setItem('currentUserCourse', user.course || '')
+    localStorage.setItem('currentUserBranch', user.branch || '')
+    localStorage.setItem('currentUserUniversity', user.university || '')
+    localStorage.setItem('currentUserLocation', user.location || '')
+
+    const destination = (user.role || '').toLowerCase() === 'admin' ? 'dashboard' : 'student-dashboard'
+    await window.electronAPI.navigateTo(destination)
+  } catch (error) {
+    showError(error.message || 'Login failed')
+  } finally {
+    button.disabled = false
+    button.textContent = 'Sign In'
+  }
 }
 
-function bindLoginShortcuts() {
-    const focusUsername = document.getElementById('focusUsername');
-    const username = document.getElementById('username');
-    const password = document.getElementById('password');
+document.addEventListener('DOMContentLoaded', () => {
+  setCredentials(DEFAULT_STUDENT_USERNAME, DEFAULT_STUDENT_PASSWORD)
+  updateDbStatus()
 
-    if (focusUsername && username) {
-        focusUsername.addEventListener('click', () => {
-            username.focus();
-        });
-    }
-}
+  const form = document.getElementById('loginForm')
+  if (form) {
+    form.addEventListener('submit', handleLogin)
+  }
 
-// Initialize
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        updateDbStatus();
-        bindLoginShortcuts();
-        const form = document.getElementById('loginForm');
-        if (form) form.addEventListener('submit', handleLogin);
-    });
-} else {
-    updateDbStatus();
-    bindLoginShortcuts();
-    const form = document.getElementById('loginForm');
-    if (form) form.addEventListener('submit', handleLogin);
-}
+  const quickFill = document.getElementById('useStudentCredentials')
+  if (quickFill) {
+    quickFill.addEventListener('click', () => {
+      setCredentials(DEFAULT_STUDENT_USERNAME, DEFAULT_STUDENT_PASSWORD)
+    })
+  }
+})

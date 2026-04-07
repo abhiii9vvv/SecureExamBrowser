@@ -42,3 +42,37 @@ input[type=range]::-webkit-slider-runnable-track {
     font-family: 'Times New Roman', serif;
     font-style: italic;
 }
+
+.coding-right-panel .code-editor {
+    min-height: 320px;
+}
+
+.coding-output pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.coding-example {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 10px;
+    background: #f8fafc;
+}
+
+.coding-example-title {
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.coding-example-code {
+    display: block;
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-top: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    overflow-x: auto;
+}

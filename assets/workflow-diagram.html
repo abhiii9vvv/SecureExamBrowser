@@ -2,216 +2,342 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Secure Exam Browser — Workflow Diagram</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Secure Exam Browser - Detailed Workflow</title>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <style>
-    body { background: #0f1117; display: flex; flex-direction: column; align-items: center; padding: 32px; font-family: sans-serif; }
-    h2 { color: #e2e8f0; margin-bottom: 24px; letter-spacing: 0.5px; }
-    #diagram-box { background: #1e2230; border-radius: 12px; padding: 32px; max-width: 1100px; width: 100%; }
-    button {
-      margin-top: 28px;
-      padding: 10px 28px;
-      background: #6366f1;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      cursor: pointer;
-      transition: background 0.2s;
+    :root {
+      --bg: #0a1220;
+      --panel: #111b2e;
+      --panel-2: #17243d;
+      --ink: #dbe6ff;
+      --muted: #8fa3c7;
+      --accent: #3dd4a5;
+      --accent-2: #4aa9ff;
+      --warn: #f59e0b;
+      --border: #253755;
     }
-    button:hover { background: #4f46e5; }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 20% 10%, #173054 0%, transparent 35%),
+        radial-gradient(circle at 80% 5%, #1b2f57 0%, transparent 30%),
+        var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .wrap {
+      max-width: 1360px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .hero {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(61, 212, 165, 0.08), rgba(74, 169, 255, 0.08));
+      padding: 20px 22px;
+    }
+
+    h1 {
+      margin: 0;
+      letter-spacing: 0.4px;
+      font-size: 1.5rem;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button {
+      background: var(--panel-2);
+      color: var(--ink);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    button:hover { border-color: var(--accent-2); transform: translateY(-1px); }
+    button.active { background: rgba(74, 169, 255, 0.2); border-color: var(--accent-2); }
+
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--panel);
+      padding: 16px;
+    }
+
+    .diagram-shell {
+      overflow: auto;
+      border-radius: 12px;
+      background: #0e1a2f;
+      border: 1px solid var(--border);
+      padding: 14px;
+      min-height: 620px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .meta-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.02);
+      padding: 12px;
+    }
+
+    .meta-label {
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 6px;
+    }
+
+    .meta-value {
+      font-size: 0.96rem;
+      line-height: 1.45;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .chip {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      padding: 5px 10px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .chip.ok { border-color: rgba(61, 212, 165, 0.45); color: #99f6e4; }
+    .chip.flow { border-color: rgba(74, 169, 255, 0.45); color: #b3d7ff; }
+    .chip.warn { border-color: rgba(245, 158, 11, 0.45); color: #fcd34d; }
+
+    @media (max-width: 980px) {
+      body { padding: 12px; }
+      .meta-grid { grid-template-columns: 1fr; }
+      .diagram-shell { min-height: 520px; }
+    }
   </style>
 </head>
 <body>
-  <h2>Secure Exam Browser — Full Workflow</h2>
-  <div id="diagram-box">
-    <div class="mermaid">
-flowchart TD
-    A([Electron App Start\nscript.js]) --> B[login.html\nAdmin / Student Login]
+  <div class="wrap">
+    <section class="hero">
+      <h1>Secure Exam Browser - Detailed Workflow Diagram</h1>
+      <div class="subtitle">Complete operational map covering launch readiness, verification, exam lifecycle, backend IPC, and incident paths.</div>
+    </section>
 
-    B -->|Admin credentials| C[dashboard.html\nAdmin Panel]
-    B -->|Student credentials| D[launch.html\nPre-Exam Checks]
+    <section class="panel">
+      <div class="toolbar">
+        <button class="active" data-view="lifecycle">Lifecycle Flow</button>
+        <button data-view="checks">Readiness Checks</button>
+        <button data-view="sequence">Backend Sequence</button>
+        <button data-view="incidents">Incident Handling</button>
+        <button id="downloadSvg">Download SVG</button>
+      </div>
+      <div class="legend">
+        <span class="chip ok">Pass path</span>
+        <span class="chip flow">Primary flow</span>
+        <span class="chip warn">Failure or lock path</span>
+      </div>
+    </section>
 
-    C --> C1[Monitor Active Sessions]
-    C --> C2[View Audit / Violation Logs]
-    C --> C3[KPI Stats: Active · Violations]
-    C --> C4[Force Exit / Revoke Session]
+    <section class="panel">
+      <div class="diagram-shell">
+        <div id="diagram"></div>
+      </div>
+    </section>
 
-    D --> D1{System Checks}
-    D1 -->|Internet ✓| D2[Camera Check ✓]
-    D1 -->|Fail| D_FAIL([Block — Show Error])
-    D2 -->|Mic ✓| D3[Lockdown Mode ✓]
-    D3 -->|All passed| E[verification.html\nBiometric Verification]
-
-    E --> E1[Camera Stream Start]
-    E1 --> E2[Face Detection\n30 stable frames]
-    E2 --> E3[Liveness Check\nMotion Score]
-    E3 --> E4[Identity Match\nEnroll / Verify]
-    E4 -->|Verified ✓| F[exam.html\nExam Session]
-    E4 -->|Failed / Locked| E_FAIL([Lock Verification\nLog Incident])
-
-    F --> F1[Load Questions\nfrom DB / ques.json]
-    F1 --> F2[MCQ Questions\nMultiple Choice]
-    F1 --> F3[Coding Questions\nCode Runner IDE]
-    F2 --> F4[Flag / Unflag\nNavigate Questions]
-    F3 --> F4
-    F4 --> F5{Timer\n2h Countdown}
-    F5 -->|Time Up| G[submission.html]
-    F5 -->|Student Submits| G
-
-    G --> G1[Review Stats\nAnswered · Unanswered · Flagged]
-    G1 --> G2{Confirm Submit?}
-    G2 -->|No| F
-    G2 -->|Yes| G3[Submit to Backend\nRecord Session]
-    G3 --> H([Session End\nRelease Kiosk Lock])
-
-    subgraph Electron Main Process
-        M1[Kiosk / Fullscreen Mode]
-        M2[Block: Alt+F4 · Esc · F11 · Alt+Tab]
-        M3[Block External Navigation]
-        M4[IPC Bridge — preload.js]
-        M5[Admin Exit Shortcut]
-    end
-
-    A -.->|Controls| M1
-    M4 -.->|electronAPI calls| D
-    M4 -.->|electronAPI calls| E
-    M4 -.->|electronAPI calls| F
-    M4 -.->|electronAPI calls| G
-    </div>
-  </div>
-  <div style="display:flex;gap:12px;margin-top:28px;">
-    <button onclick="downloadSVG()">⬇ Download as SVG</button>
-    <button onclick="downloadPNG()" style="background:#10b981;">⬇ Download as PNG</button>
+    <section class="panel meta-grid">
+      <article class="meta-card">
+        <div class="meta-label">Secure Gates</div>
+        <div class="meta-value">Internet, camera, microphone, and fullscreen secure mode must pass before exam start is enabled.</div>
+      </article>
+      <article class="meta-card">
+        <div class="meta-label">Verification Stack</div>
+        <div class="meta-value">Frame capture -> face detection -> liveness -> identity match -> verification pass or lock action.</div>
+      </article>
+      <article class="meta-card">
+        <div class="meta-label">Data Integrity</div>
+        <div class="meta-value">Session start, answer saves, and final submission are persisted through IPC handlers in the main process.</div>
+      </article>
+    </section>
   </div>
 
   <script>
-    const DIAGRAM_SOURCE = `flowchart TD
-    A([Electron App Start\nscript.js]) --> B[login.html\nAdmin / Student Login]
-    B -->|Admin credentials| C[dashboard.html\nAdmin Panel]
-    B -->|Student credentials| D[launch.html\nPre-Exam Checks]
-    C --> C1[Monitor Active Sessions]
-    C --> C2[View Audit / Violation Logs]
-    C --> C3[KPI Stats: Active · Violations]
-    C --> C4[Force Exit / Revoke Session]
-    D --> D1{System Checks}
-    D1 -->|Internet ✓| D2[Camera Check ✓]
-    D1 -->|Fail| D_FAIL([Block — Show Error])
-    D2 -->|Mic ✓| D3[Lockdown Mode ✓]
-    D3 -->|All passed| E[verification.html\nBiometric Verification]
-    E --> E1[Camera Stream Start]
-    E1 --> E2[Face Detection\n30 stable frames]
-    E2 --> E3[Liveness Check\nMotion Score]
-    E3 --> E4[Identity Match\nEnroll / Verify]
-    E4 -->|Verified ✓| F[exam.html\nExam Session]
-    E4 -->|Failed / Locked| E_FAIL([Lock Verification\nLog Incident])
-    F --> F1[Load Questions\nfrom DB / ques.json]
-    F1 --> F2[MCQ Questions\nMultiple Choice]
-    F1 --> F3[Coding Questions\nCode Runner IDE]
-    F2 --> F4[Flag / Unflag\nNavigate Questions]
-    F3 --> F4
-    F4 --> F5{Timer\n2h Countdown}
-    F5 -->|Time Up| G[submission.html]
-    F5 -->|Student Submits| G
-    G --> G1[Review Stats\nAnswered · Unanswered · Flagged]
-    G1 --> G2{Confirm Submit?}
-    G2 -->|No| F
-    G2 -->|Yes| G3[Submit to Backend\nRecord Session]
-    G3 --> H([Session End\nRelease Kiosk Lock])
-    subgraph Electron Main Process
-        M1[Kiosk / Fullscreen Mode]
-        M2[Block: Alt+F4 · Esc · F11 · Alt+Tab]
-        M3[Block External Navigation]
-        M4[IPC Bridge — preload.js]
-        M5[Admin Exit Shortcut]
-    end
-    A -.->|Controls| M1
-    M4 -.->|electronAPI calls| D
-    M4 -.->|electronAPI calls| E
-    M4 -.->|electronAPI calls| F
-    M4 -.->|electronAPI calls| G`;
+    const diagrams = {
+      lifecycle: `flowchart TD
+        A([App Boot: script.js]) --> B[Load login.html]
+        B --> C[Student login success]
+        C --> D[launch.html readiness page]
 
-    mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+        D --> E{All checks pass?}
+        E -- No --> D1[Show unresolved checks]\nD1 --> D
+        E -- Yes --> F[Start biometric verification]
 
-    function getSVGString() {
-      const svgEl = document.querySelector('#diagram-box svg');
-      if (!svgEl) return null;
-      const serializer = new XMLSerializer();
-      let str = serializer.serializeToString(svgEl);
-      if (!str.includes('xmlns=')) str = str.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-      return str;
+        F --> G[verification.html]
+        G --> H[Capture frame stream]
+        H --> I{Face + liveness + identity valid?}
+        I -- No --> J[Warning / lock and retry path]
+        J --> G
+        I -- Yes --> K[exam.html]
+
+        K --> L[Load question set from DB or ques.json]
+        L --> M[MCQ and coding interactions]
+        M --> N{Submit or timer expiry?}
+        N -- Continue --> M
+        N -- Submit --> O[submission.html]
+        O --> P[Confirm final submission]
+        P --> Q[Persist submission and close session]
+        Q --> R([Workflow complete])`,
+
+      checks: `flowchart LR
+        A[Run system checks] --> B{Internet online?}
+        B -- No --> BX[Fail: offline]\nBX --> Z[Block exam start]
+        B -- Yes --> C{Camera live track?}
+        C -- No --> CX[Fail: camera unavailable]\nCX --> Z
+        C -- Yes --> D{Microphone live track?}
+        D -- No --> DX[Fail: microphone unavailable]\nDX --> Z
+        D -- Yes --> E{Fullscreen secure mode active?}
+        E -- No --> EX[Attempt setFullscreen(true)] --> E
+        E -- Yes --> F[All readiness checks passed]
+        F --> G[Enable Start Exam button]
+
+        classDef pass fill:#123d34,stroke:#3dd4a5,color:#d1fae5;
+        classDef fail fill:#4a241f,stroke:#f59e0b,color:#fde68a;
+        class F,G pass;
+        class BX,CX,DX,EX,Z fail;`,
+
+      sequence: `sequenceDiagram
+        participant UI as Launch/Verification UI
+        participant PL as preload.js bridge
+        participant MP as Main Process IPC
+        participant ML as Model Pipeline
+
+        UI->>PL: getSystemInfo()
+        PL->>MP: invoke get-system-info
+        MP-->>UI: platform, arch, model registry
+
+        UI->>PL: getLockStatus()
+        PL->>MP: invoke get-lock-status
+        MP-->>UI: fullscreen + secure flags
+
+        UI->>PL: syncOpenSourceModels()
+        PL->>MP: invoke sync-open-source-models
+        MP-->>UI: download status per model
+
+        loop each frame
+          UI->>PL: verifyFrame(image)
+          PL->>MP: invoke verify-frame
+          MP->>ML: infer face/liveness/identity
+          ML-->>MP: detection result
+          MP-->>UI: face_count + liveness + identity_match
+        end
+
+        UI->>PL: startExamSession(payload)
+        PL->>MP: invoke start-exam-session
+        MP-->>UI: sessionId
+
+        UI->>PL: saveMCQAnswer/saveCodeAnswer
+        PL->>MP: persist answer
+        MP-->>UI: success
+
+        UI->>PL: saveExamSubmission + endExamSession
+        PL->>MP: finalize session
+        MP-->>UI: completed`,
+
+      incidents: `stateDiagram-v2
+        [*] --> Monitoring
+        Monitoring --> Warning : No face / low confidence
+        Warning --> Monitoring : Recovery within threshold
+
+        Monitoring --> Violation : Multiple faces
+        Monitoring --> Violation : Camera revoked
+        Monitoring --> Violation : Fullscreen exited
+
+        Violation --> SoftLock : Policy allows retry
+        SoftLock --> Monitoring : User resolves issue
+
+        Violation --> HardLock : Severe or repeated breach
+        HardLock --> IncidentLogged : create log entry
+        IncidentLogged --> SessionBlocked
+        SessionBlocked --> [*]
+
+        Monitoring --> Submission : Exam completed
+        Submission --> [*]`
+    };
+
+    const buttons = Array.from(document.querySelectorAll('[data-view]'));
+    const diagramHost = document.getElementById('diagram');
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'dark',
+      securityLevel: 'loose',
+      flowchart: {
+        curve: 'basis'
+      }
+    });
+
+    async function renderView(name) {
+      const source = diagrams[name] || diagrams.lifecycle;
+      const id = `wf_${name}_${Date.now()}`;
+      const rendered = await mermaid.render(id, source);
+      diagramHost.innerHTML = rendered.svg;
+      buttons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === name));
     }
 
-    function downloadSVG() {
-      let svgStr = getSVGString();
-      if (!svgStr) { alert('Diagram not ready yet.'); return; }
+    function downloadCurrentSvg() {
+      const svgEl = diagramHost.querySelector('svg');
+      if (!svgEl) {
+        alert('Diagram not ready');
+        return;
+      }
 
-      // Inject dark background rect right after the opening <svg ...> tag
-      svgStr = svgStr.replace(/(<svg[^>]*>)/, '$1<rect width="100%" height="100%" fill="#1e2230"/>');
-
-      const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+      const xml = new XMLSerializer().serializeToString(svgEl);
+      const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.download = 'secure-exam-browser-workflow.svg';
-      link.href = URL.createObjectURL(blob);
+      link.href = url;
+      link.download = 'secure-exam-browser-detailed-workflow.svg';
       link.click();
-      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
-    async function downloadPNG() {
-      // Use mermaid.render() to get a clean SVG, then encode as base64 data URL
-      // to avoid tainted canvas from blob:// protocol
-      let svgStr;
-      try {
-        const { svg } = await mermaid.render('png-export', DIAGRAM_SOURCE);
-        svgStr = svg;
-      } catch(e) {
-        svgStr = getSVGString();
-      }
-      if (!svgStr) { alert('Diagram not ready yet.'); return; }
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => renderView(btn.dataset.view));
+    });
 
-      // Parse dimensions from SVG
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(svgStr, 'image/svg+xml');
-      const svgNode = doc.querySelector('svg');
-      const vb = svgNode?.getAttribute('viewBox');
-      let w = parseFloat(svgNode?.getAttribute('width')) || 0;
-      let h = parseFloat(svgNode?.getAttribute('height')) || 0;
-      if (vb) {
-        const parts = vb.split(/\s+/);
-        if (!w) w = parseFloat(parts[2]) || 1200;
-        if (!h) h = parseFloat(parts[3]) || 900;
-      }
-      if (!w) w = 1200;
-      if (!h) h = 900;
+    document.getElementById('downloadSvg').addEventListener('click', downloadCurrentSvg);
 
-      // Force explicit width/height on the SVG so canvas renders at full size
-      svgStr = svgStr.replace(/<svg([^>]*)>/, (match, attrs) => {
-        attrs = attrs.replace(/width="[^"]*"/, '').replace(/height="[^"]*"/, '');
-        return `<svg${attrs} width="${w}" height="${h}">`;
-      });
-
-      const scale = 2;
-      const canvas = document.createElement('canvas');
-      canvas.width = w * scale;
-      canvas.height = h * scale;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#1e2230';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.scale(scale, scale);
-
-      // Use base64 data URL instead of blob URL — avoids tainted canvas
-      const b64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));
-      const img = new Image();
-      img.onload = function () {
-        ctx.drawImage(img, 0, 0, w, h);
-        const link = document.createElement('a');
-        link.download = 'secure-exam-browser-workflow.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      };
-      img.onerror = () => alert('PNG render failed. Try the SVG download.');
-      img.src = b64;
-    }
+    renderView('lifecycle');
   </script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 const { app, BrowserWindow, dialog, globalShortcut, ipcMain, screen } = require('electron')
+const crypto = require('node:crypto')
 const path = require('node:path')
 
 const { DatabaseService } = require('./backend/database')
@@ -9,13 +10,37 @@ const { VisionService } = require('./backend/vision-service')
 
 let mainWindow = null
 let isExamMode = true
+const AUTH_TOKEN_TTL_MS = 4 * 60 * 60 * 1000
+const authSessions = new Map()
+const VERIFICATION_TTL_MS = 20 * 60 * 1000
+const verificationSessions = new Map()
 
-const allowedPages = new Set(['login', 'dashboard', 'student-dashboard', 'launch', 'verification', 'exam', 'submission'])
+const allowedPages = new Set([
+  'login',
+  'dashboard',
+  'admin-exams',
+  'admin-users',
+  'admin-reports',
+  'student-dashboard',
+  'launch',
+  'verification',
+  'exam',
+  'submission'
+])
 const secureFullscreenPages = new Set(['launch', 'verification', 'exam', 'submission'])
+const pageAccessByRole = {
+  guest: new Set(['login']),
+  student: new Set(['login', 'student-dashboard', 'launch', 'verification', 'exam', 'submission']),
+  admin: new Set(['login', 'dashboard', 'admin-exams', 'admin-users', 'admin-reports'])
+}
 const rootDir = __dirname
 
 const runtimeCapabilities = getRuntimeCapabilities(rootDir)
-const database = new DatabaseService({ rootDir, pythonCommand: runtimeCapabilities.python.sqliteCommand || runtimeCapabilities.python.command || 'python' })
+const database = new DatabaseService({
+  rootDir,
+  pythonCommand: runtimeCapabilities.python.sqliteCommand || runtimeCapabilities.python.command || 'python',
+  ensureLocalExamAvailability: !app.isPackaged
+})
 const modelService = new ModelService({ rootDir, database })
 const visionService = new VisionService({ rootDir, pythonCommand: runtimeCapabilities.python.visionCommand || null })
 const codeExecutionService = new CodeExecutionService({ database, runtimeCapabilities })
@@ -24,9 +49,209 @@ function generateSessionToken() {
   return `SES-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 10).toUpperCase()}`
 }
 
+function normalizeRole(role) {
+  const normalized = String(role || '').toLowerCase().trim()
+  return normalized === 'admin' ? 'admin' : 'student'
+}
+
+function normalizePositiveInteger(value) {
+  const num = Number(value)
+  return Number.isInteger(num) && num > 0 ? num : null
+}
+
+function pruneExpiredAuthSessions() {
+  const now = Date.now()
+  for (const [token, session] of authSessions.entries()) {
+    if (!session || session.expiresAt <= now) {
+      authSessions.delete(token)
+    }
+  }
+}
+
+function canBypassVerification() {
+  return !app.isPackaged
+}
+
+function pruneExpiredVerificationSessions() {
+  const now = Date.now()
+  for (const [senderId, state] of verificationSessions.entries()) {
+    if (!Number.isInteger(senderId) || !state || !Number.isInteger(state.userId) || state.userId <= 0) {
+      verificationSessions.delete(senderId)
+      continue
+    }
+
+    const hasStartedExam = Number.isInteger(state.startedExamAt) && state.startedExamAt > 0
+    const verifiedAt = Number(state.verifiedAt || 0)
+    const isFreshVerification = Number.isFinite(verifiedAt) && (verifiedAt + VERIFICATION_TTL_MS) > now
+
+    if (!hasStartedExam && !isFreshVerification) {
+      verificationSessions.delete(senderId)
+    }
+  }
+}
+
+function clearVerificationSessionForSender(senderId) {
+  if (Number.isInteger(senderId)) {
+    verificationSessions.delete(senderId)
+  }
+}
+
+function getVerificationSessionForSender(senderId) {
+  pruneExpiredVerificationSessions()
+  if (!Number.isInteger(senderId)) {
+    return null
+  }
+  return verificationSessions.get(senderId) || null
+}
+
+function setVerificationSessionForSender(senderId, nextState = {}) {
+  if (!Number.isInteger(senderId)) {
+    return
+  }
+
+  const current = verificationSessions.get(senderId) || {}
+  const merged = {
+    ...current,
+    ...nextState
+  }
+
+  if (!Number.isInteger(merged.userId) || merged.userId <= 0) {
+    verificationSessions.delete(senderId)
+    return
+  }
+
+  verificationSessions.set(senderId, merged)
+}
+
+function hasExamAccess(event, authSession, options = {}) {
+  if (authSession.role !== 'student') {
+    return true
+  }
+
+  if (canBypassVerification()) {
+    return true
+  }
+
+  const senderId = event?.sender?.id
+  const state = getVerificationSessionForSender(senderId)
+  if (!state || state.userId !== authSession.userId) {
+    return false
+  }
+
+  const requestedExamId = normalizePositiveInteger(options.examId)
+  const verifiedExamId = normalizePositiveInteger(state.examId)
+
+  if (Number.isInteger(state.startedExamAt) && state.startedExamAt > 0) {
+    if (!requestedExamId || !verifiedExamId) {
+      return true
+    }
+    return verifiedExamId === requestedExamId
+  }
+
+  const verifiedAt = Number(state.verifiedAt || 0)
+  const isFreshVerification = Number.isFinite(verifiedAt) && (verifiedAt + VERIFICATION_TTL_MS) > Date.now()
+  if (!isFreshVerification) {
+    return false
+  }
+
+  if (!requestedExamId) {
+    return true
+  }
+
+  if (!verifiedExamId) {
+    return true
+  }
+
+  return verifiedExamId === requestedExamId
+}
+
+function assertExamAccess(event, authSession, options = {}) {
+  if (!hasExamAccess(event, authSession, options)) {
+    throw new Error('Complete identity verification before entering the exam.')
+  }
+}
+
+function createAuthSession({ userId, role, senderId }) {
+  pruneExpiredAuthSessions()
+  clearVerificationSessionForSender(senderId)
+  const token = crypto.randomBytes(32).toString('hex')
+  const issuedAt = Date.now()
+  const expiresAt = issuedAt + AUTH_TOKEN_TTL_MS
+  const session = {
+    token,
+    userId,
+    role: normalizeRole(role),
+    senderId,
+    issuedAt,
+    expiresAt
+  }
+  authSessions.set(token, session)
+  return {
+    token,
+    expiresAt,
+    role: session.role,
+    userId: session.userId
+  }
+}
+
+function readAuthToken(authPayload) {
+  if (!authPayload || typeof authPayload !== 'object' || Array.isArray(authPayload)) {
+    return null
+  }
+  const token = authPayload.token
+  if (typeof token !== 'string' || !token.trim()) {
+    return null
+  }
+  return token.trim()
+}
+
+function resolveAuthSession(event, authPayload, allowedRoles = ['student', 'admin']) {
+  pruneExpiredAuthSessions()
+  const token = readAuthToken(authPayload)
+  if (!token) {
+    throw new Error('Unauthorized request')
+  }
+
+  const session = authSessions.get(token)
+  if (!session) {
+    throw new Error('Invalid session token')
+  }
+
+  if (session.expiresAt <= Date.now()) {
+    authSessions.delete(token)
+    throw new Error('Session expired. Please sign in again.')
+  }
+
+  if (!event?.sender || session.senderId !== event.sender.id) {
+    throw new Error('Session token mismatch')
+  }
+
+  if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(session.role)) {
+    throw new Error('Forbidden request')
+  }
+
+  return session
+}
+
+function roleCanNavigate(role, page) {
+  const normalizedRole = normalizeRole(role)
+  const access = pageAccessByRole[normalizedRole] || pageAccessByRole.guest
+  return access.has(page)
+}
+
+async function ensureSessionOwnership(sessionId, authSession) {
+  const state = await database.getSessionState(sessionId)
+  const ownerUserId = Number(state?.userId || 0)
+  if (authSession.role !== 'admin' && ownerUserId !== authSession.userId) {
+    throw new Error('Forbidden session access')
+  }
+  return state
+}
+
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width, height } = primaryDisplay.workAreaSize
+  const isDevelopment = String(process.env.NODE_ENV || '').toLowerCase() === 'development'
 
   mainWindow = new BrowserWindow({
     width: Math.min(1440, width),
@@ -34,14 +259,18 @@ function createWindow() {
     minWidth: 1100,
     minHeight: 760,
     fullscreen: false,
-    frame: true,
+    frame: false,
+    titleBarStyle: 'hidden',
     kiosk: false,
     alwaysOnTop: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      devTools: true
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      devTools: isDevelopment
     }
   })
 
@@ -51,7 +280,15 @@ function createWindow() {
     if (!isExamMode) {
       return
     }
-    console.log('Window close requested while exam mode is active')
+    event.preventDefault()
+    dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      buttons: ['OK'],
+      defaultId: 0,
+      title: 'Exam Mode Active',
+      message: 'Closing the window is disabled during exam mode.',
+      detail: 'Use the authorized admin exit shortcut if an emergency exit is required.'
+    })
   })
 
   mainWindow.webContents.on('will-navigate', (event, targetUrl) => {
@@ -59,6 +296,8 @@ function createWindow() {
       event.preventDefault()
     }
   })
+
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 }
 
 function registerAdminShortcut() {
@@ -186,10 +425,64 @@ function validateSubmissionPayload(payload) {
 }
 
 function setupIpcHandlers() {
-  ipcMain.handle('navigate-to', async (event, page) => {
+  ipcMain.handle('window-control', async (_event, action) => {
+    try {
+      ensureWindowReady()
+      if (action === 'minimize') {
+        mainWindow.minimize()
+        return { success: true }
+      }
+      if (action === 'toggle-maximize') {
+        if (mainWindow.isMaximized()) {
+          mainWindow.unmaximize()
+        } else {
+          mainWindow.maximize()
+        }
+        return { success: true, maximized: mainWindow.isMaximized() }
+      }
+      if (action === 'close') {
+        mainWindow.close()
+        return { success: true }
+      }
+      return { success: false, error: 'Unsupported window control action' }
+    } catch (error) {
+      return { success: false, error: toMessage(error, 'Window control failed') }
+    }
+  })
+
+  ipcMain.handle('get-window-state', async () => {
+    const state = getWindowState()
+    return {
+      success: true,
+      data: {
+        ...state,
+        maximized: state.ready ? mainWindow.isMaximized() : false
+      }
+    }
+  })
+
+  ipcMain.handle('navigate-to', async (event, page, auth) => {
     try {
       if (!allowedPages.has(page)) {
         throw new Error('Invalid navigation target')
+      }
+
+      if (page === 'login') {
+        const token = readAuthToken(auth)
+        if (token) {
+          const session = authSessions.get(token)
+          if (session && session.senderId === event.sender.id) {
+            authSessions.delete(token)
+          }
+        }
+      } else {
+        const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
+        if (!roleCanNavigate(authSession.role, page)) {
+          throw new Error('Forbidden navigation target')
+        }
+        if (page === 'exam') {
+          assertExamAccess(event, authSession)
+        }
       }
 
       ensureWindowReady()
@@ -200,6 +493,44 @@ function setupIpcHandlers() {
       return { success: true }
     } catch (error) {
       return { success: false, error: toMessage(error, 'Navigation failed') }
+    }
+  })
+
+  ipcMain.handle('logout', async (event, auth) => {
+    const token = readAuthToken(auth)
+    if (token) {
+      const session = authSessions.get(token)
+      if (session && session.senderId === event.sender.id) {
+        authSessions.delete(token)
+      }
+    }
+    clearVerificationSessionForSender(event?.sender?.id)
+    return { success: true }
+  })
+
+  ipcMain.handle('get-auth-session', async (event) => {
+    pruneExpiredAuthSessions()
+    let match = null
+    for (const session of authSessions.values()) {
+      if (session.senderId === event.sender.id) {
+        if (!match || session.issuedAt > match.issuedAt) {
+          match = session
+        }
+      }
+    }
+
+    if (!match) {
+      return { success: false, data: null }
+    }
+
+    return {
+      success: true,
+      data: {
+        token: match.token,
+        userId: match.userId,
+        role: match.role,
+        expiresAt: match.expiresAt
+      }
     }
   })
 
@@ -227,12 +558,25 @@ function setupIpcHandlers() {
     data: runtimeCapabilities
   }))
 
-  ipcMain.handle('get-open-source-models', async () => ({
+  ipcMain.handle('get-environment-flags', async () => ({
     success: true,
-    data: await modelService.getRegistryWithStatus()
+    data: {
+      isPackaged: app.isPackaged,
+      isLocalDevelopment: !app.isPackaged,
+      nodeEnv: String(process.env.NODE_ENV || '')
+    }
   }))
 
-  ipcMain.handle('sync-open-source-models', async (event, options = {}) => {
+  ipcMain.handle('get-open-source-models', async (event, auth) => {
+    resolveAuthSession(event, auth, ['student', 'admin'])
+    return {
+      success: true,
+      data: await modelService.getRegistryWithStatus()
+    }
+  })
+
+  ipcMain.handle('sync-open-source-models', async (event, options = {}, auth) => {
+    resolveAuthSession(event, auth, ['student', 'admin'])
     const data = await modelService.sync(!!options.force)
     await refreshVisionModels()
     return {
@@ -246,106 +590,226 @@ function setupIpcHandlers() {
 
   ipcMain.handle('login', async (event, username, password) => {
     const data = await database.login(username, password)
-    return { success: true, data }
+    for (const [token, session] of authSessions.entries()) {
+      if (session.senderId === event.sender.id) {
+        authSessions.delete(token)
+      }
+    }
+    clearVerificationSessionForSender(event?.sender?.id)
+    const authSession = createAuthSession({ userId: data.userId, role: data.role, senderId: event.sender.id })
+    return { success: true, data, authSession }
   })
 
-  ipcMain.handle('get-active-exam', async () => {
+  ipcMain.handle('get-active-exam', async (event, auth) => {
+    resolveAuthSession(event, auth, ['student', 'admin'])
     const data = await database.getActiveExam()
     return { success: true, data }
   })
 
-  ipcMain.handle('get-user-profile', async (event, userId) => {
+  ipcMain.handle('get-user-profile', async (event, userId, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
+    if (authSession.role !== 'admin' && authSession.userId !== userId) {
+      throw new Error('Forbidden profile access')
+    }
     const data = await database.getUserProfile(userId)
     return { success: true, data }
   })
 
-  ipcMain.handle('get-exam-questions', async (event, examId) => {
+  ipcMain.handle('get-exam-questions', async (event, examId, auth) => {
+    resolveAuthSession(event, auth, ['student', 'admin'])
     const data = await database.getExamQuestions(examId)
     return { success: true, data }
   })
 
-  ipcMain.handle('start-exam-session', async (event, payload) => {
+  ipcMain.handle('start-exam-session', async (event, payload, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
     validateSessionStartPayload(payload)
+    if (authSession.role !== 'admin' && authSession.userId !== payload.userId) {
+      throw new Error('Forbidden session start')
+    }
+    assertExamAccess(event, authSession, { examId: payload.examId })
     const data = await database.startExamSession(payload)
+    setVerificationSessionForSender(event.sender.id, {
+      userId: authSession.userId,
+      examId: payload.examId,
+      startedExamAt: Date.now()
+    })
     return { success: true, data }
   })
 
-  ipcMain.handle('end-exam-session', async (event, sessionId, status) => {
+  ipcMain.handle('end-exam-session', async (event, sessionId, status, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
     assertInteger(sessionId, 'sessionId')
+    await ensureSessionOwnership(sessionId, authSession)
     await database.endExamSession(sessionId, status)
+    clearVerificationSessionForSender(event.sender.id)
     return { success: true }
   })
 
-  ipcMain.handle('save-mcq-answer', async (event, payload) => {
+  ipcMain.handle('ensure-exam-access', async (event, payload = {}, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
+    assertObject(payload)
+
+    const sessionId = normalizePositiveInteger(payload.sessionId)
+    const examId = normalizePositiveInteger(payload.examId)
+
+    if (authSession.role !== 'student' || canBypassVerification()) {
+      return { success: true, data: { allowed: true, bypass: true } }
+    }
+
+    if (sessionId) {
+      const state = await ensureSessionOwnership(sessionId, authSession)
+      const stateExamId = normalizePositiveInteger(state?.examId) || examId || undefined
+      setVerificationSessionForSender(event.sender.id, {
+        userId: authSession.userId,
+        examId: stateExamId,
+        startedExamAt: Date.now()
+      })
+      return { success: true, data: { allowed: true, reason: 'existing-session' } }
+    }
+
+    assertExamAccess(event, authSession, { examId })
+    return { success: true, data: { allowed: true, reason: 'verified' } }
+  })
+
+  ipcMain.handle('save-mcq-answer', async (event, payload, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
     validateMcqPayload(payload)
+    await ensureSessionOwnership(payload.sessionId, authSession)
     await database.saveMcqAnswer(payload)
     return { success: true }
   })
 
-  ipcMain.handle('save-code-answer', async (event, payload) => {
+  ipcMain.handle('save-code-answer', async (event, payload, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
     validateCodePayload(payload)
+    await ensureSessionOwnership(payload.sessionId, authSession)
     await database.saveCodeAnswer(payload)
     return { success: true }
   })
 
-  ipcMain.handle('save-session-progress', async (event, payload) => {
+  ipcMain.handle('save-session-progress', async (event, payload, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
     validateSessionProgressPayload(payload)
+    await ensureSessionOwnership(payload.sessionId, authSession)
     await database.saveSessionProgress(payload)
     return { success: true }
   })
 
-  ipcMain.handle('get-session-state', async (event, sessionId) => {
+  ipcMain.handle('get-session-state', async (event, sessionId, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
     assertInteger(sessionId, 'sessionId')
-    const data = await database.getSessionState(sessionId)
+    const data = await ensureSessionOwnership(sessionId, authSession)
     return { success: true, data }
   })
 
-  ipcMain.handle('run-code', async (event, payload) => {
+  ipcMain.handle('run-code', async (event, payload, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
+    assertObject(payload)
+    if (payload.sessionId !== undefined && payload.sessionId !== null) {
+      assertInteger(payload.sessionId, 'sessionId')
+      await ensureSessionOwnership(payload.sessionId, authSession)
+    }
     const result = await codeExecutionService.runCode(payload)
     return result
   })
 
-  ipcMain.handle('save-exam-submission', async (event, payload) => {
+  ipcMain.handle('save-exam-submission', async (event, payload, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
     validateSubmissionPayload(payload)
+    if (authSession.role !== 'admin' && authSession.userId !== payload.userId) {
+      throw new Error('Forbidden submission request')
+    }
+    await ensureSessionOwnership(payload.sessionId, authSession)
     const data = await database.saveExamSubmission(payload)
     return { success: true, data }
   })
 
-  ipcMain.handle('get-submission-summary', async (event, sessionId) => {
+  ipcMain.handle('get-submission-summary', async (event, sessionId, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
     assertInteger(sessionId, 'sessionId')
+    await ensureSessionOwnership(sessionId, authSession)
     const data = await database.getSubmissionSummary(sessionId)
     return { success: true, data }
   })
 
-  ipcMain.handle('get-dashboard-stats', async () => ({
-    success: true,
-    data: await database.getDashboardStats()
-  }))
+  ipcMain.handle('get-dashboard-stats', async (event, auth) => {
+    resolveAuthSession(event, auth, ['admin'])
+    return {
+      success: true,
+      data: await database.getDashboardStats()
+    }
+  })
 
-  ipcMain.handle('get-active-sessions', async () => ({
-    success: true,
-    data: await database.getActiveSessions(100)
-  }))
+  ipcMain.handle('get-admin-exams', async (event, auth) => {
+    resolveAuthSession(event, auth, ['admin'])
+    return {
+      success: true,
+      data: await database.getAdminExams()
+    }
+  })
 
-  ipcMain.handle('get-recent-submissions', async () => ({
-    success: true,
-    data: await database.getRecentSubmissions()
-  }))
+  ipcMain.handle('get-admin-users', async (event, auth) => {
+    resolveAuthSession(event, auth, ['admin'])
+    return {
+      success: true,
+      data: await database.getAdminUsers()
+    }
+  })
 
-  ipcMain.handle('get-recent-incidents', async () => ({
-    success: true,
-    data: await database.getRecentIncidents()
-  }))
+  ipcMain.handle('get-active-sessions', async (event, auth) => {
+    resolveAuthSession(event, auth, ['admin'])
+    return {
+      success: true,
+      data: await database.getActiveSessions(100)
+    }
+  })
 
-  ipcMain.handle('record-incident', async (event, payload) => {
+  ipcMain.handle('get-recent-submissions', async (event, auth) => {
+    resolveAuthSession(event, auth, ['admin'])
+    return {
+      success: true,
+      data: await database.getRecentSubmissions()
+    }
+  })
+
+  ipcMain.handle('get-recent-incidents', async (event, auth) => {
+    resolveAuthSession(event, auth, ['admin'])
+    return {
+      success: true,
+      data: await database.getRecentIncidents()
+    }
+  })
+
+  ipcMain.handle('record-incident', async (event, payload, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
     assertObject(payload)
     assertString(payload.type, 'incident type')
     assertString(payload.message, 'incident message')
+
+    if (payload.sessionId !== undefined && payload.sessionId !== null) {
+      assertInteger(payload.sessionId, 'sessionId')
+      await ensureSessionOwnership(payload.sessionId, authSession)
+    }
+
+    if (authSession.role !== 'admin') {
+      payload.userId = authSession.userId
+    }
+
     await database.recordIncident(payload)
     return { success: true }
   })
 
-  ipcMain.handle('get-lock-status', async () => {
+  ipcMain.handle('update-incident-status', async (event, incidentId, status, note = '', auth) => {
+    resolveAuthSession(event, auth, ['admin'])
+    assertInteger(incidentId, 'incidentId')
+    assertString(status, 'status')
+    const data = await database.updateIncidentStatus(incidentId, status, note)
+    return { success: true, data }
+  })
+
+  ipcMain.handle('get-lock-status', async (event, auth) => {
+    resolveAuthSession(event, auth, ['student', 'admin'])
     const state = getWindowState()
     return {
       enabled: isExamMode && state.fullscreen,
@@ -355,7 +819,8 @@ function setupIpcHandlers() {
     }
   })
 
-  ipcMain.handle('set-fullscreen', async (event, enabled) => {
+  ipcMain.handle('set-fullscreen', async (event, enabled, auth) => {
+    resolveAuthSession(event, auth, ['student', 'admin'])
     try {
       ensureWindowReady()
     } catch (error) {
@@ -365,22 +830,42 @@ function setupIpcHandlers() {
     return { success: true, fullscreen: mainWindow.isFullScreen() }
   })
 
-  ipcMain.handle('save-biometric-data', async (event, userId, biometricType, payload) => {
+  ipcMain.handle('save-biometric-data', async (event, userId, biometricType, payload, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
     assertInteger(userId, 'userId')
     assertString(biometricType, 'biometricType')
     assertObject(payload)
+    if (authSession.role !== 'admin' && authSession.userId !== userId) {
+      throw new Error('Forbidden biometric write')
+    }
     await database.saveBiometricData(userId, biometricType, payload)
     return { success: true }
   })
 
-  ipcMain.handle('enroll-identity', async (event, payload) => {
+  ipcMain.handle('enroll-identity', async (event, payload, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
     const data = await visionService.enrollIdentity(payload)
-    return { success: true, ...data }
+    const enrollmentSucceeded = data?.success !== false
+
+    if (enrollmentSucceeded) {
+      const examId = normalizePositiveInteger(payload?.examId) || undefined
+      setVerificationSessionForSender(event.sender.id, {
+        userId: authSession.userId,
+        examId,
+        verifiedAt: Date.now()
+      })
+    }
+
+    return { success: enrollmentSucceeded, ...data }
   })
 
-  ipcMain.handle('verify-frame', async (event, payload) => visionService.verifyFrame(payload))
+  ipcMain.handle('verify-frame', async (event, payload, auth) => {
+    resolveAuthSession(event, auth, ['student', 'admin'])
+    return visionService.verifyFrame(payload)
+  })
 
-  ipcMain.handle('exit-app', async () => {
+  ipcMain.handle('exit-app', async (event, auth) => {
+    resolveAuthSession(event, auth, ['admin'])
     isExamMode = false
     app.quit()
   })

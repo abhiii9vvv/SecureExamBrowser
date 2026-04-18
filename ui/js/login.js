@@ -1,102 +1,74 @@
-const DEFAULT_STUDENT_USERNAME = 'student'
-const DEFAULT_STUDENT_PASSWORD = 'student123'
+import { navigateTo, showToast, setButtonLoading } from './router.js'
 
-function setCredentials(usernameValue, passwordValue) {
-  const username = document.getElementById('username')
-  const password = document.getElementById('password')
-  if (!username || !password) return
-  username.value = usernameValue
-  password.value = passwordValue
-}
+const form   = document.getElementById('loginForm')
+const userEl = document.getElementById('username')
+const passEl = document.getElementById('password')
+const btn    = document.getElementById('loginBtn')
+const errBox = document.getElementById('login-error')
+const errMsg = document.getElementById('login-error-msg')
 
-function showError(message) {
-  const errorElement = document.getElementById('loginError')
-  if (!errorElement) return
-  errorElement.textContent = message
-  errorElement.style.display = 'block'
+function showError(msg) {
+  errMsg.textContent = msg
+  errBox.classList.add('show')
+  userEl.classList.add('error')
+  passEl.classList.add('error')
 }
 
 function clearError() {
-  const errorElement = document.getElementById('loginError')
-  if (!errorElement) return
-  errorElement.textContent = ''
-  errorElement.style.display = 'none'
+  errBox.classList.remove('show')
+  userEl.classList.remove('error')
+  passEl.classList.remove('error')
 }
 
-function resetSessionArtifacts() {
-  localStorage.removeItem('currentSessionId')
-  localStorage.removeItem('examUiState')
-  localStorage.removeItem('verificationComplete')
-  localStorage.removeItem('lastSubmissionScore')
-  localStorage.removeItem('lastSubmissionAt')
-  localStorage.removeItem('lastSubmissionExamName')
-}
-
-async function updateDbStatus() {
-  const badge = document.getElementById('dbStatus')
-  if (!badge) return
-
-  try {
-    const status = await window.electronAPI.getDatabaseStatus()
-    badge.textContent = status.connected ? 'SQLite Ready' : 'SQLite Offline'
-    badge.className = status.connected ? 'status-pill-ok' : 'status-pill-warn'
-  } catch (error) {
-    badge.textContent = 'DB Error'
-    badge.className = 'status-pill-warn'
-  }
-}
-
-async function handleLogin(event) {
-  event.preventDefault()
+form.addEventListener('submit', async (e) => {
+  e.preventDefault()
   clearError()
 
-  const username = document.getElementById('username')
-  const password = document.getElementById('password')
-  const button = document.getElementById('loginButton')
-  if (!username || !password || !button) return
+  const username = userEl.value.trim()
+  const password = passEl.value.trim()
 
-  button.disabled = true
-  button.textContent = 'Signing In...'
+  if (!username || !password) {
+    showError('Please enter both username and password.')
+    return
+  }
+
+  setButtonLoading(btn, true)
 
   try {
-    resetSessionArtifacts()
-    const result = await window.electronAPI.login(username.value.trim(), password.value)
-    if (!result.success) {
-      throw new Error(result.error || 'Invalid username or password')
+    const result = await window.electronAPI.login(username, password)
+
+    if (!result?.success) {
+      showError(result?.error || 'Invalid username or password.')
+      return
     }
 
-    const user = result.data
-    localStorage.setItem('currentUserId', String(user.userId))
-    localStorage.setItem('currentUserName', user.fullName || '')
-    localStorage.setItem('currentUserRole', user.role || 'student')
-    localStorage.setItem('currentUserCourse', user.course || '')
-    localStorage.setItem('currentUserBranch', user.branch || '')
-    localStorage.setItem('currentUserUniversity', user.university || '')
-    localStorage.setItem('currentUserLocation', user.location || '')
+    // ──────────────────────────────────────────────
+    // CRITICAL: persist identity for all pages
+    // ──────────────────────────────────────────────
+    const data = result.data || {}
+    localStorage.setItem('userId',   String(data.userId   || '0'))
+    localStorage.setItem('userRole', String(data.role     || 'student'))
+    localStorage.setItem('userName', String(data.fullName || data.name || data.username || ''))
+    localStorage.setItem('userEmail',String(data.email    || ''))
+    // Clear any stale exam session
+    localStorage.removeItem('currentSessionId')
+    localStorage.removeItem('currentExamId')
+    localStorage.removeItem('currentExamTitle')
+    localStorage.removeItem('currentExamDuration')
+    localStorage.removeItem('examProgress')
 
-    const destination = (user.role || '').toLowerCase() === 'admin' ? 'dashboard' : 'student-dashboard'
-    await window.electronAPI.navigateTo(destination)
-  } catch (error) {
-    showError(error.message || 'Login failed')
+    const role = (data.role || 'student').toLowerCase()
+    if (role === 'admin') {
+      await navigateTo('dashboard')
+    } else {
+      await navigateTo('student-dashboard')
+    }
+  } catch (err) {
+    showError(err.message || 'Login failed. Please try again.')
   } finally {
-    button.disabled = false
-    button.textContent = 'Sign In'
-  }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  setCredentials(DEFAULT_STUDENT_USERNAME, DEFAULT_STUDENT_PASSWORD)
-  updateDbStatus()
-
-  const form = document.getElementById('loginForm')
-  if (form) {
-    form.addEventListener('submit', handleLogin)
-  }
-
-  const quickFill = document.getElementById('useStudentCredentials')
-  if (quickFill) {
-    quickFill.addEventListener('click', () => {
-      setCredentials(DEFAULT_STUDENT_USERNAME, DEFAULT_STUDENT_PASSWORD)
-    })
+    setButtonLoading(btn, false)
   }
 })
+
+userEl.addEventListener('input', clearError)
+passEl.addEventListener('input', clearError)

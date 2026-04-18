@@ -50,7 +50,7 @@ def init_models(payload: Dict[str, Any]) -> Dict[str, Any]:
     state['model_info'] = {'detector': False, 'recognizer': False, 'cascade': False}
 
     if detector_path and os.path.exists(detector_path):
-        state['detector'] = cv2.FaceDetectorYN_create(detector_path, '', (320, 320), 0.7, 0.3, 5000)
+        state['detector'] = cv2.FaceDetectorYN_create(detector_path, '', (320, 320), 0.6, 0.3, 5000)
         state['model_info']['detector'] = True
 
     if recognizer_path and os.path.exists(recognizer_path):
@@ -87,7 +87,7 @@ def detect_faces(image) -> List[Dict[str, Any]]:
 
     if not faces and state['cascade'] is not None:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        detected = state['cascade'].detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(80, 80))
+        detected = state['cascade'].detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(64, 64))
         for (x, y, w, h) in detected:
             faces.append({
                 'bbox': [int(x), int(y), int(x + w), int(y + h)],
@@ -127,7 +127,7 @@ def compute_liveness(image, face: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
     landmark_shift = 0.0
     current_landmarks = np.array(face['landmarks'], dtype=np.float32) if face and face.get('landmarks') else None
-    if current_landmarks is not None and state['last_landmarks'] is not None:
+    if current_landmarks is not None and state['last_landmarks'] is not None and face is not None:
         face_box = face['bbox']
         span = max(face_box[2] - face_box[0], face_box[3] - face_box[1], 1)
         landmark_shift = float(np.mean(np.linalg.norm(current_landmarks - state['last_landmarks'], axis=1)) / span)
@@ -173,7 +173,7 @@ def verify_frame(payload: Dict[str, Any]) -> Dict[str, Any]:
         if embedding is not None:
             score = cosine_similarity(state['reference_embedding'], embedding)
             identity_match = {
-                'match': score >= 0.35,
+                'match': score >= 0.45,
                 'score': round(score, 4)
             }
 

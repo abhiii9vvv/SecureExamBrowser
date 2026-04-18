@@ -39,8 +39,30 @@ function cosineSimilarity(left, right) {
   return dot / (Math.sqrt(leftMagnitude) * Math.sqrt(rightMagnitude))
 }
 
+function normalizeVisionPayload(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return {}
+  }
+
+  const normalized = { ...payload }
+  if (!normalized.image && typeof normalized.frame === 'string') {
+    normalized.image = normalized.frame
+  }
+  return normalized
+}
+
 function buildDescriptorFromDataUrl(image) {
-  const frame = nativeImage.createFromDataURL(image)
+  if (typeof image !== 'string' || image.trim().length === 0) {
+    throw new Error('Invalid frame payload')
+  }
+
+  let frame
+  try {
+    frame = nativeImage.createFromDataURL(image)
+  } catch (_error) {
+    throw new Error('Invalid frame payload')
+  }
+
   if (frame.isEmpty()) {
     throw new Error('Unable to decode verification frame')
   }
@@ -117,6 +139,29 @@ function buildDescriptorFromDataUrl(image) {
     faceDetected,
     bbox
   }
+}
+
+function isVisionWorkerInfrastructureError(error) {
+  const message = String(error?.message || error || '').toLowerCase()
+  if (!message) {
+    return true
+  }
+
+  const infraMarkers = [
+    'econn',
+    'broken pipe',
+    'stdin',
+    'stdout',
+    'spawn',
+    'terminated',
+    'stopped with code',
+    'python',
+    'traceback',
+    'vision worker unavailable',
+    'no python runtime is available'
+  ]
+
+  return infraMarkers.some((marker) => message.includes(marker))
 }
 
 class VisionService {
@@ -322,22 +367,52 @@ class VisionService {
   }
 
   async enrollIdentity(payload) {
+    const normalizedPayload = normalizeVisionPayload(payload)
+    const requireMl = Boolean(normalizedPayload.requireMl)
+
+    if (requireMl && this.workerUnavailableReason) {
+      throw new Error(`ML verification unavailable: ${this.workerUnavailableReason}`)
+    }
+
     if (!this.workerUnavailableReason) {
       try {
-        return await this.send('enroll_identity', payload)
+        return await this.send('enroll_identity', normalizedPayload)
       } catch (error) {
-        this.markWorkerUnavailable(error.message)
+        if (isVisionWorkerInfrastructureError(error)) {
+          this.markWorkerUnavailable(error.message)
+          if (requireMl) {
+            throw new Error(`ML verification unavailable: ${this.workerUnavailableReason || error.message}`)
+          }
+        } else if (requireMl) {
+          throw error
+        }
       }
     }
 
-    const descriptor = buildDescriptorFromDataUrl(payload.image)
+    if (requireMl) {
+      throw new Error(`ML verification unavailable: ${this.workerUnavailableReason || 'vision worker unavailable'}`)
+    }
+
+    const descriptor = buildDescriptorFromDataUrl(normalizedPayload.image)
     if (!descriptor.faceDetected) {
-      throw new Error('Unable to enroll identity. Please center your face and improve the lighting.')
+      if (this.workerUnavailableReason) {
+        this.noteFallback(this.workerUnavailableReason)
+      }
+      this.lastDescriptor = descriptor
+      return {
+        success: false,
+        has_reference: !!this.referenceDescriptor,
+        fallback: true,
+        engine: 'heuristic-fallback',
+        error: 'Unable to enroll identity. Please center your face and improve the lighting.'
+      }
     }
 
     this.referenceDescriptor = descriptor
     this.lastDescriptor = descriptor
-    this.noteFallback(this.workerUnavailableReason)
+    if (this.workerUnavailableReason) {
+      this.noteFallback(this.workerUnavailableReason)
+    }
 
     return {
       success: true,
@@ -348,15 +423,33 @@ class VisionService {
   }
 
   async verifyFrame(payload) {
+    const normalizedPayload = normalizeVisionPayload(payload)
+    const requireMl = Boolean(normalizedPayload.requireMl)
+
+    if (requireMl && this.workerUnavailableReason) {
+      throw new Error(`ML verification unavailable: ${this.workerUnavailableReason}`)
+    }
+
     if (!this.workerUnavailableReason) {
       try {
-        return await this.send('verify_frame', payload)
+        return await this.send('verify_frame', normalizedPayload)
       } catch (error) {
-        this.markWorkerUnavailable(error.message)
+        if (isVisionWorkerInfrastructureError(error)) {
+          this.markWorkerUnavailable(error.message)
+          if (requireMl) {
+            throw new Error(`ML verification unavailable: ${this.workerUnavailableReason || error.message}`)
+          }
+        } else if (requireMl) {
+          throw error
+        }
       }
     }
 
-    const descriptor = buildDescriptorFromDataUrl(payload.image)
+    if (requireMl) {
+      throw new Error(`ML verification unavailable: ${this.workerUnavailableReason || 'vision worker unavailable'}`)
+    }
+
+    const descriptor = buildDescriptorFromDataUrl(normalizedPayload.image)
     const identityMatch = this.buildFallbackIdentityMatch(descriptor)
     const liveness = this.buildFallbackLiveness(descriptor)
     const result = {
@@ -372,7 +465,9 @@ class VisionService {
     }
 
     this.lastDescriptor = descriptor
-    this.noteFallback(this.workerUnavailableReason)
+    if (this.workerUnavailableReason) {
+      this.noteFallback(this.workerUnavailableReason)
+    }
     return result
   }
 

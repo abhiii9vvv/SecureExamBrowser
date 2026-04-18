@@ -3,30 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin Dashboard — CampusSetu Exam Suite</title>
+  <title>Users — CampusSetu Exam Suite</title>
   <link rel="icon" type="image/x-icon" href="../assets/campussetu-favicon.ico" />
   <link rel="icon" type="image/png" sizes="96x96" href="../assets/campussetu-favicon-96x96.png" />
   <link rel="stylesheet" href="css/app.css" />
 </head>
 <body>
   <div class="shell-admin">
-    <!-- Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-brand">
         <div class="brand-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         </div>
-        <div>
-          <div class="brand-name">CampusSetu</div>
-          <div class="brand-sub">Admin Console</div>
-        </div>
+        <div><div class="brand-name">CampusSetu</div><div class="brand-sub">Admin Console</div></div>
       </div>
-
       <nav class="sidebar-nav">
         <div class="nav-section-label">Main</div>
-        <button class="nav-link active" data-nav="dashboard">
+        <button class="nav-link" data-nav="dashboard">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="3" width="7" height="9" rx="1"></rect>
             <rect x="14" y="3" width="7" height="5" rx="1"></rect>
@@ -35,7 +28,6 @@
           </svg>
           Dashboard
         </button>
-
         <div class="nav-section-label">Management</div>
         <button class="nav-link" data-nav="admin-exams">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -47,7 +39,7 @@
           </svg>
           Exams
         </button>
-        <button class="nav-link" data-nav="admin-users">
+        <button class="nav-link active" data-nav="admin-users">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
             <circle cx="9" cy="7" r="4"></circle>
@@ -66,7 +58,6 @@
           Reports
         </button>
       </nav>
-
       <div class="sidebar-footer">
         <button class="nav-link" id="logoutBtn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -79,75 +70,26 @@
       </div>
     </aside>
 
-    <!-- Admin main -->
     <div class="admin-main">
       <div class="page-header">
-        <h1 class="page-title">Dashboard</h1>
-        <div class="flex items-center gap-3">
-          <span class="text-xs text-mute" id="lastRefresh">Refreshing...</span>
-          <button class="btn btn-secondary btn-sm" id="refreshBtn">
-            <svg class="icon-13" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"/>
-            </svg>
-            Refresh
-          </button>
-        </div>
+        <h1 class="page-title">Users</h1>
+        <button class="btn btn-secondary btn-sm" id="refreshBtn">Refresh</button>
       </div>
-
       <div class="page-body">
-
-        <!-- Stats grid -->
-        <div class="stats-grid" id="statsGrid">
-          <div class="stat-card"><div class="stat-label">Loading...</div><div class="spinner mt-2"></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>Username</th><th>Name</th><th>Email</th><th>Role</th><th>Created</th></tr>
+            </thead>
+            <tbody id="usersBody">
+              <tr><td colspan="6"><div class="flex items-center gap-2 text-mute text-sm p-4"><div class="spinner"></div> Loading...</div></td></tr>
+            </tbody>
+          </table>
         </div>
-
-        <!-- Active Sessions -->
-        <div>
-          <div class="section-title">Active Exam Sessions</div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  <th>Exam</th>
-                  <th>Started</th>
-                  <th>Progress</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="sessionsBody">
-                <tr><td colspan="5"><div class="flex items-center gap-2 text-mute text-sm p-4"><div class="spinner"></div> Loading sessions...</div></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Recent incidents -->
-        <div>
-          <div class="section-title">Recent Incidents</div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Student</th>
-                  <th>Type</th>
-                  <th>Severity</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="incidentsBody">
-                <tr><td colspan="5"><div class="flex items-center gap-2 text-mute text-sm p-4"><div class="spinner"></div> Loading incidents...</div></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
       </div>
     </div>
   </div>
-
   <div id="toast-root"></div>
-  <script type="module" src="js/dashboard.js"></script>
+  <script type="module" src="js/admin-users.js"></script>
 </body>
 </html>

@@ -1,267 +1,276 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Exam Interface</title>
-    <link href="https://fonts.googleapis.com" rel="preconnect" />
-    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet" />
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="css/accessibility.css" />
-    <link rel="stylesheet" href="css/theme.css" />
-    <link rel="stylesheet" href="css/exam.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exam — CampusSetu Exam Suite</title>
+  <link rel="icon" type="image/x-icon" href="../assets/campussetu-favicon.ico" />
+  <link rel="icon" type="image/png" sizes="96x96" href="../assets/campussetu-favicon-96x96.png" />
+  <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="css/exam.css" />
+  <!-- CodeMirror -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css" rel="stylesheet" />
 </head>
-<body class="app-bg app-fullscreen exam-body">
-    <div class="exam-shell">
-        <nav class="exam-side-nav" aria-label="Primary">
-            <div class="exam-side-brand">
-                <span class="material-symbols-outlined">shield</span>
+<body>
+  <div class="exam-shell">
+
+    <!-- TOP BAR -->
+    <header class="exam-topbar">
+      <div class="exam-topbar-brand">
+        <img class="exam-topbar-brand-logo" src="../assets/campussetu-favicon-96x96.png" alt="CampusSetu" loading="eager" decoding="async" />
+        <span class="exam-topbar-brand-name">CampusSetu</span>
+      </div>
+
+      <span class="exam-progress-label" id="progressLabel">Q 0 / 0</span>
+      <div class="exam-progress-bar-wrap">
+        <div class="exam-progress-bar" id="progressBar"></div>
+      </div>
+
+      <div class="exam-section-switch" id="sectionSwitch" role="tablist" aria-label="Exam sections">
+        <button class="exam-section-tab active" id="sectionTabMcq" data-section="mcq" role="tab" aria-selected="true">
+          <span>MCQ</span>
+          <span class="exam-section-tab-count" id="sectionMcqCount">0/0</span>
+        </button>
+        <button class="exam-section-tab" id="sectionTabCoding" data-section="coding" role="tab" aria-selected="false">
+          <span>Coding</span>
+          <span class="exam-section-tab-count" id="sectionCodingCount">0/0</span>
+        </button>
+      </div>
+
+      <div class="exam-topbar-spacer"></div>
+
+      <div class="exam-sync-status" id="syncStatus">
+        <span class="spinner spinner-xs"></span>
+        <span id="syncStatusText">Syncing...</span>
+      </div>
+
+      <!-- Timer -->
+      <div class="exam-timer" id="timerWrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <span class="exam-timer-val" id="timerDisplay">-:--:--</span>
+      </div>
+
+      <!-- Controls -->
+      <button class="btn btn-ghost btn-sm" id="instructionsTopBtn" title="Instructions">
+        <svg class="icon-15" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"/>
+        </svg>
+        Instructions
+      </button>
+
+      <button class="btn btn-danger" id="submitExamBtn">
+        <svg class="icon-14" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+        </svg>
+        Submit Exam
+      </button>
+    </header>
+
+    <!-- Live banner (hidden by default) -->
+    <div class="live-banner hidden" id="liveBanner"></div>
+
+    <!-- MAIN BODY -->
+    <div class="exam-body">
+
+      <!-- Question panel (left) -->
+      <div class="exam-q-panel" id="questionPanel">
+        <div class="exam-q-header">
+          <div class="exam-q-badge" id="qBadge">
+            <svg class="icon-10" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"/>
+            </svg>
+            Question 1
+          </div>
+          <div class="flex items-center gap-2 mt-2">
+            <h2 class="exam-q-title" id="questionTitle">Loading...</h2>
+          </div>
+          <div class="exam-q-meta mt-2" id="questionMeta"></div>
+        </div>
+
+        <div class="exam-q-body" id="questionBody">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Answer / Editor panel (right) -->
+      <div class="exam-answer-panel" id="answerPanel">
+
+        <!-- MCQ info area (no content needed — options are in Q panel) -->
+        <div class="exam-mcq-info hidden" id="mcqInfo">
+          <svg class="icon-48 opacity-15" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="24" cy="24" r="20"/><line x1="24" y1="14" x2="24" y2="26"/><circle cx="24" cy="32" r="1.5" fill="currentColor" stroke="none"/>
+          </svg>
+          <div class="text-sm text-mute">Select your answer from the options on the left</div>
+        </div>
+
+        <!-- Coding editor area -->
+        <div class="flex-col h-full" id="codingPanel">
+          <!-- Editor toolbar -->
+          <div class="editor-toolbar">
+            <span class="editor-toolbar-label">Code Editor</span>
+            <select class="editor-lang-select" id="codeLanguage" aria-label="Programming language">
+              <option value="javascript">JavaScript</option>
+              <option value="python">Python</option>
+              <option value="cpp">C++</option>
+            </select>
+            <div class="flex-1"></div>
+            <button class="btn btn-ghost btn-sm" id="btnLoadStarter" title="Load starter code">↺ Starter</button>
+            <button class="btn btn-secondary btn-sm" id="btnRunCode">
+              <svg class="icon-12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
+              Run
+            </button>
+            <button class="btn btn-primary btn-sm" id="btnSubmitCode">Submit Solution</button>
+          </div>
+
+          <!-- Editor wrap -->
+          <div class="editor-wrap" id="editorWrap">
+            <textarea aria-label="Code editor" id="codeEditor"></textarea>
+          </div>
+
+          <!-- Output panel -->
+          <div class="output-panel">
+            <div class="output-header">
+              <span class="output-label">Output</span>
+              <div class="flex gap-2 items-center" id="outputActions">
+                <span class="badge badge-default" id="outputBadge">Ready</span>
+              </div>
             </div>
-            <button class="exam-side-link" type="button" data-dashboard-nav aria-label="Dashboard">
-                <span class="material-symbols-outlined">dashboard</span>
-                <span class="exam-side-label" data-dashboard-label>Dashboard</span>
-            </button>
-            <button class="exam-side-link is-active" type="button" aria-current="page">
-                <span class="material-symbols-outlined">description</span>
-                <span class="exam-side-label">Exams</span>
-            </button>
-            <button class="exam-side-link" type="button" aria-label="Profile" disabled aria-disabled="true">
-                <span class="material-symbols-outlined">person</span>
-                <span class="exam-side-label">Profile</span>
-            </button>
-            <div class="exam-side-spacer"></div>
-            <button class="exam-side-link" type="button" aria-label="Help" disabled aria-disabled="true">
-                <span class="material-symbols-outlined">help</span>
-                <span class="exam-side-label">Help</span>
-            </button>
-        </nav>
-
-        <div class="exam-shell-main">
-            <!-- Compact Timer Bar with Navigation -->
-            <div class="exam-timer-bar">
-        <!-- Navigation Arrows on Left -->
-        <div class="header-nav-left">
-            <button class="header-nav-btn-compact" data-nav-prev type="button" disabled>
-                <span class="material-symbols-outlined">chevron_left</span>
-            </button>
-            <div class="header-nav-info-compact">
-                <span data-nav-current>1</span>/<span data-nav-total>50</span>
+            <div class="output-body">
+              <pre class="output-pre output-idle" id="codeOutput">Ready. Click "Run" to execute your code.</pre>
             </div>
-            <button class="header-nav-btn-compact" data-nav-next type="button">
-                <span class="material-symbols-outlined">chevron_right</span>
-            </button>
+          </div>
         </div>
 
-            <div class="exam-meta">
-            <div class="exam-meta-title" id="examTitleHeader">Assessment</div>
-            <div class="exam-meta-sub" id="examCodeHeader">Exam ID: --</div>
-        </div>
-
-        <div class="exam-timer">
-            <span class="material-symbols-outlined exam-timer-icon">schedule</span>
-            <span class="app-mono fw-semibold" data-timer-container>
-                <span data-timer>02:00:00</span>
-            </span>
-        </div>
-
-        <div class="exam-actions">
-            <div class="exam-status-stack">
-                <span class="app-mono small" data-progress-text>0/50</span>
-                <span class="exam-status-pill" data-sync-status data-sync-tone="idle">Waiting for first save</span>
-            </div>
-            <span class="exam-status-pill" data-connection-status data-net-tone="online">Online</span>
-            <button class="btn btn-outline-dark btn-sm" data-sync-now type="button">Sync</button>
-            <button class="btn btn-outline-dark btn-sm" data-flag-toggle type="button">Mark for Review</button>
-            <button class="btn btn-dark btn-sm" data-submit-exam>Submit</button>
-        </div>
+      </div>
     </div>
 
-            <div class="exam-live-banner d-none" data-live-banner role="status" aria-live="polite"></div>
+    <!-- BOTTOM BAR -->
+    <div class="exam-bottombar">
+      <button class="btn btn-secondary btn-sm" id="btnFlagQuestion">
+        <svg class="icon-13" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 7l2.55 2.4A1 1 0 0116 11H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z"/>
+        </svg>
+        Flag
+      </button>
 
-            <main class="container-fluid exam-main" data-exam-scroll>
-                <div class="exam-content-full">
-                    <div class="exam-layout">
-                        <div class="exam-main-col">
-                    <!-- MCQ Panel -->
-                    <div class="question-card p-4 mb-3" data-mcq-container>
-                        <div class="card-header">
-                            <div>
-                                <div class="card-title" data-question-badge>Question 1</div>
-                                <div class="card-subtitle" data-section-badge>General</div>
-                            </div>
-                            <button class="btn btn-outline-dark btn-sm" onclick="showInstructions()">
-                                Instructions
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            <h2 class="app-title" data-question-text>Loading question...</h2>
-                            <div class="mt-2 text-muted small" data-question-subtext></div>
-                            <div class="mt-4 d-flex flex-column gap-3" data-mcq-panel>
-                        <label class="option-card d-flex align-items-center" data-option-label>
-                            <input class="form-check-input me-2" type="radio" name="answer" />
-                            <span class="option-indicator">A</span>
-                            <span data-option-text>Option A</span>
-                        </label>
-                        <label class="option-card d-flex align-items-center" data-option-label>
-                            <input class="form-check-input me-2" type="radio" name="answer" />
-                            <span class="option-indicator">B</span>
-                            <span data-option-text>Option B</span>
-                        </label>
-                        <label class="option-card d-flex align-items-center" data-option-label>
-                            <input class="form-check-input me-2" type="radio" name="answer" />
-                            <span class="option-indicator">C</span>
-                            <span data-option-text>Option C</span>
-                        </label>
-                        <label class="option-card d-flex align-items-center" data-option-label>
-                            <input class="form-check-input me-2" type="radio" name="answer" />
-                            <span class="option-indicator">D</span>
-                            <span data-option-text>Option D</span>
-                        </label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Coding Panel - LeetCode Style Split Layout -->
-                    <div class="coding-split-container d-none" data-coding-container>
-                        <div class="coding-left-panel">
-                            <div class="p-4">
-                                <div class="d-flex align-items-center justify-content-between mb-3">
-                                    <span class="badge text-bg-dark" data-coding-question-badge>Question 1</span>
-                                    <button class="btn btn-outline-dark btn-sm" onclick="showInstructions()">
-                                        Instructions
-                                    </button>
-                                </div>
-                                <h3 class="fw-bold mb-3" data-coding-question-text>Coding Problem</h3>
-                                <div class="mb-3">
-                                    <div class="fw-semibold mb-2">Problem</div>
-                                    <p class="mb-2" data-coding-prompt></p>
-                                </div>
-                                <div class="mb-3">
-                                    <div class="fw-semibold mb-2">Function Signature</div>
-                                    <code class="coding-signature" data-coding-signature></code>
-                                </div>
-                                <div class="mb-3">
-                                    <div class="fw-semibold mb-2">Constraints</div>
-                                    <div class="small text-muted" data-coding-constraints></div>
-                                </div>
-                                <div class="mb-3">
-                                    <div class="fw-semibold mb-2">Examples</div>
-                                    <div class="small" data-coding-examples></div>
-                                </div>
-                                <div class="mb-3">
-                                    <div class="fw-semibold mb-2">Visible Test Cases</div>
-                                    <div class="small" data-coding-testcases></div>
-                                </div>
-                                <div class="mb-0">
-                                    <div class="fw-semibold mb-2">Evaluation</div>
-                                    <div class="small text-muted" data-coding-eval></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="coding-right-panel">
-                            <div class="coding-editor-header">
-                                <label class="fw-semibold">Code</label>
-                                <div class="d-flex align-items-center gap-2">
-                                    <button class="btn btn-outline-dark btn-sm" id="loadStarterCode" type="button">Starter</button>
-                                    <button class="btn btn-outline-dark btn-sm" id="copyPrompt" type="button">Copy Prompt</button>
-                                    <select class="form-select form-select-sm select-compact" id="codeLanguage" aria-label="Code language">
-                                        <option value="javascript">JavaScript</option>
-                                        <option value="python">Python</option>
-                                        <option value="cpp">C++</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <label class="visually-hidden" for="codeEditor">Code editor</label>
-                            <textarea class="form-control app-mono code-editor" id="codeEditor" rows="10" placeholder="Write your solution here..."></textarea>
-                            <div class="coding-actions">
-                                <button class="btn btn-outline-dark" id="runCode">▶ Run</button>
-                                <button class="btn btn-dark" id="submitCode">Submit</button>
-                            </div>
-                            <div class="coding-output">
-                                <div class="fw-semibold mb-2">Output</div>
-                                <pre class="mb-0 app-mono" id="codeOutput">Ready.</pre>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+      <div class="bottombar-divider"></div>
 
-                        <aside class="exam-side-col">
-                            <div class="app-card p-3">
-                                <div class="card-header">
-                                    <div>
-                                        <div class="card-title">Progress</div>
-                                        <div class="card-subtitle">Stay on track</div>
-                                    </div>
-                                </div>
-                                <div class="card-body">
-                                    <div class="summary-list">
-                                        <div class="summary-item">
-                                            <span class="summary-label">Answered</span>
-                                            <span class="summary-value" data-answered-count>0</span>
-                                        </div>
-                                        <div class="summary-item">
-                                            <span class="summary-label">Flagged</span>
-                                            <span class="summary-value" data-flagged-count>0</span>
-                                        </div>
-                                        <div class="summary-item">
-                                            <span class="summary-label">Remaining</span>
-                                            <span class="summary-value" data-remaining-count>0</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="app-card p-3 mt-3">
-                                <div class="card-header">
-                                    <div>
-                                        <div class="card-title">Question Navigator</div>
-                                        <div class="card-subtitle">Jump directly to any question</div>
-                                    </div>
-                                </div>
-                                <div class="card-body">
-                                    <div class="exam-palette-legend">
-                                        <span class="exam-legend-item"><span class="exam-legend-dot" data-tone="current"></span>Current</span>
-                                        <span class="exam-legend-item"><span class="exam-legend-dot" data-tone="answered"></span>Answered</span>
-                                        <span class="exam-legend-item"><span class="exam-legend-dot" data-tone="flagged"></span>Flagged</span>
-                                        <span class="exam-legend-item"><span class="exam-legend-dot" data-tone="pending"></span>Pending</span>
-                                    </div>
-                                    <div class="exam-palette-grid" data-question-palette></div>
-                                    <div class="small text-muted" data-palette-summary>Loading questions...</div>
-                                </div>
-                            </div>
-                            <div class="app-card p-3 mt-3">
-                                <div class="card-header">
-                                    <div>
-                                        <div class="card-title">Tips</div>
-                                        <div class="card-subtitle">Quick reminders</div>
-                                    </div>
-                                </div>
-                                <div class="card-body">
-                                    <ul class="helper-list">
-                                        <li>Review flagged questions before submit</li>
-                                        <li>Keep an eye on the timer</li>
-                                        <li>Answer all questions if possible</li>
-                                        <li>Shortcuts: Left/Right to navigate, F to flag, Ctrl+S to sync</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </aside>
-                    </div>
-                </div>
-            </main>
-        </div>
+      <!-- Question palette -->
+      <div class="palette-scroll" id="questionPalette"></div>
+
+      <div class="bottombar-divider"></div>
+
+      <div class="bottombar-nav">
+        <button class="btn btn-secondary btn-sm" id="btnPrev">
+          <svg class="icon-13" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
+          </svg>
+          Prev
+        </button>
+        <button class="btn btn-primary btn-sm" id="btnNext">
+          Next
+          <svg class="icon-13" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="proctor-pip hidden" id="proctorPip" aria-live="polite">
+        <video id="proctorVideo" autoplay muted></video>
+        <div class="proctor-pip-label" id="proctorPipLabel">Live Proctor</div>
+      </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
-    <script src="js/code-runner.js"></script>
-    <script src="js/exam.js"></script>
+  </div><!-- end exam-shell -->
+
+  <!-- INSTRUCTIONS MODAL -->
+  <div class="modal-backdrop hidden" id="instructionsModal">
+    <div class="modal instructions-modal">
+      <div class="modal-title">Exam Instructions</div>
+      <div class="modal-body">
+        <div class="inst-section">
+          <h4>General</h4>
+          <ul>
+            <li>Read each question carefully before answering.</li>
+            <li>All answers are auto-saved as you go.</li>
+            <li>Use the palette at the bottom to jump between questions.</li>
+            <li>Flag questions you want to review later.</li>
+          </ul>
+        </div>
+        <div class="inst-section">
+          <h4>Multiple Choice</h4>
+          <ul>
+            <li>Select the best answer for each question.</li>
+            <li>You can change your answer at any time before submission.</li>
+          </ul>
+        </div>
+        <div class="inst-section">
+          <h4>Coding Questions</h4>
+          <ul>
+            <li>Implement the required function in the editor.</li>
+            <li>Use "Run" to test against sample cases, then "Submit Solution" to finalize.</li>
+            <li>Hidden test cases run only on final submission.</li>
+          </ul>
+        </div>
+        <div class="inst-section">
+          <h4>Keyboard Shortcuts</h4>
+          <ul>
+            <li><strong>← →</strong> — Previous / Next question</li>
+            <li><strong>F</strong> — Toggle flag on current question</li>
+          </ul>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="closeInstructions">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUBMIT CONFIRM MODAL -->
+  <div class="modal-backdrop hidden" id="submitModal">
+    <div class="modal">
+      <div class="modal-title text-err">Submit Exam?</div>
+      <div class="modal-body">
+        <p>You are about to submit your exam. This action <strong>cannot be undone</strong>.</p>
+        <div class="mt-4 p-4 bg-overlay rounded grid grid-cols-2 gap-3">
+          <div>
+            <div class="text-xs fw-700 text-mute">Answered</div>
+            <div class="text-2xl fw-800 text-ok mt-1" id="submitAnswered">—</div>
+          </div>
+          <div>
+            <div class="text-xs fw-700 text-mute">Flagged</div>
+            <div class="text-2xl fw-800 text-warn mt-1" id="submitFlagged">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelSubmit">Go Back</button>
+        <button class="btn btn-danger" id="confirmSubmit">Submit Now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIOLATION OVERLAY -->
+  <div class="violation-overlay hidden" id="violationOverlay" aria-live="assertive">
+    <div class="violation-overlay-icon">⚠️</div>
+    <div class="violation-overlay-title">Security Violation Detected</div>
+    <div class="violation-overlay-msg" id="violationMsg">An unexpected action was detected. This incident has been recorded.</div>
+    <button class="btn btn-primary mt-8" id="violationDismiss">Return to Exam</button>
+  </div>
+
+  <div id="toast-root"></div>
+
+  <!-- CodeMirror scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+
+  <script type="module" src="js/exam.js"></script>
 </body>
 </html>

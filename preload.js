@@ -1,41 +1,102 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
+let authToken = null
+
+async function ensureAuthToken() {
+  if (authToken) {
+    return authToken
+  }
+
+  const session = await ipcRenderer.invoke('get-auth-session')
+  if (session?.success && session?.data?.token) {
+    authToken = session.data.token
+    return authToken
+  }
+
+  throw new Error('Authentication required')
+}
+
+function authPayload() {
+  return { token: authToken }
+}
+
+async function invokeProtected(channel, ...args) {
+  await ensureAuthToken()
+  return ipcRenderer.invoke(channel, ...args, authPayload())
+}
+
+async function clearAuthSession() {
+  if (!authToken) {
+    return
+  }
+
+  try {
+    await ipcRenderer.invoke('logout', authPayload())
+  } catch (_error) {
+    // Keep logout resilient even if the main process has already revoked this token.
+  } finally {
+    authToken = null
+  }
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
-  navigateTo: (page) => ipcRenderer.invoke('navigate-to', page),
+  windowControl: (action) => ipcRenderer.invoke('window-control', action),
+  getWindowState: () => ipcRenderer.invoke('get-window-state'),
+
+  navigateTo: async (page) => {
+    if (page === 'login') {
+      await clearAuthSession()
+      return ipcRenderer.invoke('navigate-to', page)
+    }
+    return invokeProtected('navigate-to', page)
+  },
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
   getRuntimeCapabilities: () => ipcRenderer.invoke('get-runtime-capabilities'),
+  getEnvironmentFlags: () => ipcRenderer.invoke('get-environment-flags'),
 
-  login: (username, password) => ipcRenderer.invoke('login', username, password),
-  getUserProfile: (userId) => ipcRenderer.invoke('get-user-profile', userId),
+  login: async (username, password) => {
+    const result = await ipcRenderer.invoke('login', username, password)
+    if (result?.success && result?.authSession?.token) {
+      authToken = result.authSession.token
+      delete result.authSession
+    }
+    return result
+  },
+  logout: () => clearAuthSession(),
+  getUserProfile: (userId) => invokeProtected('get-user-profile', userId),
 
-  getActiveExam: () => ipcRenderer.invoke('get-active-exam'),
-  getExamQuestions: (examId) => ipcRenderer.invoke('get-exam-questions', examId),
-  startExamSession: (payload) => ipcRenderer.invoke('start-exam-session', payload),
-  endExamSession: (sessionId, status) => ipcRenderer.invoke('end-exam-session', sessionId, status),
-  saveMCQAnswer: (payload) => ipcRenderer.invoke('save-mcq-answer', payload),
-  saveCodeAnswer: (payload) => ipcRenderer.invoke('save-code-answer', payload),
-  saveSessionProgress: (payload) => ipcRenderer.invoke('save-session-progress', payload),
-  getSessionState: (sessionId) => ipcRenderer.invoke('get-session-state', sessionId),
-  runCode: (payload) => ipcRenderer.invoke('run-code', payload),
-  saveExamSubmission: (payload) => ipcRenderer.invoke('save-exam-submission', payload),
-  getSubmissionSummary: (sessionId) => ipcRenderer.invoke('get-submission-summary', sessionId),
+  getActiveExam: () => invokeProtected('get-active-exam'),
+  getExamQuestions: (examId) => invokeProtected('get-exam-questions', examId),
+  ensureExamAccess: (payload) => invokeProtected('ensure-exam-access', payload),
+  startExamSession: (payload) => invokeProtected('start-exam-session', payload),
+  endExamSession: (sessionId, status) => invokeProtected('end-exam-session', sessionId, status),
+  saveMCQAnswer: (payload) => invokeProtected('save-mcq-answer', payload),
+  saveCodeAnswer: (payload) => invokeProtected('save-code-answer', payload),
+  saveSessionProgress: (payload) => invokeProtected('save-session-progress', payload),
+  getSessionState: (sessionId) => invokeProtected('get-session-state', sessionId),
+  runCode: (payload) => invokeProtected('run-code', payload),
+  saveExamSubmission: (payload) => invokeProtected('save-exam-submission', payload),
+  getSubmissionSummary: (sessionId) => invokeProtected('get-submission-summary', sessionId),
 
-  getDashboardStats: () => ipcRenderer.invoke('get-dashboard-stats'),
-  getActiveSessions: () => ipcRenderer.invoke('get-active-sessions'),
-  getRecentSubmissions: () => ipcRenderer.invoke('get-recent-submissions'),
-  getRecentIncidents: () => ipcRenderer.invoke('get-recent-incidents'),
-  recordIncident: (payload) => ipcRenderer.invoke('record-incident', payload),
+  getDashboardStats: () => invokeProtected('get-dashboard-stats'),
+  getAdminExams: () => invokeProtected('get-admin-exams'),
+  getAdminUsers: () => invokeProtected('get-admin-users'),
+  getActiveSessions: () => invokeProtected('get-active-sessions'),
+  getRecentSubmissions: () => invokeProtected('get-recent-submissions'),
+  getRecentIncidents: () => invokeProtected('get-recent-incidents'),
+  recordIncident: (payload) => invokeProtected('record-incident', payload),
+  updateIncidentStatus: (incidentId, status, note) => invokeProtected('update-incident-status', incidentId, status, note),
   getDatabaseStatus: () => ipcRenderer.invoke('get-database-status'),
-  getLockStatus: () => ipcRenderer.invoke('get-lock-status'),
-  setFullscreen: (enabled) => ipcRenderer.invoke('set-fullscreen', enabled),
+  getLockStatus: () => invokeProtected('get-lock-status'),
+  setFullscreen: (enabled) => invokeProtected('set-fullscreen', enabled),
 
-  verifyFrame: (payload) => ipcRenderer.invoke('verify-frame', payload),
-  enrollIdentity: (payload) => ipcRenderer.invoke('enroll-identity', payload),
-  saveBiometricData: (userId, biometricType, payload) => ipcRenderer.invoke('save-biometric-data', userId, biometricType, payload),
-  getOpenSourceModels: () => ipcRenderer.invoke('get-open-source-models'),
-  syncOpenSourceModels: (options) => ipcRenderer.invoke('sync-open-source-models', options),
+  verifyFrame: (payload) => invokeProtected('verify-frame', payload),
+  enrollIdentity: (payload) => invokeProtected('enroll-identity', payload),
+  saveBiometricData: (userId, biometricType, payload) => invokeProtected('save-biometric-data', userId, biometricType, payload),
+  getOpenSourceModels: () => invokeProtected('get-open-source-models'),
+  syncOpenSourceModels: (options) => invokeProtected('sync-open-source-models', options),
 
-  exitApp: () => ipcRenderer.invoke('exit-app'),
+  exitApp: () => invokeProtected('exit-app'),
 
   versions: {
     node: () => process.versions.node,

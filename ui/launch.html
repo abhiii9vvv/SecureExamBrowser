@@ -1,351 +1,268 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Exam Launch - Secure Browser</title>
-    <link href="https://fonts.googleapis.com" rel="preconnect" />
-    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="css/accessibility.css" />
-    <link rel="stylesheet" href="css/theme.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>System Check — CampusSetu Exam Suite</title>
+  <link rel="icon" type="image/x-icon" href="../assets/campussetu-favicon.ico" />
+  <link rel="icon" type="image/png" sizes="96x96" href="../assets/campussetu-favicon-96x96.png" />
+  <link rel="stylesheet" href="css/app.css" />
+  <style>
+    .launch-shell {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .launch-panel {
+      flex: 0 0 520px;
+      display: flex;
+      flex-direction: column;
+      padding: var(--sp-10);
+      border-right: 1px solid var(--border);
+      background: var(--bg-surface);
+      overflow-y: auto;
+    }
+
+    .launch-panel-header {
+      margin-bottom: var(--sp-8);
+    }
+
+    .launch-back {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+      cursor: pointer;
+      border: none;
+      background: none;
+      padding: 0;
+      margin-bottom: var(--sp-6);
+      transition: color var(--transition);
+    }
+
+    .launch-back:hover { color: var(--text-primary); }
+    .launch-back svg { width: 14px; height: 14px; }
+
+    .launch-title {
+      font-size: var(--text-3xl);
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: var(--sp-2);
+    }
+
+    .launch-subtitle {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+    }
+
+    .launch-actions {
+      margin-top: auto;
+      padding-top: var(--sp-8);
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-3);
+    }
+
+    .launch-notice {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    /* Right info panel */
+    .launch-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: var(--sp-10);
+      overflow-y: auto;
+    }
+
+    .exam-info-title {
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: var(--sp-5);
+    }
+
+    .exam-info-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      padding: var(--sp-5);
+      margin-bottom: var(--sp-6);
+    }
+
+    .exam-info-name {
+      font-size: var(--text-xl);
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      margin-bottom: var(--sp-4);
+    }
+
+    .exam-info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      padding: var(--sp-3) 0;
+      border-top: 1px solid var(--border-muted);
+    }
+
+    .exam-info-row:first-of-type { border-top: none; }
+    .exam-info-row .val { font-weight: 600; color: var(--text-primary); }
+
+    .instructions-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-3);
+    }
+
+    .instructions-list li {
+      display: flex;
+      gap: var(--sp-3);
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .inst-num {
+      width: 20px;
+      height: 20px;
+      border-radius: var(--r-full);
+      background: var(--accent-muted);
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+  </style>
 </head>
-<body class="app-bg">
-    <a href="#main-content" class="skip-to-content">Skip to main content</a>
+<body>
+  <div class="launch-shell">
+    <!-- Left: checks -->
+    <div class="launch-panel">
+      <div class="launch-panel-header">
+        <button class="launch-back" id="backBtn">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"/></svg>
+          Back to Dashboard
+        </button>
+        <h1 class="launch-title">System<br>Check</h1>
+        <p class="launch-subtitle">Verifying your environment before the exam begins</p>
+      </div>
 
-    <!-- Sticky Action Bar -->
-    <div class="action-bar" role="banner">
-        <div class="action-bar-container">
-            <div class="action-bar-left">
-                <div class="status-icon is-ok" aria-hidden="true">
-                    <span class="material-symbols-outlined">school</span>
-                </div>
-                <div>
-                    <div class="action-bar-title">Sharda University</div>
-                    <div class="action-bar-subtitle">Secure Exam Browser</div>
-                </div>
-            </div>
-
-            <div class="action-bar-center">
-                <div class="exam-status-badge" id="globalExamStatus" data-status="checking" role="status" aria-live="polite">
-                    <span class="material-symbols-outlined exam-status-icon">schedule</span>
-                    <span class="exam-status-text">Checking readiness...</span>
-                </div>
-            </div>
-
-            <div class="action-bar-right">
-                <button
-                    id="startExamButton"
-                    class="btn-start-exam"
-                    disabled
-                    aria-label="Start exam - requires all checks to pass"
-                    title="Complete all system checks and verification to enable">
-                    <span class="material-symbols-outlined">play_arrow</span>
-                    <span>Start Exam</span>
-                </button>
-                <div class="start-exam-hint app-mono" id="startExamHint" aria-live="polite">
-                    Blocked: checks are running.
-                </div>
-            </div>
+      <div class="check-list" id="checkList">
+        <div class="check-item running" id="chk-display">
+          <div class="check-icon running">
+            <span class="spinner"></span>
+          </div>
+          <div class="check-info">
+            <div class="check-name">Display Resolution</div>
+            <div class="check-detail">Checking screen requirements...</div>
+          </div>
         </div>
+
+        <div class="check-item" id="chk-runtime">
+          <div class="check-icon">⋯</div>
+          <div class="check-info">
+            <div class="check-name">Runtime Environment</div>
+            <div class="check-detail">Waiting...</div>
+          </div>
+        </div>
+
+        <div class="check-item" id="chk-database">
+          <div class="check-icon">⋯</div>
+          <div class="check-info">
+            <div class="check-name">Database Connection</div>
+            <div class="check-detail">Waiting...</div>
+          </div>
+        </div>
+
+        <div class="check-item" id="chk-camera">
+          <div class="check-icon">⋯</div>
+          <div class="check-info">
+            <div class="check-name">Camera Access</div>
+            <div class="check-detail">Waiting...</div>
+          </div>
+        </div>
+
+        <div class="check-item" id="chk-network">
+          <div class="check-icon">⋯</div>
+          <div class="check-info">
+            <div class="check-name">Network Status</div>
+            <div class="check-detail">Waiting...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="launch-actions">
+        <div class="alert alert-danger hidden" id="launchError">
+          <svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/>
+          </svg>
+          <span id="launchErrorMsg">Some checks failed. Please resolve the issues above.</span>
+        </div>
+
+        <button class="btn btn-primary btn-xl w-full" id="proceedBtn" disabled>
+          Proceed to Verification
+          <svg class="icon-16" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"/>
+          </svg>
+        </button>
+
+        <p class="launch-notice">
+          All checks must pass before the exam can begin.
+        </p>
+      </div>
     </div>
-    <main id="main-content" class="launch-container" role="main">
-        <div class="launch-layout">
-            <!-- Left Column (70%) -->
-            <div class="launch-main">
-                <!-- System Readiness Section -->
-                <section class="launch-section" aria-labelledby="readiness-heading">
-                    <div class="section-header">
-                        <div>
-                            <h2 id="readiness-heading" class="section-title">System Readiness</h2>
-                            <p class="section-subtitle">Complete all checks to proceed</p>
-                        </div>
-                        <button
-                            id="recheckButton"
-                            class="btn btn-outline-dark btn-sm"
-                            aria-label="Recheck system requirements">
-                            <span class="material-symbols-outlined">refresh</span>
-                            <span data-recheck-label>Recheck</span>
-                        </button>
-                    </div>
 
-                    <div class="readiness-card">
-                        <!-- Progress Summary -->
-                        <div class="progress-summary" role="status" aria-live="polite">
-                            <div class="progress-summary-text">
-                                <span class="progress-count" id="checksPassedCount">0</span>
-                                <span class="progress-total">/ 4 checks passed</span>
-                            </div>
-                            <div class="progress-bar-container">
-                                <div class="progress-bar-fill checksProgressBar progress-bar-zero" role="progressbar" aria-label="System checks progress" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                            </div>
-                        </div>
+    <!-- Right: exam info + instructions -->
+    <div class="launch-info">
+      <div class="exam-info-title">Exam Details</div>
 
-                        <!-- System Alert -->
-                        <div id="systemAlerts" class="system-alert d-none" role="alert" aria-live="assertive"></div>
-
-                        <!-- Checklist -->
-                        <div class="checklist" role="list">
-                            <!-- Internet Check -->
-                            <div class="checklist-item" data-status="internet" role="listitem">
-                                <div class="checklist-status" data-check-status aria-label="Internet check status">
-                                    <span class="material-symbols-outlined">schedule</span>
-                                </div>
-                                <div class="checklist-content">
-                                    <div class="checklist-title">Internet Connection</div>
-                                    <div class="checklist-description" data-check-text>Checking connection...</div>
-                                </div>
-                                <div class="checklist-icon" aria-hidden="true">
-                                    <span class="material-symbols-outlined">wifi</span>
-                                </div>
-                            </div>
-
-                            <!-- Camera Check -->
-                            <div class="checklist-item" data-status="camera" role="listitem">
-                                <div class="checklist-status" data-check-status aria-label="Camera check status">
-                                    <span class="material-symbols-outlined">schedule</span>
-                                </div>
-                                <div class="checklist-content">
-                                    <div class="checklist-title">Webcam Access</div>
-                                    <div class="checklist-description" data-check-text>Checking camera...</div>
-                                </div>
-                                <div class="checklist-icon" aria-hidden="true">
-                                    <span class="material-symbols-outlined">videocam</span>
-                                </div>
-                            </div>
-
-                            <!-- Microphone Check -->
-                            <div class="checklist-item" data-status="microphone" role="listitem">
-                                <div class="checklist-status" data-check-status aria-label="Microphone check status">
-                                    <span class="material-symbols-outlined">schedule</span>
-                                </div>
-                                <div class="checklist-content">
-                                    <div class="checklist-title">Microphone Access</div>
-                                    <div class="checklist-description" data-check-text>Checking microphone...</div>
-                                </div>
-                                <div class="checklist-icon" aria-hidden="true">
-                                    <span class="material-symbols-outlined">mic</span>
-                                </div>
-                            </div>
-
-                            <!-- Browser Lock Check -->
-                            <div class="checklist-item" data-status="lock" role="listitem">
-                                <div class="checklist-status" data-check-status aria-label="Browser lock status">
-                                    <span class="material-symbols-outlined">schedule</span>
-                                </div>
-                                <div class="checklist-content">
-                                    <div class="checklist-title">Secure Browser Mode</div>
-                                    <div class="checklist-description" data-check-text>Checking lock status...</div>
-                                </div>
-                                <div class="checklist-icon" aria-hidden="true">
-                                    <span class="material-symbols-outlined">lock</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Exam Details Section -->
-                <section class="launch-section" aria-labelledby="exam-heading">
-                    <div class="section-header">
-                        <div>
-                            <h2 id="exam-heading" class="section-title">Exam Details</h2>
-                            <p class="section-subtitle">Your scheduled assessment</p>
-                        </div>
-                        <span class="badge text-bg-light border app-mono" id="examStatus">Scheduled</span>
-                    </div>
-
-                    <div class="details-card">
-                        <div class="detail-group">
-                            <div class="detail-item">
-                                <span class="detail-label">Exam Title</span>
-                                <span class="detail-value" id="examTitle">
-                                    <span class="empty-state">No exam scheduled</span>
-                                </span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Exam Code</span>
-                                <span class="detail-value app-mono" id="examCodeInline">
-                                    <span class="empty-state">--</span>
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="detail-group">
-                            <div class="detail-item">
-                                <span class="detail-label">Duration</span>
-                                <span class="detail-value" id="examDuration">
-                                    <span class="empty-state">Not set</span>
-                                </span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Exam Window</span>
-                                <span class="detail-value" id="examWindow">
-                                    <span class="empty-state">Not specified</span>
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="detail-item detail-item-full">
-                            <span class="detail-label">Exam URL</span>
-                            <span class="detail-value" id="examUrl">
-                                <span class="empty-state">Not available</span>
-                            </span>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Candidate Profile - Collapsible -->
-                <section class="launch-section" aria-labelledby="profile-heading">
-                    <button 
-                        class="section-header section-header-collapsible" 
-                        type="button"
-                        data-bs-toggle="collapse" 
-                        data-bs-target="#profileCollapse"
-                        aria-expanded="false"
-                        aria-controls="profileCollapse">
-                        <div>
-                            <h2 id="profile-heading" class="section-title">Candidate Profile</h2>
-                            <p class="section-subtitle">Your identity information</p>
-                        </div>
-                        <div class="collapse-controls">
-                            <span class="badge text-bg-light border app-mono" id="candidateStatus">Verified</span>
-                            <span class="material-symbols-outlined collapse-icon">expand_more</span>
-                        </div>
-                    </button>
-
-                    <div class="collapse" id="profileCollapse">
-                        <div class="details-card">
-                            <div class="profile-header-section">
-                                <div class="profile-avatar-large">
-                                    <span class="material-symbols-outlined">person</span>
-                                </div>
-                                <div>
-                                    <div class="profile-name" id="studentName">Student</div>
-                                    <div class="profile-id">ID: <span id="studentId" class="app-mono">--</span></div>
-                                </div>
-                            </div>
-
-                            <div class="detail-group">
-                                <div class="detail-item">
-                                    <span class="detail-label">Course</span>
-                                    <span class="detail-value" id="studentCourse">
-                                        <span class="empty-state">Not specified</span>
-                                    </span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Branch</span>
-                                    <span class="detail-value" id="studentBranch">
-                                        <span class="empty-state">Not specified</span>
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div class="detail-group">
-                                <div class="detail-item">
-                                    <span class="detail-label">University</span>
-                                    <span class="detail-value" id="studentUniversity">
-                                        <span class="empty-state">Not specified</span>
-                                    </span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Location</span>
-                                    <span class="detail-value" id="studentLocation">
-                                        <span class="empty-state">Not specified</span>
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div class="detail-group">
-                                <div class="detail-item">
-                                    <span class="detail-label">System</span>
-                                    <span class="detail-value app-mono" id="systemInfo">Windows</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Database Status</span>
-                                    <span class="detail-value" id="connectionStatus">Checking...</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </div>
-
-            <!-- Right Column (30%) - Sidebar -->
-            <aside class="launch-sidebar" role="complementary" aria-label="Verification and help">
-                <!-- Verification Panel -->
-                <div class="sidebar-card">
-                    <div class="sidebar-header">
-                        <div>
-                            <h3 class="sidebar-title">Biometric Verification</h3>
-                            <p class="sidebar-subtitle">Required before exam</p>
-                        </div>
-                        <span class="badge text-bg-warning">Pending</span>
-                    </div>
-
-                    <div class="verification-status" id="verificationStatus" role="status">
-                        <div class="verification-icon">
-                            <span class="material-symbols-outlined">face</span>
-                        </div>
-                        <div class="verification-text">
-                            <div class="verification-message">Identity check required</div>
-                            <div class="verification-note">Ensure good lighting and clear face visibility</div>
-                        </div>
-                    </div>
-
-                    <button 
-                        class="btn-verification-start" 
-                        type="button"
-                        aria-label="Start biometric verification process">
-                        <span class="material-symbols-outlined">verified_user</span>
-                        <span>Start Verification</span>
-                    </button>
-                </div>
-
-                <!-- Help Panel -->
-                <div class="sidebar-card">
-                    <div class="sidebar-header">
-                        <div>
-                            <h3 class="sidebar-title">Need Help?</h3>
-                        </div>
-                    </div>
-
-                    <div class="help-links">
-                        <a href="#" class="help-link">
-                            <span class="material-symbols-outlined">help</span>
-                            <span>Troubleshooting Guide</span>
-                        </a>
-                        <a href="#" class="help-link">
-                            <span class="material-symbols-outlined">policy</span>
-                            <span>Exam Conduct Policy</span>
-                        </a>
-                        <a href="#" class="help-link">
-                            <span class="material-symbols-outlined">support_agent</span>
-                            <span>Contact Support</span>
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Session Info -->
-                <div class="sidebar-card sidebar-card-compact">
-                    <div class="session-info">
-                        <div class="session-info-item">
-                            <span class="session-label">Session ID</span>
-                            <span class="session-value app-mono" id="sessionId">--</span>
-                        </div>
-                        <div class="session-info-item">
-                            <span class="session-label">Local Time</span>
-                            <span class="session-value app-mono" id="clock">00:00:00</span>
-                        </div>
-                    </div>
-                </div>
-            </aside>
+      <div class="exam-info-card">
+        <div class="exam-info-name" id="examInfoTitle">Loading...</div>
+        <div class="exam-info-row">
+          <span>Duration</span>
+          <span class="val" id="examInfoDuration">—</span>
         </div>
-    </main>
+        <div class="exam-info-row">
+          <span>Passing Score</span>
+          <span class="val" id="examInfoPass">—</span>
+        </div>
+        <div class="exam-info-row">
+          <span>Total Questions</span>
+          <span class="val" id="examInfoQs">—</span>
+        </div>
+      </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/launch.js"></script>
+      <div class="exam-info-title">Instructions</div>
+      <ul class="instructions-list">
+        <li><span class="inst-num">1</span><span>Ensure no other applications are running and you are in a quiet environment.</span></li>
+        <li><span class="inst-num">2</span><span>Your camera feed is monitored throughout the exam for proctoring purposes.</span></li>
+        <li><span class="inst-num">3</span><span>Tab switching, window minimization, or loss of focus will be recorded as incidents.</span></li>
+        <li><span class="inst-num">4</span><span>All answers are automatically saved. Do not close the application during the exam.</span></li>
+        <li><span class="inst-num">5</span><span>Once the timer expires, the exam will be submitted automatically.</span></li>
+        <li><span class="inst-num">6</span><span>For coding questions, ensure your code compiles and handles all edge cases.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="toast-root"></div>
+  <script type="module" src="js/launch.js"></script>
 </body>
 </html>

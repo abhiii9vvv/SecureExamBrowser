@@ -47,8 +47,8 @@
     {
       "id": 501,
       "code": "SEB-DSA-APR-2026",
-      "name": "Secure Coding Assessment - April 2026",
-      "description": "Interview-style data structures and algorithms round with mixed MCQ and coding tasks.",
+      "name": "Data Structures and Algorithms Mid-Semester Proctored Examination",
+      "description": "Institutional proctored assessment covering coding, reasoning, and algorithmic problem solving under timed conditions.",
       "durationMinutes": 120,
       "startTime": "2026-04-01T08:00:00Z",
       "endTime": "2026-04-01T12:00:00Z",

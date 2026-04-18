@@ -43,6 +43,33 @@ class ModelService {
         sourceUrl: 'https://raw.githubusercontent.com/minivision-ai/Silent-Face-Anti-Spoofing/master/resources/anti_spoof_models/2.7_80x80_MiniFASNetV2.pth',
         localRelativePath: path.join('assets', 'models', 'antispoof', '2.7_80x80_MiniFASNetV2.pth'),
         minBytes: 1000000
+      },
+      {
+        modelId: 'silero-vad-onnx',
+        family: 'audio-vad',
+        version: 'master',
+        githubUrl: 'https://github.com/snakers4/silero-vad',
+        sourceUrl: 'https://raw.githubusercontent.com/snakers4/silero-vad/master/files/silero_vad.onnx',
+        localRelativePath: path.join('assets', 'models', 'audio', 'silero_vad.onnx'),
+        minBytes: 1000000
+      },
+      {
+        modelId: 'silero-vad-jit',
+        family: 'audio-vad',
+        version: 'master',
+        githubUrl: 'https://github.com/snakers4/silero-vad',
+        sourceUrl: 'https://raw.githubusercontent.com/snakers4/silero-vad/master/files/silero_vad.jit',
+        localRelativePath: path.join('assets', 'models', 'audio', 'silero_vad.jit'),
+        minBytes: 1000000
+      },
+      {
+        modelId: 'picovoice-porcupine-params',
+        family: 'audio-keyword-spotting',
+        version: 'master',
+        githubUrl: 'https://github.com/Picovoice/porcupine',
+        sourceUrl: 'https://raw.githubusercontent.com/Picovoice/porcupine/master/lib/common/porcupine_params.pv',
+        localRelativePath: path.join('assets', 'models', 'audio', 'porcupine_params.pv'),
+        minBytes: 1024
       }
     ]
   }
@@ -215,6 +242,16 @@ class ModelService {
       detectorPath: getPath('opencv-zoo-yunet-face-detector'),
       recognizerPath: getPath('opencv-zoo-sface-identity'),
       fallbackCascadePath: getPath('opencv-haarcascade-frontalface')
+    }
+  }
+
+  async getAudioModelPaths() {
+    const models = await this.getRegistryWithStatus()
+    const getPath = (modelId) => models.find((item) => item.modelId === modelId && item.available)?.localPath || null
+    return {
+      sileroVadOnnxPath: getPath('silero-vad-onnx'),
+      sileroVadJitPath: getPath('silero-vad-jit'),
+      porcupineParamsPath: getPath('picovoice-porcupine-params')
     }
   }
 }

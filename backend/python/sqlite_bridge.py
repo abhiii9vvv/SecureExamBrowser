@@ -2,7 +2,8 @@ import argparse
 import hashlib
 import json
 import sqlite3
-from datetime import datetime, timezone
+import sys
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 
@@ -32,8 +33,12 @@ def run_migrations(conn):
     add_column_if_missing(conn, 'submissions', 'submission_count', 'INTEGER NOT NULL DEFAULT 1')
     add_column_if_missing(conn, 'submissions', 'locked_at', 'TEXT')
     add_column_if_missing(conn, 'biometric_records', 'session_id', 'INTEGER')
+    add_column_if_missing(conn, 'incidents', 'workflow_status', "TEXT NOT NULL DEFAULT 'new'")
+    add_column_if_missing(conn, 'incidents', 'workflow_updated_at', 'TEXT')
+    add_column_if_missing(conn, 'incidents', 'workflow_note', 'TEXT')
     conn.execute('CREATE INDEX IF NOT EXISTS idx_submissions_submission_hash ON submissions(submission_hash)')
     conn.execute('CREATE INDEX IF NOT EXISTS idx_biometric_records_session_id ON biometric_records(session_id)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_incidents_workflow_status ON incidents(workflow_status)')
 
 
 def create_schema(conn):
@@ -174,6 +179,9 @@ def create_schema(conn):
             severity TEXT NOT NULL,
             message TEXT NOT NULL,
             details_json TEXT NOT NULL DEFAULT '{}',
+            workflow_status TEXT NOT NULL DEFAULT 'new',
+            workflow_updated_at TEXT,
+            workflow_note TEXT,
             created_at TEXT NOT NULL,
             FOREIGN KEY (user_id) REFERENCES users(id),
             FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE SET NULL
@@ -226,17 +234,19 @@ def create_schema(conn):
 
 
 def seed_database(conn, seed_path: str):
-    existing = conn.execute('SELECT COUNT(*) AS count FROM users').fetchone()['count']
-    if existing > 0:
+    seed_file = Path(seed_path or '')
+    if not seed_file.exists():
         return False
 
-    with open(seed_path, 'r', encoding='utf-8') as handle:
+    with open(seed_file, 'r', encoding='utf-8') as handle:
         seed = json.load(handle)
 
+    inserted_rows = 0
+
     for user in seed.get('users', []):
-        conn.execute(
+        cursor = conn.execute(
             '''
-            INSERT INTO users (id, username, password_hash, email, full_name, student_id, role, department, course, branch, university, location)
+            INSERT OR IGNORE INTO users (id, username, password_hash, email, full_name, student_id, role, department, course, branch, university, location)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''',
             (
@@ -245,11 +255,12 @@ def seed_database(conn, seed_path: str):
                 user.get('branch'), user.get('university'), user.get('location')
             )
         )
+        inserted_rows += cursor.rowcount
 
     for exam in seed.get('exams', []):
-        conn.execute(
+        cursor = conn.execute(
             '''
-            INSERT INTO exams (id, code, name, description, duration_minutes, start_time, end_time, passing_score, status)
+            INSERT OR IGNORE INTO exams (id, code, name, description, duration_minutes, start_time, end_time, passing_score, status)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''',
             (
@@ -257,11 +268,12 @@ def seed_database(conn, seed_path: str):
                 exam.get('startTime'), exam.get('endTime'), exam.get('passingScore', 0), exam.get('status', 'draft')
             )
         )
+        inserted_rows += cursor.rowcount
 
     for question in seed.get('questions', []):
-        conn.execute(
+        cursor = conn.execute(
             '''
-            INSERT INTO questions (
+            INSERT OR IGNORE INTO questions (
                 id, exam_id, order_index, section, type, title, prompt, difficulty, points,
                 function_name, languages_json, options_json, examples_json, constraints_json,
                 starter_code_json, correct_option, explanation
@@ -277,9 +289,14 @@ def seed_database(conn, seed_path: str):
                 question.get('correctOption'), question.get('explanation')
             )
         )
+        inserted_rows += cursor.rowcount
+
+        # Insert test cases only when the question is newly inserted to avoid duplicates.
+        if cursor.rowcount <= 0:
+            continue
 
         for test_case in question.get('testCases', []):
-            conn.execute(
+            test_cursor = conn.execute(
                 '''
                 INSERT INTO question_test_cases (question_id, input_json, output_json, hidden, description)
                 VALUES (?, ?, ?, ?, ?)
@@ -289,6 +306,7 @@ def seed_database(conn, seed_path: str):
                     1 if test_case.get('hidden') else 0, test_case.get('description')
                 )
             )
+            inserted_rows += test_cursor.rowcount
 
     conn.execute(
         '''
@@ -299,7 +317,7 @@ def seed_database(conn, seed_path: str):
         '''
     )
     conn.commit()
-    return True
+    return inserted_rows > 0
 
 
 def parse_json(value, fallback):
@@ -494,6 +512,12 @@ def action_get_active_exam(conn, payload, _seed_path):
         ('active',)
     ).fetchone()
     if not row:
+        action_ensure_active_exam(conn, {}, _seed_path)
+        row = conn.execute(
+            'SELECT * FROM exams WHERE status = ? ORDER BY start_time ASC LIMIT 1',
+            ('active',)
+        ).fetchone()
+    if not row:
         return None
     return {
         'id': row['id'],
@@ -506,6 +530,107 @@ def action_get_active_exam(conn, payload, _seed_path):
         'passingScore': row['passing_score'],
         'status': row['status'],
         'totalQuestions': row['total_questions']
+    }
+
+
+def action_ensure_active_exam(conn, payload, _seed_path):
+    realistic_name = 'Data Structures and Algorithms Mid-Semester Proctored Examination'
+    realistic_description = (
+        'Institutional proctored assessment covering coding, reasoning, and algorithmic '
+        'problem solving under timed conditions.'
+    )
+
+    active_row = conn.execute(
+        'SELECT id, name, description FROM exams WHERE status = ? ORDER BY start_time ASC, id ASC LIMIT 1',
+        ('active',)
+    ).fetchone()
+
+    if active_row:
+        normalized_name = str(active_row['name'] or '').strip().lower()
+        if normalized_name in {
+            'secure coding assessment - april 2026',
+            'demo exam',
+            'test exam',
+            'sample exam'
+        }:
+            conn.execute(
+                'UPDATE exams SET name = ?, description = ? WHERE id = ?',
+                (realistic_name, realistic_description, active_row['id'])
+            )
+            conn.commit()
+
+        return {
+            'ensured': True,
+            'examId': active_row['id'],
+            'reused': True
+        }
+
+    candidate = conn.execute(
+        '''
+        SELECT exams.id
+        FROM exams
+        LEFT JOIN (
+            SELECT exam_id, COUNT(*) AS question_count
+            FROM questions
+            GROUP BY exam_id
+        ) AS question_counts ON question_counts.exam_id = exams.id
+        ORDER BY COALESCE(question_counts.question_count, 0) DESC,
+                 CASE exams.status WHEN 'draft' THEN 0 WHEN 'completed' THEN 1 ELSE 2 END,
+                 exams.id ASC
+        LIMIT 1
+        '''
+    ).fetchone()
+
+    if not candidate:
+        if _seed_path:
+            seed_database(conn, _seed_path)
+            candidate = conn.execute(
+                '''
+                SELECT exams.id
+                FROM exams
+                LEFT JOIN (
+                    SELECT exam_id, COUNT(*) AS question_count
+                    FROM questions
+                    GROUP BY exam_id
+                ) AS question_counts ON question_counts.exam_id = exams.id
+                ORDER BY COALESCE(question_counts.question_count, 0) DESC,
+                         CASE exams.status WHEN 'draft' THEN 0 WHEN 'completed' THEN 1 ELSE 2 END,
+                         exams.id ASC
+                LIMIT 1
+                '''
+            ).fetchone()
+
+    if not candidate:
+        return {
+            'ensured': False,
+            'reason': 'no_exam_available'
+        }
+
+    now = datetime.now(timezone.utc)
+    start_time = (now - timedelta(minutes=45)).replace(microsecond=0).isoformat()
+    end_time = (now + timedelta(hours=3, minutes=15)).replace(microsecond=0).isoformat()
+
+    conn.execute('UPDATE exams SET status = ? WHERE status = ?', ('draft', 'active'))
+    conn.execute(
+        '''
+        UPDATE exams
+        SET status = ?,
+            name = COALESCE(NULLIF(name, ''), ?),
+            description = COALESCE(NULLIF(description, ''), ?),
+            start_time = ?,
+            end_time = ?
+        WHERE id = ?
+        ''',
+        ('active', realistic_name, realistic_description, start_time, end_time, candidate['id'])
+    )
+    conn.commit()
+
+    return {
+        'ensured': True,
+        'examId': candidate['id'],
+        'reused': False,
+        'startTime': start_time,
+        'endTime': end_time
     }
 
 
@@ -651,6 +776,8 @@ def action_get_session_state(conn, payload, _seed_path):
         raise ValueError('Session not found')
     return {
         'sessionId': session['id'],
+        'userId': session['user_id'],
+        'examId': session['exam_id'],
         'status': session['status'],
         'verificationStatus': session['verification_status'],
         'flaggedQuestionIds': parse_json(session['flagged_json'], []),
@@ -751,11 +878,135 @@ def action_get_dashboard_stats(conn, payload, _seed_path):
     active_sessions = conn.execute("SELECT COUNT(*) AS count FROM sessions WHERE status = 'active'").fetchone()['count']
     today_violations = conn.execute('SELECT COUNT(*) AS count FROM incidents').fetchone()['count']
     recent_submissions = conn.execute('SELECT COUNT(*) AS count FROM submissions').fetchone()['count']
+    pending_verifications = conn.execute(
+        "SELECT COUNT(*) AS count FROM sessions WHERE status = 'active' AND verification_status != 'verified'"
+    ).fetchone()['count']
     return {
         'activeSessions': active_sessions,
         'todayViolations': today_violations,
-        'recentSubmissions': recent_submissions
+        'recentSubmissions': recent_submissions,
+        'pendingVerifications': pending_verifications
     }
+
+
+def action_get_admin_exams(conn, payload, _seed_path):
+    rows = conn.execute(
+        '''
+        SELECT
+            exams.id,
+            exams.code,
+            exams.name,
+            exams.status,
+            exams.total_questions,
+            exams.duration_minutes,
+            exams.passing_score,
+            exams.start_time,
+            exams.end_time,
+            (
+                SELECT COUNT(*)
+                FROM sessions
+                WHERE sessions.exam_id = exams.id AND sessions.status = 'active'
+            ) AS active_sessions,
+            (
+                SELECT COUNT(*)
+                FROM submissions
+                WHERE submissions.exam_id = exams.id
+            ) AS submission_count,
+            (
+                SELECT ROUND(COALESCE(AVG(submissions.score), 0), 2)
+                FROM submissions
+                WHERE submissions.exam_id = exams.id
+            ) AS average_score,
+            (
+                SELECT COUNT(*)
+                FROM incidents
+                JOIN sessions ON sessions.id = incidents.session_id
+                WHERE sessions.exam_id = exams.id
+            ) AS incident_count
+        FROM exams
+        ORDER BY
+            CASE exams.status WHEN 'active' THEN 0 ELSE 1 END,
+            exams.start_time ASC,
+            exams.id ASC
+        '''
+    ).fetchall()
+    return [
+        {
+            'id': row['id'],
+            'code': row['code'],
+            'name': row['name'],
+            'status': row['status'],
+            'totalQuestions': row['total_questions'],
+            'durationMinutes': row['duration_minutes'],
+            'passingScore': row['passing_score'],
+            'startTime': row['start_time'],
+            'endTime': row['end_time'],
+            'activeSessions': row['active_sessions'],
+            'submissionCount': row['submission_count'],
+            'averageScore': row['average_score'],
+            'incidentCount': row['incident_count']
+        }
+        for row in rows
+    ]
+
+
+def action_get_admin_users(conn, payload, _seed_path):
+    rows = conn.execute(
+        '''
+        SELECT
+            users.id,
+            users.full_name,
+            users.username,
+            users.student_id,
+            users.role,
+            users.course,
+            users.branch,
+            users.department,
+            users.created_at,
+            (
+                SELECT COUNT(*)
+                FROM sessions
+                WHERE sessions.user_id = users.id AND sessions.status = 'active'
+            ) AS active_sessions,
+            (
+                SELECT COUNT(*)
+                FROM submissions
+                WHERE submissions.user_id = users.id
+            ) AS submission_count,
+            (
+                SELECT MAX(sessions.started_at)
+                FROM sessions
+                WHERE sessions.user_id = users.id
+            ) AS last_session_at,
+            (
+                SELECT COUNT(*)
+                FROM incidents
+                WHERE incidents.user_id = users.id
+            ) AS incident_count
+        FROM users
+        ORDER BY
+            CASE users.role WHEN 'admin' THEN 0 ELSE 1 END,
+            users.full_name ASC
+        '''
+    ).fetchall()
+    return [
+        {
+            'id': row['id'],
+            'fullName': row['full_name'],
+            'username': row['username'],
+            'studentId': row['student_id'],
+            'role': row['role'],
+            'course': row['course'],
+            'branch': row['branch'],
+            'department': row['department'],
+            'createdAt': row['created_at'],
+            'activeSessions': row['active_sessions'],
+            'submissionCount': row['submission_count'],
+            'lastSessionAt': row['last_session_at'],
+            'incidentCount': row['incident_count']
+        }
+        for row in rows
+    ]
 
 
 def action_get_active_sessions(conn, payload, _seed_path):
@@ -878,11 +1129,25 @@ def action_get_model_assets(conn, payload, _seed_path):
 
 
 def action_record_incident(conn, payload, _seed_path):
+    now = utc_now()
     conn.execute(
-        'INSERT INTO incidents (user_id, session_id, type, severity, message, details_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        '''
+        INSERT INTO incidents (
+            user_id,
+            session_id,
+            type,
+            severity,
+            message,
+            details_json,
+            workflow_status,
+            workflow_updated_at,
+            created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, 'new', ?, ?)
+        ''',
         (
             payload.get('userId'), payload.get('sessionId'), payload['type'], payload.get('severity', 'medium'),
-            payload['message'], json.dumps(payload.get('details', {})), utc_now()
+            payload['message'], json.dumps(payload.get('details', {})), now, now
         )
     )
     conn.commit()
@@ -892,9 +1157,11 @@ def action_record_incident(conn, payload, _seed_path):
 def action_get_recent_incidents(conn, payload, _seed_path):
     rows = conn.execute(
         '''
-        SELECT incidents.*, users.full_name, users.student_id
+        SELECT incidents.*, users.full_name, users.student_id, exams.name AS exam_name
         FROM incidents
         LEFT JOIN users ON users.id = incidents.user_id
+        LEFT JOIN sessions ON sessions.id = incidents.session_id
+        LEFT JOIN exams ON exams.id = sessions.exam_id
         ORDER BY incidents.created_at DESC
         LIMIT ?
         ''',
@@ -909,10 +1176,52 @@ def action_get_recent_incidents(conn, payload, _seed_path):
             'createdAt': row['created_at'],
             'fullName': row['full_name'],
             'studentId': row['student_id'],
+            'examName': row['exam_name'],
+            'workflowStatus': row['workflow_status'] or 'new',
+            'workflowUpdatedAt': row['workflow_updated_at'],
+            'workflowNote': row['workflow_note'],
             'details': parse_json(row['details_json'], {})
         }
         for row in rows
     ]
+
+
+def action_update_incident_status(conn, payload, _seed_path):
+    incident_id = int(payload.get('incidentId') or 0)
+    if incident_id < 1:
+        raise ValueError('Invalid incident id')
+
+    next_status = str(payload.get('status') or '').strip().lower()
+    allowed_statuses = {'new', 'acknowledged', 'escalated', 'resolved'}
+    if next_status not in allowed_statuses:
+        raise ValueError('Invalid incident workflow status')
+
+    existing = conn.execute('SELECT id FROM incidents WHERE id = ?', (incident_id,)).fetchone()
+    if not existing:
+        raise ValueError('Incident not found')
+
+    note = str(payload.get('note') or '').strip()
+    now = utc_now()
+    conn.execute(
+        '''
+        UPDATE incidents
+        SET workflow_status = ?, workflow_updated_at = ?, workflow_note = ?
+        WHERE id = ?
+        ''',
+        (next_status, now, note if note else None, incident_id)
+    )
+    conn.commit()
+
+    row = conn.execute(
+        'SELECT id, workflow_status, workflow_updated_at, workflow_note FROM incidents WHERE id = ?',
+        (incident_id,)
+    ).fetchone()
+    return {
+        'incidentId': row['id'],
+        'workflowStatus': row['workflow_status'],
+        'workflowUpdatedAt': row['workflow_updated_at'],
+        'workflowNote': row['workflow_note']
+    }
 
 
 def action_get_database_status(conn, payload, _seed_path):
@@ -928,6 +1237,7 @@ def action_get_database_status(conn, payload, _seed_path):
 
 ACTIONS = {
     'init_db': action_init_db,
+    'ensure_active_exam': action_ensure_active_exam,
     'login': action_login,
     'get_active_exam': action_get_active_exam,
     'get_user_profile': action_get_user_profile,
@@ -943,6 +1253,8 @@ ACTIONS = {
     'save_exam_submission': action_save_exam_submission,
     'get_submission_summary': action_get_submission_summary,
     'get_dashboard_stats': action_get_dashboard_stats,
+    'get_admin_exams': action_get_admin_exams,
+    'get_admin_users': action_get_admin_users,
     'get_active_sessions': action_get_active_sessions,
     'get_recent_submissions': action_get_recent_submissions,
     'save_biometric_data': action_save_biometric_data,
@@ -950,40 +1262,117 @@ ACTIONS = {
     'get_model_assets': action_get_model_assets,
     'record_incident': action_record_incident,
     'get_recent_incidents': action_get_recent_incidents,
+    'update_incident_status': action_update_incident_status,
     'get_database_status': action_get_database_status,
 }
 
 
+ACTION_ALLOWED_FIELDS = {
+    'init_db': set(),
+    'ensure_active_exam': set(),
+    'login': {'username', 'password'},
+    'get_active_exam': set(),
+    'get_user_profile': {'userId'},
+    'get_exam_questions': {'examId'},
+    'get_question_for_execution': {'questionId'},
+    'start_exam_session': {'sessionToken', 'userId', 'examId', 'remainingSeconds', 'machineInfo'},
+    'end_exam_session': {'sessionId', 'status'},
+    'save_mcq_answer': {'sessionId', 'questionId', 'selectedOption'},
+    'save_code_answer': {'sessionId', 'questionId', 'code', 'language', 'status', 'testSummary'},
+    'save_code_run': {
+        'sessionId',
+        'questionId',
+        'language',
+        'mode',
+        'code',
+        'status',
+        'passedCount',
+        'totalCount',
+        'totalTimeMs',
+        'runtimeDetails'
+    },
+    'save_session_progress': {'sessionId', 'flaggedQuestionIds', 'remainingSeconds'},
+    'get_session_state': {'sessionId'},
+    'save_exam_submission': {'sessionId', 'userId', 'examId', 'flaggedQuestionIds', 'timeRemaining'},
+    'get_submission_summary': {'sessionId'},
+    'get_dashboard_stats': set(),
+    'get_admin_exams': set(),
+    'get_admin_users': set(),
+    'get_active_sessions': {'limit'},
+    'get_recent_submissions': {'limit'},
+    'save_biometric_data': {'userId', 'biometricType', 'sessionId', 'payload'},
+    'upsert_model_asset': {
+        'modelId',
+        'family',
+        'version',
+        'githubUrl',
+        'sourceUrl',
+        'localPath',
+        'status',
+        'sizeBytes',
+        'checksum',
+        'syncedAt',
+        'errorMessage'
+    },
+    'get_model_assets': set(),
+    'record_incident': {'userId', 'sessionId', 'type', 'severity', 'message', 'details'},
+    'get_recent_incidents': {'limit'},
+    'update_incident_status': {'incidentId', 'status', 'note'},
+    'get_database_status': set()
+}
+
+
+def sanitize_action_payload(action: str, payload: dict) -> dict:
+    if not isinstance(payload, dict):
+        raise ValueError('Invalid payload object')
+
+    allowed_fields = ACTION_ALLOWED_FIELDS.get(action)
+    if allowed_fields is None:
+        raise ValueError(f'Unsupported action: {action}')
+
+    unexpected_fields = sorted([key for key in payload.keys() if key not in allowed_fields])
+    if unexpected_fields:
+        raise ValueError(f'Unexpected payload fields for {action}: {", ".join(unexpected_fields)}')
+
+    return {key: payload[key] for key in allowed_fields if key in payload}
+
+
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--db', required=True)
-    parser.add_argument('--action', required=True)
-    parser.add_argument('--seed', required=False, default='')
-    args = parser.parse_args()
-
-    payload = {}
-    raw = sys.stdin.read().strip() if 'sys' in globals() else ''
-    if raw:
-        payload = json.loads(raw)
-    payload['dbPath'] = args.db
-
-    db_dir = Path(args.db).parent
-    db_dir.mkdir(parents=True, exist_ok=True)
-
-    conn = connect(args.db)
     try:
-        create_schema(conn)
-        handler = ACTIONS.get(args.action)
-        if not handler:
-            raise ValueError(f'Unsupported action: {args.action}')
-        result = handler(conn, payload, args.seed)
-        print(json.dumps({'success': True, 'data': result}))
-    except Exception as exc:
-        conn.rollback()
-        print(json.dumps({'success': False, 'error': str(exc)}))
-    finally:
-        conn.close()
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--db', required=True)
+        parser.add_argument('--action', required=True)
+        parser.add_argument('--seed', required=False, default='')
+        args = parser.parse_args()
 
+        payload = {}
+        raw = sys.stdin.read().strip() if 'sys' in globals() else ''
+        if raw:
+            payload = sanitize_action_payload(args.action, json.loads(raw))
+        payload['dbPath'] = args.db
+
+        db_dir = Path(args.db).parent
+        db_dir.mkdir(parents=True, exist_ok=True)
+
+        conn = connect(args.db)
+        try:
+            create_schema(conn)
+            handler = ACTIONS.get(args.action)
+            if not handler:
+                raise ValueError(f'Unsupported action: {args.action}')
+            result = handler(conn, payload, args.seed)
+            print(json.dumps({'success': True, 'data': result}))
+            sys.stdout.flush()
+        except Exception as exc:
+            conn.rollback()
+            raise exc
+        finally:
+            conn.close()
+
+    except Exception as exc:
+        print(json.dumps({'success': False, 'error': str(exc)}))
+        sys.stdout.flush()
+        sys.exit(0)
 
 if __name__ == '__main__':
     import sys

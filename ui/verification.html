@@ -1,158 +1,274 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Biometric Verification</title>
-    <link href="https://fonts.googleapis.com" rel="preconnect" />
-    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="css/accessibility.css" />
-    <link rel="stylesheet" href="css/theme.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Identity Verification — CampusSetu Exam Suite</title>
+  <link rel="icon" type="image/x-icon" href="../assets/campussetu-favicon.ico" />
+  <link rel="icon" type="image/png" sizes="96x96" href="../assets/campussetu-favicon-96x96.png" />
+  <link rel="stylesheet" href="css/app.css" />
+  <style>
+    .ver-shell {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg-base);
+    }
+
+    .ver-camera-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--sp-8);
+      background: var(--bg-base);
+      gap: var(--sp-6);
+    }
+
+    .camera-frame {
+      position: relative;
+      width: 480px;
+      max-width: 100%;
+      aspect-ratio: 4/3;
+      background: #000;
+      border-radius: var(--r-xl);
+      overflow: hidden;
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .camera-frame video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      display: block;
+    }
+
+    .camera-frame canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+    }
+
+    .camera-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      font-size: var(--text-sm);
+      font-weight: 600;
+    }
+
+    .camera-overlay.hidden { display: none; }
+
+    /* Face guide corners */
+    .face-guide {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60%;
+      aspect-ratio: 3/4;
+      pointer-events: none;
+    }
+
+    .face-guide::before,
+    .face-guide::after,
+    .fg-tl::before,
+    .fg-tl::after {
+      content: '';
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-color: rgba(47,129,247,0.8);
+      border-style: solid;
+    }
+
+    .face-guide::before { top: 0; left: 0; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+    .face-guide::after  { top: 0; right: 0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+    .fg-tl::before      { bottom: 0; left: 0; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+    .fg-tl::after       { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+
+    .camera-status {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .camera-status.ok   { color: var(--success); }
+    .camera-status.fail { color: var(--danger); }
+    .camera-status.info { color: var(--info); }
+
+    /* Right panel */
+    .ver-panel {
+      width: 360px;
+      min-width: 320px;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: var(--sp-8);
+      gap: var(--sp-6);
+      overflow-y: auto;
+    }
+
+    .ver-heading {
+      font-size: var(--text-2xl);
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+    }
+
+    .ver-sub {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-top: var(--sp-2);
+    }
+
+    .ver-steps {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-3);
+    }
+
+    .ver-step {
+      display: flex;
+      gap: var(--sp-3);
+      align-items: flex-start;
+      padding: var(--sp-3);
+      border-radius: var(--r-lg);
+      background: var(--bg-overlay);
+      border: 1px solid var(--border);
+      transition: border-color var(--transition), background var(--transition);
+    }
+
+    .ver-step.active  { border-color: rgba(47,129,247,0.5); background: var(--accent-subtle); }
+    .ver-step.done    { border-color: rgba(63,185,80,0.4);  background: rgba(63,185,80,0.05); }
+    .ver-step.failed  { border-color: rgba(248,81,73,0.4);  background: rgba(248,81,73,0.05); }
+
+    .ver-step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: var(--r-full);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .ver-step.active .ver-step-num  { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .ver-step.done   .ver-step-num  { background: var(--success); border-color: var(--success); color: #fff; }
+    .ver-step.failed .ver-step-num  { background: var(--danger);  border-color: var(--danger);  color: #fff; }
+
+    .ver-step-label { font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); }
+    .ver-step-detail { font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px; }
+
+    .ver-actions {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-3);
+    }
+
+    .skip-note {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      text-align: center;
+      cursor: pointer;
+      transition: color var(--transition);
+    }
+
+    .skip-note:hover { color: var(--text-secondary); }
+  </style>
 </head>
-<body class="app-bg app-fullscreen">
-    <header class="app-header">
-        <div class="container-fluid py-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div class="d-flex align-items-center gap-3">
-                <div class="status-icon is-ok">
-                    <span class="material-symbols-outlined">shield</span>
-                </div>
-                <div>
-                    <div class="app-title">Sharda University Secure Exam Browser</div>
-                    <div class="app-subtitle">Biometric verification in progress</div>
-                </div>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-                <button class="btn btn-outline-dark btn-sm" data-cancel-button>Cancel</button>
-            </div>
+<body>
+  <div class="ver-shell">
+    <!-- Camera section -->
+    <div class="ver-camera-section">
+      <div class="camera-frame" id="cameraFrame">
+        <video id="cameraVideo" autoplay muted></video>
+        <canvas id="cameraCanvas"></canvas>
+        <div class="face-guide"><span class="fg-tl"></span></div>
+        <div class="camera-overlay" id="cameraOverlay">
+          <span>Starting camera...</span>
         </div>
-    </header>
+      </div>
+      <div class="camera-status" id="cameraStatus">Initializing camera...</div>
+    </div>
 
-    <main class="container-fluid app-main app-compact">
-        <div class="verification-layout">
-            <section class="camera-panel">
-                <div class="app-card p-3">
-                    <div class="card-header">
-                        <div>
-                            <div class="card-title">Biometric Verification</div>
-                            <div class="card-subtitle">Secure identity validation</div>
-                        </div>
-                        <span class="badge text-bg-light border app-mono">Active</span>
-                    </div>
-                    <div class="card-body">
-                        <div class="proctoring-frame tall" id="cameraFeed">
-                            <video id="videoElement" autoplay class="is-hidden"></video>
-                            <canvas id="faceOverlay"></canvas>
-                            <div id="cameraPlaceholder" class="d-flex align-items-center justify-content-center text-muted">
-                                Initializing camera...
-                            </div>
-                        </div>
-                        <div class="mt-3 is-hidden" id="warningContainer"></div>
-                        <div class="stat-grid mt-3">
-                            <div class="metric-card">
-                                <div class="metric-label">Confidence</div>
-                                <div class="metric-value" id="confidenceValue">--</div>
-                                <div class="metric-sub" id="faceScore">0%</div>
-                            </div>
-                            <div class="metric-card">
-                                <div class="metric-label">Face Status</div>
-                                <div class="metric-value" id="faceStatusValue">Searching</div>
-                            </div>
-                            <div class="metric-card">
-                                <div class="metric-label">Liveness</div>
-                                <div class="metric-sub" id="livenessScore">Motion: 0% | Eyes: 0</div>
-                            </div>
-                            <div class="metric-card">
-                                <div class="metric-label">Identity</div>
-                                <div class="metric-sub" id="identityScore">0%</div>
-                            </div>
-                        </div>
-                        <div class="mt-2 text-muted small app-mono">Light Level: <span id="lightLevelValue">--</span></div>
-                    </div>
-                </div>
-            </section>
+    <!-- Right panel -->
+    <div class="ver-panel">
+      <div>
+        <h1 class="ver-heading">Identity<br>Verification</h1>
+        <p class="ver-sub">We need to verify your identity before starting the exam. Please look directly at the camera.</p>
+      </div>
 
-            <aside class="verification-side">
-                <div class="app-card p-4 mb-3">
-                    <div class="card-header">
-                        <div>
-                            <div class="card-title">Verification Progress</div>
-                            <div class="card-subtitle">Step-by-step status</div>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="app-mono small" data-step-text>Step 1 of 4</div>
-                            <div class="verification-timer" data-verification-timer data-timer-tone="normal">02:00 left</div>
-                        </div>
-                    </div>
-                    <div class="progress progress-thin" role="progressbar" aria-label="Verification progress">
-                        <div class="progress-bar bg-dark progress-bar-zero" data-progress-bar></div>
-                    </div>
-                </div>
-
-                <div class="app-card p-4 mb-3">
-                    <div class="card-header">
-                        <div>
-                            <div class="card-title">Quick Guidance</div>
-                            <div class="card-subtitle">Keep your face centered and well-lit.</div>
-                        </div>
-                    </div>
-                    <ul class="helper-list mt-3">
-                        <li>Look straight at the camera</li>
-                        <li>Remove face coverings</li>
-                        <li>Minimize background movement</li>
-                    </ul>
-                </div>
-
-                <div class="d-flex flex-column gap-3">
-                    <div class="step-card" data-step-card>
-                        <div class="step-card-icon">
-                            <span class="material-symbols-outlined">face</span>
-                        </div>
-                        <div>
-                            <div class="fw-semibold">Face Detection</div>
-                            <div class="text-muted small" data-step-status>Pending</div>
-                        </div>
-                    </div>
-                    <div class="step-card" data-step-card>
-                        <div class="step-card-icon">
-                            <span class="material-symbols-outlined">fingerprint</span>
-                        </div>
-                        <div>
-                            <div class="fw-semibold">Identity Match</div>
-                            <div class="text-muted small" data-step-status>Pending</div>
-                        </div>
-                    </div>
-                    <div class="step-card" data-step-card>
-                        <div class="step-card-icon">
-                            <span class="material-symbols-outlined">visibility</span>
-                        </div>
-                        <div>
-                            <div class="fw-semibold">Liveness Check</div>
-                            <div class="text-muted small" data-step-status>Pending</div>
-                        </div>
-                    </div>
-                    <div class="step-card" data-step-card>
-                        <div class="step-card-icon">
-                            <span class="material-symbols-outlined">verified</span>
-                        </div>
-                        <div>
-                            <div class="fw-semibold">Final Approval</div>
-                            <div class="text-muted small" data-step-status>Pending</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-4">
-                    <button class="btn btn-dark w-100" data-ready-button>I'm Ready</button>
-                    <button class="btn btn-outline-dark w-100 mt-2 d-none" data-retry-verification type="button">Retry Camera Setup</button>
-                </div>
-            </aside>
+      <div class="ver-steps">
+        <div class="ver-step active" id="step-camera">
+          <div class="ver-step-num">1</div>
+          <div>
+            <div class="ver-step-label">Camera Access</div>
+            <div class="ver-step-detail">Initializing camera feed</div>
+          </div>
         </div>
-    </main>
+        <div class="ver-step" id="step-detect">
+          <div class="ver-step-num">2</div>
+          <div>
+            <div class="ver-step-label">Face Detection</div>
+            <div class="ver-step-detail">Locate your face in the frame</div>
+          </div>
+        </div>
+        <div class="ver-step" id="step-enroll">
+          <div class="ver-step-num">3</div>
+          <div>
+            <div class="ver-step-label">Identity Capture</div>
+            <div class="ver-step-detail">Capture biometric reference</div>
+          </div>
+        </div>
+        <div class="ver-step" id="step-ready">
+          <div class="ver-step-num">4</div>
+          <div>
+            <div class="ver-step-label">Ready</div>
+            <div class="ver-step-detail">Verification complete</div>
+          </div>
+        </div>
+      </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/verification.js"></script>
+      <div class="ver-actions">
+        <div class="alert alert-danger hidden" id="verError">
+          <svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/>
+          </svg>
+          <span id="verErrorMsg">Verification failed.</span>
+        </div>
+
+        <button class="btn btn-primary btn-xl w-full" id="proceedBtn" disabled>
+          Start Exam
+          <svg class="icon-16" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"/>
+          </svg>
+        </button>
+
+        <div class="skip-note" id="skipBtn">Skip verification (demo mode)</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-root"></div>
+  <script type="module" src="js/verification.js"></script>
 </body>
 </html>

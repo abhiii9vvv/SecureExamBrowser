@@ -1,94 +1,189 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Final Submission Review - Secure Exam Browser</title>
-    <link href="https://fonts.googleapis.com" rel="preconnect" />
-    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="css/accessibility.css" />
-    <link rel="stylesheet" href="css/theme.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Submission — CampusSetu Exam Suite</title>
+  <link rel="icon" type="image/x-icon" href="../assets/campussetu-favicon.ico" />
+  <link rel="icon" type="image/png" sizes="96x96" href="../assets/campussetu-favicon-96x96.png" />
+  <link rel="stylesheet" href="css/app.css" />
+  <style>
+    .sub-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      align-items: center;
+      justify-content: center;
+      padding: var(--sp-6);
+      background: var(--bg-base);
+    }
+
+    .sub-card {
+      width: 100%;
+      max-width: 560px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      overflow: hidden;
+    }
+
+    .sub-card-top {
+      padding: var(--sp-10) var(--sp-8);
+      text-align: center;
+      background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-card) 100%);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sub-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: var(--r-full);
+      background: var(--success-muted);
+      color: var(--success);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto var(--sp-5);
+    }
+
+    .sub-icon svg { width: 36px; height: 36px; }
+
+    .sub-title {
+      font-size: var(--text-3xl);
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.03em;
+      margin-bottom: var(--sp-2);
+    }
+
+    .sub-subtitle {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+    }
+
+    .sub-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sub-stat {
+      padding: var(--sp-5);
+      text-align: center;
+      border-right: 1px solid var(--border);
+    }
+
+    .sub-stat:last-child { border-right: none; }
+
+    .sub-stat-val {
+      font-size: var(--text-2xl);
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    .sub-stat-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: var(--sp-1);
+    }
+
+    .sub-details {
+      padding: var(--sp-5) var(--sp-6);
+    }
+
+    .sub-detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--sp-3) 0;
+      border-bottom: 1px solid var(--border-muted);
+      font-size: var(--text-sm);
+    }
+
+    .sub-detail-row:last-child { border-bottom: none; }
+    .sub-detail-key { color: var(--text-secondary); }
+    .sub-detail-val { font-weight: 600; color: var(--text-primary); }
+
+    .sub-footer {
+      padding: var(--sp-5) var(--sp-6);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-3);
+    }
+
+    .sub-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--sp-4);
+      padding: var(--sp-12);
+    }
+  </style>
 </head>
-<body class="app-bg app-fullscreen">
-    <header class="app-header">
-        <div class="container py-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div>
-                <div class="app-title">Final Review</div>
-                <div class="app-subtitle">Verify answers before final submission</div>
-            </div>
-            <div class="d-flex align-items-center gap-3">
-                <div class="app-mono small">Candidate</div>
-                <div id="studentName" class="fw-semibold">Student Name</div>
-            </div>
+<body>
+  <div class="sub-shell">
+    <!-- Loading -->
+    <div class="sub-loading" id="loadingState">
+      <div class="spinner spinner-lg"></div>
+      <span class="text-sec text-sm">Loading submission results...</span>
+    </div>
+
+    <!-- Result card -->
+    <div class="sub-card hidden" id="resultCard">
+      <div class="sub-card-top">
+        <div class="sub-icon" id="subIcon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
         </div>
-    </header>
+        <h1 class="sub-title">Exam Submitted</h1>
+        <p class="sub-subtitle" id="subSubtitle">Your answers have been recorded successfully.</p>
+      </div>
 
-    <main class="container app-main app-compact">
-        <div class="row g-4">
-            <div class="col-lg-8">
-                <div class="app-card p-4 mb-4">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="status-icon">
-                            <span class="material-symbols-outlined">timer</span>
-                        </div>
-                        <div>
-                            <div class="text-muted small">Time Remaining</div>
-                            <div class="app-mono fs-4 fw-semibold" data-timer-display>00:00:00</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="app-card p-4">
-                    <div class="d-flex align-items-center justify-content-between mb-3">
-                        <h2 class="app-section-title mb-0">Question Status</h2>
-                        <button class="btn btn-outline-dark" onclick="returnToExam()">Return to Exam</button>
-                    </div>
-                    <div class="row g-2" data-submission-grid></div>
-                </div>
-            </div>
-
-            <div class="col-lg-4">
-                <div class="app-card p-4 mb-4">
-                    <div class="position-relative d-flex justify-content-center">
-                        <div class="radial-meter" data-radial-meter></div>
-                        <div class="radial-meter-content">
-                            <div class="fs-1 fw-bold" data-radial-value>0%</div>
-                            <div class="text-muted small">Completion</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="app-card p-4 mb-4" data-metric="answered">
-                    <div class="text-muted small">Answered</div>
-                    <div class="d-flex align-items-baseline gap-2">
-                        <div class="app-mono fs-4 fw-semibold" data-metric-value>0</div>
-                        <div class="text-muted" data-metric-total>/ 0</div>
-                    </div>
-                </div>
-                <div class="app-card p-4 mb-4" data-metric="unanswered">
-                    <div class="text-muted small">Unanswered</div>
-                    <div class="d-flex align-items-baseline gap-2">
-                        <div class="app-mono fs-4 fw-semibold" data-metric-value>0</div>
-                        <div class="text-muted" data-metric-total>/ 0</div>
-                    </div>
-                </div>
-                <div class="app-card p-4" data-metric="flagged">
-                    <div class="text-muted small">Flagged</div>
-                    <div class="d-flex align-items-baseline gap-2">
-                        <div class="app-mono fs-4 fw-semibold" data-metric-value>0</div>
-                        <div class="text-muted" data-metric-total>/ 0</div>
-                    </div>
-                </div>
-                <button class="btn btn-dark w-100 mt-4" onclick="confirmSubmission()" data-submit-button>
-                    Confirm Submission
-                </button>
-            </div>
+      <div class="sub-stats">
+        <div class="sub-stat">
+          <div class="sub-stat-val text-ok" id="statAnswered">—</div>
+          <div class="sub-stat-label">Answered</div>
         </div>
-    </main>
+        <div class="sub-stat">
+          <div class="sub-stat-val text-warn" id="statFlagged">—</div>
+          <div class="sub-stat-label">Flagged</div>
+        </div>
+        <div class="sub-stat">
+          <div class="sub-stat-val" id="statTotal">—</div>
+          <div class="sub-stat-label">Total Qs</div>
+        </div>
+      </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/submission.js"></script>
+      <div class="sub-details" id="subDetails"></div>
+
+      <div class="sub-footer">
+        <p class="text-xs text-mute text-center">
+          Your responses have been encrypted and submitted to the exam server. Results will be reviewed by your instructor.
+        </p>
+        <button class="btn btn-secondary w-full" id="exitBtn">
+          Exit Exam Browser
+        </button>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div class="alert alert-warning hidden mw-460" id="errorState">
+      <svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"/>
+      </svg>
+      <span id="errorMsg">Could not load submission summary. Your answers were still recorded.</span>
+    </div>
+  </div>
+
+  <div id="toast-root"></div>
+  <script type="module" src="js/submission.js"></script>
 </body>
 </html>

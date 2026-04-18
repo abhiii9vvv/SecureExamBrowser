@@ -1,1109 +1,973 @@
-let questions = []
-let runtimeCapabilities = null
-let currentIndex = 0
-let sessionId = Number(localStorage.getItem('currentSessionId') || '0')
-let examId = Number(localStorage.getItem('currentExamId') || '0')
-let examDurationMinutes = Number(localStorage.getItem('currentExamDuration') || '120')
-let timeRemaining = examDurationMinutes * 60
-let answers = {}
-let flaggedQuestionIds = []
-let timerHandle = null
-let codeEditorInstance = null
-let autosaveHandle = null
-let syncInFlight = false
-let dirtyState = false
-let lastSyncedAt = 0
-let suppressEditorChange = false
-let isSubmitting = false
+import { navigateTo, showToast, showConfirm } from './router.js'
 
-const AUTOSAVE_DEBOUNCE_MS = 900
-const HEARTBEAT_INTERVAL_SECONDS = 15
-const INCIDENT_COOLDOWN_MS = 45000
-const incidentCooldown = {
-  visibility: 0,
-  blur: 0,
-  offline: 0
+/* ===================== STATE ===================== */
+let questions         = []
+let currentIndex      = 0
+let sessionId         = Number(localStorage.getItem('currentSessionId') || '0')
+let examId            = Number(localStorage.getItem('currentExamId') || '0')
+let examDuration      = Number(localStorage.getItem('currentExamDuration') || '120') * 60
+let timeRemaining     = examDuration
+let answers           = {}
+let flagged           = []
+let editor            = null
+let timerHandle       = null
+let autosaveHandle    = null
+let isDirty           = false
+let isSubmitting      = false
+let suppressChange    = false
+let activeSectionType = 'mcq'
+const sectionLastVisited = { mcq: 0, coding: 0 }
+let plainEditorLines   = null
+let proctorStream      = null
+
+/* ===================== DOM REFS ===================== */
+const progressLabel    = document.getElementById('progressLabel')
+const progressBar      = document.getElementById('progressBar')
+const examBody         = document.querySelector('.exam-body')
+const timerDisplay     = document.getElementById('timerDisplay')
+const timerWrap        = document.getElementById('timerWrap')
+const syncStatus       = document.getElementById('syncStatus')
+const liveBanner       = document.getElementById('liveBanner')
+const qBadge           = document.getElementById('qBadge')
+const qTitle           = document.getElementById('questionTitle')
+const qMeta            = document.getElementById('questionMeta')
+const qBody            = document.getElementById('questionBody')
+const mcqInfo          = document.getElementById('mcqInfo')
+const codingPanel      = document.getElementById('codingPanel')
+const outputEl         = document.getElementById('codeOutput')
+const outputBadge      = document.getElementById('outputBadge')
+const palette          = document.getElementById('questionPalette')
+const flagBtn          = document.getElementById('btnFlagQuestion')
+const prevBtn          = document.getElementById('btnPrev')
+const nextBtn          = document.getElementById('btnNext')
+const submitExamBtn    = document.getElementById('submitExamBtn')
+const submitModal      = document.getElementById('submitModal')
+const instructModal    = document.getElementById('instructionsModal')
+const violationOverlay = document.getElementById('violationOverlay')
+const violationMsg     = document.getElementById('violationMsg')
+const sectionMcqCount  = document.getElementById('sectionMcqCount')
+const sectionCodingCount = document.getElementById('sectionCodingCount')
+const sectionTabMcq    = document.getElementById('sectionTabMcq')
+const sectionTabCoding = document.getElementById('sectionTabCoding')
+const proctorPip       = document.getElementById('proctorPip')
+const proctorVideo     = document.getElementById('proctorVideo')
+const proctorPipLabel  = document.getElementById('proctorPipLabel')
+
+const SECTION_LABELS = { mcq: 'MCQ', coding: 'Coding' }
+const LANGUAGE_LABELS = { javascript: 'JavaScript', python: 'Python', cpp: 'C++' }
+
+/* ===================== UTILS ===================== */
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+function escHtml(s) {
+  if (!s) return ''
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
 }
 
-const EDITOR_MODE_MAP = {
-  javascript: 'text/javascript',
-  python: 'text/x-python',
-  cpp: 'text/x-c++src'
+function formatTime(s) {
+  const h   = Math.floor(s / 3600)
+  const m   = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
 }
 
-function ensureCodeEditor() {
-  if (codeEditorInstance) {
-    return codeEditorInstance
-  }
+function getCurrentQ() { return questions[currentIndex] }
 
-  const textarea = document.getElementById('codeEditor')
-  if (!textarea || !window.CodeMirror || typeof window.CodeMirror.fromTextArea !== 'function') {
-    return null
-  }
-
-  codeEditorInstance = window.CodeMirror.fromTextArea(textarea, {
-    mode: EDITOR_MODE_MAP.javascript,
-    theme: 'material-darker',
-    lineNumbers: true,
-    indentUnit: 2,
-    tabSize: 2,
-    indentWithTabs: false,
-    autoCloseBrackets: true,
-    lineWrapping: false,
-    matchBrackets: true
-  })
-
-  codeEditorInstance.on('change', () => {
-    if (suppressEditorChange) {
-      return
-    }
-    markDirty('Code updated')
-    scheduleDraftAutosave()
-  })
-
-  return codeEditorInstance
+function normalizeQuestionType(type) {
+  return String(type || '').toLowerCase() === 'coding' ? 'coding' : 'mcq'
 }
 
-function setEditorLanguage(language) {
-  const editor = ensureCodeEditor()
-  const mode = EDITOR_MODE_MAP[language] || EDITOR_MODE_MAP.javascript
-  if (editor) {
-    editor.setOption('mode', mode)
-    editor.refresh()
-    return
-  }
-  const fallback = document.getElementById('codeEditor')
-  if (fallback) {
-    fallback.dataset.language = language
-  }
+function getSectionLabel(type) {
+  return SECTION_LABELS[type] || 'Section'
 }
 
-function setEditorValue(value) {
-  const normalized = value || ''
-  const editor = ensureCodeEditor()
-  if (editor) {
-    suppressEditorChange = true
-    editor.setValue(normalized)
-    editor.refresh()
-    suppressEditorChange = false
-    return
-  }
-  const fallback = document.getElementById('codeEditor')
-  if (fallback) {
-    fallback.value = normalized
-  }
+function getVisibleQuestionIndices(type = activeSectionType) {
+  return questions.reduce((acc, q, index) => {
+    if (normalizeQuestionType(q.type) === type) acc.push(index)
+    return acc
+  }, [])
 }
 
-function getEditorValue() {
-  const editor = ensureCodeEditor()
-  if (editor) {
-    return editor.getValue()
-  }
-  const fallback = document.getElementById('codeEditor')
-  return fallback ? fallback.value : ''
+function getOtherSectionType(type = activeSectionType) {
+  return type === 'coding' ? 'mcq' : 'coding'
 }
 
-function getCurrentUserRole() {
-  return (localStorage.getItem('currentUserRole') || 'student').toLowerCase()
-}
-
-function getDashboardDestination() {
-  return getCurrentUserRole() === 'admin' ? 'dashboard' : 'student-dashboard'
-}
-
-async function navigateToDashboard() {
-  try {
-    await saveCurrentCodingDraft({ silent: true, saveStatus: false })
-  } catch (_error) {
-    setSyncStatus('Draft pending sync', 'error')
-  }
-  await syncSessionProgress('dashboard-nav', { quiet: true })
-  await window.electronAPI.navigateTo(getDashboardDestination())
-}
-
-function configureDashboardNavigation() {
-  const navButton = document.querySelector('[data-dashboard-nav]')
-  const navLabel = document.querySelector('[data-dashboard-label]')
-  if (navLabel) {
-    navLabel.textContent = getCurrentUserRole() === 'admin' ? 'Admin Dashboard' : 'Student Dashboard'
-  }
-  if (navButton) {
-    navButton.addEventListener('click', () => navigateToDashboard())
-  }
-}
-
-function getCurrentQuestion() {
-  return questions[currentIndex] || null
-}
-
-function getCurrentUserId() {
-  return Number(localStorage.getItem('currentUserId') || '0')
-}
-
-function getAnsweredCount() {
-  return questions.reduce((count, question) => {
-    if (!question || !answers[String(question.id)]) {
-      return count
-    }
-
-    const response = answers[String(question.id)]
-    if (response.type === 'mcq') {
-      return Number.isInteger(response.selectedOption) ? count + 1 : count
-    }
-
-    if (response.type === 'coding') {
-      return (response.code || '').trim().length > 0 ? count + 1 : count
-    }
-
-    return count + 1
-  }, 0)
-}
-
-function formatTime(seconds) {
-  const safeSeconds = Math.max(seconds, 0)
-  const hours = Math.floor(safeSeconds / 3600)
-  const minutes = Math.floor((safeSeconds % 3600) / 60)
-  const secs = safeSeconds % 60
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
-}
-
-function setLiveBanner(message, tone = 'info') {
-  const banner = document.querySelector('[data-live-banner]')
-  if (!banner) {
-    return
-  }
-
-  if (!message) {
-    banner.classList.add('d-none')
-    banner.textContent = ''
-    banner.dataset.tone = ''
-    return
-  }
-
-  banner.classList.remove('d-none')
-  banner.dataset.tone = tone
-  banner.textContent = message
-}
-
-function setSyncStatus(message, tone = 'idle') {
-  const chip = document.querySelector('[data-sync-status]')
-  if (!chip) {
-    return
-  }
-
-  chip.dataset.syncTone = tone
-  chip.textContent = message
-}
-
-function markDirty(message = 'Unsaved changes') {
-  dirtyState = true
-  setSyncStatus(message, 'syncing')
-}
-
-function markSynced(message = 'Changes saved') {
-  dirtyState = false
-  lastSyncedAt = Date.now()
-  setSyncStatus(`${message} at ${new Date(lastSyncedAt).toLocaleTimeString()}`, 'ok')
-}
-
-function updateConnectionStatus() {
-  const online = navigator.onLine !== false
-  const chip = document.querySelector('[data-connection-status]')
-  if (chip) {
-    chip.dataset.netTone = online ? 'online' : 'offline'
-    chip.textContent = online ? 'Online' : 'Offline'
-  }
-
-  if (!online) {
-    setLiveBanner('Network disconnected. Continue solving; local saving remains active.', 'warning')
-  }
-}
-
-function updateFlagButton() {
-  const question = getCurrentQuestion()
-  const isFlagged = !!question && flaggedQuestionIds.includes(question.id)
-  document.querySelectorAll('[data-flag-toggle]').forEach((button) => {
-    button.textContent = isFlagged ? 'Unmark Review' : 'Mark for Review'
-    button.classList.toggle('btn-dark', isFlagged)
-    button.classList.toggle('btn-outline-dark', !isFlagged)
-  })
-}
-
-function renderQuestionPalette() {
-  const container = document.querySelector('[data-question-palette]')
-  if (!container) {
-    return
-  }
-
-  container.innerHTML = ''
-  questions.forEach((question, index) => {
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.className = 'exam-palette-btn'
-    button.textContent = String(index + 1)
-
-    const answer = answers[String(question.id)]
-    const answered = answer
-      ? (answer.type === 'mcq'
-          ? Number.isInteger(answer.selectedOption)
-          : (answer.code || '').trim().length > 0)
-      : false
-
-    if (answered) {
-      button.classList.add('is-answered')
-    }
-    if (flaggedQuestionIds.includes(question.id)) {
-      button.classList.add('is-flagged')
-    }
-    if (index === currentIndex) {
-      button.classList.add('is-current')
-    }
-
-    button.setAttribute('aria-label', `Question ${index + 1}`)
-    button.addEventListener('click', () => {
-      goToQuestion(index)
-    })
-    container.appendChild(button)
-  })
-
-  const answered = getAnsweredCount()
-  const summary = document.querySelector('[data-palette-summary]')
-  if (summary) {
-    const total = questions.length
-    const flagged = flaggedQuestionIds.length
-    const unanswered = Math.max(total - answered, 0)
-    summary.textContent = `Answered ${answered}/${total} | Flagged ${flagged} | Pending ${unanswered}`
-  }
-}
-
-function persistUiState() {
-  localStorage.setItem('examUiState', JSON.stringify({
-    currentIndex,
-    timeRemaining
-  }))
-}
-
-function loadUiState() {
-  try {
-    const state = JSON.parse(localStorage.getItem('examUiState') || '{}')
-    if (Number.isInteger(state.currentIndex)) currentIndex = state.currentIndex
-    if (Number.isInteger(state.timeRemaining) && state.timeRemaining > 0) timeRemaining = state.timeRemaining
-  } catch (error) {
-    console.warn('Unable to load UI state:', error)
-  }
-}
-
-function updateTimer() {
-  const label = formatTime(timeRemaining)
-  document.querySelectorAll('[data-timer]').forEach((element) => {
-    element.textContent = label
-  })
-}
-
-function updateProgress() {
-  const answered = getAnsweredCount()
-  const flagged = flaggedQuestionIds.length
-  const remaining = Math.max(questions.length - answered, 0)
-
-  const progressText = document.querySelector('[data-progress-text]')
-  if (progressText) progressText.textContent = `${answered}/${questions.length}`
-  const answeredCount = document.querySelector('[data-answered-count]')
-  const flaggedCount = document.querySelector('[data-flagged-count]')
-  const remainingCount = document.querySelector('[data-remaining-count]')
-  if (answeredCount) answeredCount.textContent = String(answered)
-  if (flaggedCount) flaggedCount.textContent = String(flagged)
-  if (remainingCount) remainingCount.textContent = String(remaining)
-
-  const navCurrent = document.querySelector('[data-nav-current]')
-  const navTotal = document.querySelector('[data-nav-total]')
-  if (navCurrent) navCurrent.textContent = String(currentIndex + 1)
-  if (navTotal) navTotal.textContent = String(questions.length)
-
-  const prev = document.querySelector('[data-nav-prev]')
-  const next = document.querySelector('[data-nav-next]')
-  if (prev) prev.disabled = currentIndex === 0
-  if (next) next.disabled = currentIndex >= questions.length - 1
-
-  updateFlagButton()
-  renderQuestionPalette()
-}
-
-function availableLanguages() {
-  if (!runtimeCapabilities) return ['javascript']
-  const languages = []
-  if (runtimeCapabilities.data?.node?.available) languages.push('javascript')
-  if (runtimeCapabilities.data?.python?.available) languages.push('python')
-  if (runtimeCapabilities.data?.cpp?.available) languages.push('cpp')
-  return languages
-}
-
-function updateLanguageOptions(question) {
-  const select = document.getElementById('codeLanguage')
-  if (!select || !question) return
-  const supported = new Set(availableLanguages())
-  const requested = new Set((question.languages && question.languages.length > 0)
-    ? question.languages
-    : Array.from(select.options).map((option) => option.value))
-  Array.from(select.options).forEach((option) => {
-    option.disabled = !(supported.has(option.value) && requested.has(option.value))
-  })
-}
-
-function inferCppTypeFromValue(value) {
-  if (Array.isArray(value)) {
-    const innerType = value.length > 0 ? inferCppTypeFromValue(value[0]) : 'int'
-    return `vector<${innerType}>`
-  }
-  if (typeof value === 'string') return 'string'
-  if (typeof value === 'boolean') return 'bool'
-  return 'int'
-}
-
-function getTemplateParameterNames(question) {
-  const tests = Array.isArray(question?.testCases) ? question.testCases : []
-  if (!tests.length) {
-    return ['input']
-  }
-
-  const firstInput = tests[0]?.input || {}
-  const names = Object.keys(firstInput)
-  return names.length > 0 ? names : ['input']
-}
-
-function getDefaultTemplate(question, language) {
-  const functionName = question?.functionName || 'solve'
-  const params = getTemplateParameterNames(question)
-
-  if (language === 'python') {
-    return `def ${functionName}(${params.join(', ')}):\n    # Write your code here\n    return None\n`
-  }
-
-  if (language === 'cpp') {
-    const typedParams = params.map((name) => {
-      const value = (question?.testCases?.[0]?.input || {})[name]
-      return `${inferCppTypeFromValue(value)} ${name}`
-    }).join(', ')
-
-    return [
-      '#include <bits/stdc++.h>',
-      'using namespace std;',
-      '',
-      `auto ${functionName}(${typedParams}) {`,
-      '    // Write your code here',
-      '}',
-      ''
-    ].join('\n')
-  }
-
-  return `function ${functionName}(${params.join(', ')}) {\n  // Write your code here\n  return null;\n}\n`
-}
-
-function formatCodingSignature(question, language) {
-  const functionName = question?.functionName || 'solve'
-  const params = getTemplateParameterNames(question)
-
-  if (language === 'python') {
-    return `def ${functionName}(${params.join(', ')})`
-  }
-
-  if (language === 'cpp') {
-    const typed = params.map((name) => {
-      const value = (question?.testCases?.[0]?.input || {})[name]
-      return `${inferCppTypeFromValue(value)} ${name}`
-    }).join(', ')
-    return `auto ${functionName}(${typed})`
-  }
-
-  return `function ${functionName}(${params.join(', ')})`
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-function getStarterCode(question, language) {
-  return getDefaultTemplate(question, language)
-}
-
-function renderMcq(question) {
-  document.querySelector('[data-mcq-container]')?.classList.remove('d-none')
-  document.querySelector('[data-coding-container]')?.classList.add('d-none')
-
-  const questionBadge = document.querySelector('[data-question-badge]')
-  const sectionBadge = document.querySelector('[data-section-badge]')
-  const questionText = document.querySelector('[data-question-text]')
-  const subtext = document.querySelector('[data-question-subtext]')
-  if (questionBadge) questionBadge.textContent = `Question ${currentIndex + 1}`
-  if (sectionBadge) sectionBadge.textContent = question.section || 'General'
-  if (questionText) questionText.textContent = question.prompt
-  if (subtext) subtext.textContent = question.difficulty ? `Difficulty: ${question.difficulty}` : ''
-
-  const labels = document.querySelectorAll('[data-option-label]')
-  labels.forEach((label, index) => {
-    const text = label.querySelector('[data-option-text]')
-    const radio = label.querySelector('input[name="answer"]')
-    const hasOption = Boolean(question.options[index])
-    if (text) text.textContent = question.options[index] || ''
-    label.classList.toggle('d-none', !hasOption)
-    if (radio) {
-      radio.checked = answers[String(question.id)]?.selectedOption === index
-      radio.disabled = !hasOption
-      radio.onchange = async () => {
-        markDirty('Saving answer...')
-        answers[String(question.id)] = {
-          type: 'mcq',
-          selectedOption: index,
-          savedAt: new Date().toISOString()
-        }
-        try {
-          const result = await window.electronAPI.saveMCQAnswer({
-            sessionId,
-            questionId: question.id,
-            selectedOption: index
-          })
-          if (!result?.success) {
-            throw new Error(result?.error || 'Could not save answer')
-          }
-          markSynced('Answer saved')
-        } catch (error) {
-          setSyncStatus('Failed to save answer', 'error')
-          setLiveBanner(error.message || 'Answer could not be saved. Try syncing manually.', 'error')
-        }
-        updateProgress()
-      }
-    }
-  })
-}
-
-function renderCoding(question) {
-  document.querySelector('[data-mcq-container]')?.classList.add('d-none')
-  document.querySelector('[data-coding-container]')?.classList.remove('d-none')
-
-  const saved = answers[String(question.id)]
-  const select = document.getElementById('codeLanguage')
-  const output = document.getElementById('codeOutput')
-  const constraints = Array.isArray(question.constraints) ? question.constraints : []
-  const examples = Array.isArray(question.examples) ? question.examples : []
-  const visibleTests = Array.isArray(question.testCases)
-    ? question.testCases.filter((item) => !item.hidden)
-    : []
-
-  document.querySelector('[data-coding-question-badge]').textContent = `Question ${currentIndex + 1}`
-  document.querySelector('[data-coding-question-text]').textContent = question.title
-  document.querySelector('[data-coding-prompt]').textContent = question.prompt || 'Detailed question statement will be available here.'
-  document.querySelector('[data-coding-constraints]').innerHTML = constraints.length > 0
-    ? constraints.map((item) => `<div>${escapeHtml(item)}</div>`).join('')
-    : '<div>No explicit constraints provided for this problem.</div>'
-  document.querySelector('[data-coding-examples]').innerHTML = examples.map((example, index) => `
-    <div class="coding-example">
-      <div class="coding-example-title">Example ${index + 1}</div>
-      <div><strong>Input</strong></div>
-      <code class="coding-example-code">${escapeHtml(example.input)}</code>
-      <div class="mt-2"><strong>Output</strong></div>
-      <code class="coding-example-code">${escapeHtml(example.output)}</code>
-      ${example.explanation ? `<div class="text-muted small mt-2">${escapeHtml(example.explanation)}</div>` : ''}
-    </div>
-  `).join('') || '<div class="text-muted">No examples are provided for this question.</div>'
-
-  updateLanguageOptions(question)
-  const preferredLanguage = saved?.language && !select.querySelector(`option[value="${saved.language}"]`)?.disabled
-    ? saved.language
-    : Array.from(select.options).find((option) => !option.disabled)?.value || 'javascript'
-
-  const signature = document.querySelector('[data-coding-signature]')
-  if (signature) {
-    signature.textContent = formatCodingSignature(question, preferredLanguage)
-  }
-
-  const testsContainer = document.querySelector('[data-coding-testcases]')
-  if (testsContainer) {
-    testsContainer.innerHTML = visibleTests.length > 0
-      ? visibleTests.map((test, index) => `
-        <div class="coding-testcase-card">
-          <div class="coding-testcase-title">Sample Test ${index + 1}${test.description ? ` - ${escapeHtml(test.description)}` : ''}</div>
-          <div><strong>Input:</strong> <code class="coding-example-code">${escapeHtml(JSON.stringify(test.input))}</code></div>
-          <div class="mt-1"><strong>Expected:</strong> <code class="coding-example-code">${escapeHtml(JSON.stringify(test.output))}</code></div>
-        </div>
-      `).join('')
-      : '<div class="text-muted">No visible tests configured. Use examples and constraints for guidance.</div>'
-  }
-
-  const evalElement = document.querySelector('[data-coding-eval]')
-  if (evalElement) {
-    const hiddenCount = Math.max((question.testCasesTotalCount || visibleTests.length) - visibleTests.length, 0)
-    const metaParts = []
-    if (question.difficulty) metaParts.push(`Difficulty: ${question.difficulty}`)
-    if (question.points) metaParts.push(`Marks: ${question.points}`)
-    metaParts.push(hiddenCount > 0
-      ? `Visible tests: ${visibleTests.length}, hidden tests: ${hiddenCount}`
-      : `Visible tests: ${visibleTests.length}`)
-    evalElement.textContent = `${metaParts.join(' | ')}. Focus on correctness, edge cases, and time complexity.`
-  }
-
-  select.value = preferredLanguage
-  setEditorLanguage(preferredLanguage)
-  setEditorValue(saved?.code || getStarterCode(question, preferredLanguage))
-  output.textContent = saved?.status ? `Last result: ${saved.status}` : 'Ready.'
-}
-
-function refreshCodingSignature() {
-  const question = getCurrentQuestion()
-  const select = document.getElementById('codeLanguage')
-  const signature = document.querySelector('[data-coding-signature]')
-  if (!question || !select || !signature || question.type !== 'coding') {
-    return
-  }
-  signature.textContent = formatCodingSignature(question, select.value)
-}
-
-function renderQuestion() {
-  const question = getCurrentQuestion()
-  if (!question) return
-  if (question.type === 'coding') {
-    renderCoding(question)
-  } else {
-    renderMcq(question)
-  }
-  updateProgress()
-  persistUiState()
-}
-
-async function saveCurrentCodingDraft({ silent = false, saveStatus = true } = {}) {
-  const question = getCurrentQuestion()
-  if (!question || question.type !== 'coding') return
-  const select = document.getElementById('codeLanguage')
-  if (!select) return
-
-  const code = getEditorValue()
-
-  const payload = {
-    type: 'coding',
-    code,
-    language: select.value,
-    status: answers[String(question.id)]?.status || 'Draft',
-    testSummary: answers[String(question.id)]?.testSummary || {},
-    savedAt: new Date().toISOString()
-  }
-  answers[String(question.id)] = payload
-
-  if (!silent) {
-    setSyncStatus('Saving draft...', 'syncing')
-  }
-
-  const result = await window.electronAPI.saveCodeAnswer({
-    sessionId,
-    questionId: question.id,
-    code: payload.code,
-    language: payload.language,
-    status: payload.status,
-    testSummary: payload.testSummary
-  })
-  if (!result?.success) {
-    throw new Error(result?.error || 'Draft save failed')
-  }
-
-  if (saveStatus) {
-    markSynced('Draft saved')
-  }
-}
-
-function scheduleDraftAutosave() {
-  if (autosaveHandle) {
-    clearTimeout(autosaveHandle)
-  }
-
-  autosaveHandle = setTimeout(async () => {
-    try {
-      await saveCurrentCodingDraft({ silent: true, saveStatus: true })
-      updateProgress()
-    } catch (error) {
-      setSyncStatus('Autosave failed', 'error')
-    }
-  }, AUTOSAVE_DEBOUNCE_MS)
-}
-
-async function syncSessionProgress(reason = 'manual', { quiet = false } = {}) {
-  if (!sessionId || syncInFlight) {
-    return false
-  }
-
-  syncInFlight = true
-  if (!quiet) {
-    setSyncStatus('Syncing...', 'syncing')
-  }
-
-  try {
-    const result = await window.electronAPI.saveSessionProgress({
-      sessionId,
-      flaggedQuestionIds,
-      remainingSeconds: timeRemaining
-    })
-
-    if (!result?.success) {
-      throw new Error(result?.error || 'Progress sync failed')
-    }
-
-    if (!quiet || reason === 'manual') {
-      markSynced('Progress synced')
-    }
-
-    return true
-  } catch (error) {
-    setSyncStatus('Sync failed. Retry', 'error')
-    if (!quiet) {
-      setLiveBanner(error.message || 'Progress sync failed. Continue and retry sync.', 'warning')
-    }
-    return false
-  } finally {
-    syncInFlight = false
-  }
-}
-
-function canReportIncident(key) {
-  const now = Date.now()
-  if (now - incidentCooldown[key] < INCIDENT_COOLDOWN_MS) {
-    return false
-  }
-  incidentCooldown[key] = now
-  return true
-}
-
-async function reportIncident(type, message, severity = 'medium', details = {}) {
-  try {
-    const payload = {
-      userId: getCurrentUserId(),
-      sessionId,
-      type,
-      severity,
-      message,
-      details: {
-        ...details,
-        questionIndex: currentIndex + 1,
-        remainingSeconds: timeRemaining
-      }
-    }
-    await window.electronAPI.recordIncident(payload)
-  } catch (_error) {
-    // Do not block exam flow if incident logging fails.
-  }
-}
-
-function isTypingTarget(event) {
-  const target = event.target
-  if (!(target instanceof HTMLElement)) {
-    return false
-  }
-  if (target.closest('.CodeMirror')) {
-    return true
-  }
-  if (target.isContentEditable) {
-    return true
-  }
-  return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
-}
-
-function formatExecutionFailure(result) {
-  const lines = []
-  lines.push('Execution failed.')
-  if (result?.error) {
-    lines.push(`Error: ${result.error}`)
-  }
-  if (result?.details?.stderr) {
-    lines.push('')
-    lines.push('stderr:')
-    lines.push(result.details.stderr)
-  }
-  if (result?.details?.stdout) {
-    lines.push('')
-    lines.push('stdout:')
-    lines.push(result.details.stdout)
-  }
-  lines.push('')
-  lines.push('Tip: Confirm function name/signature and return format match the statement.')
-  return lines.join('\n')
-}
-
-async function goToQuestion(index) {
-  if (index < 0 || index >= questions.length) return
-  try {
-    await saveCurrentCodingDraft({ silent: true, saveStatus: false })
-  } catch (_error) {
-    setSyncStatus('Draft pending sync', 'error')
-  }
-  currentIndex = index
-  renderQuestion()
-}
-
-async function runCode(mode) {
-  const question = getCurrentQuestion()
-  if (!question || question.type !== 'coding') return
-
-  const select = document.getElementById('codeLanguage')
-  const output = document.getElementById('codeOutput')
-  if (!select || !output) return
-
-  const code = getEditorValue()
-  const runButton = document.getElementById('runCode')
-  const submitButton = document.getElementById('submitCode')
-
-  if (runButton) runButton.disabled = true
-  if (submitButton) submitButton.disabled = true
-
-  output.textContent = mode === 'sample' ? 'Running visible test cases...' : 'Submitting and running all tests...'
-
-  try {
-    const result = await window.electronAPI.runCode({
-      sessionId,
-      questionId: question.id,
-      language: select.value,
-      code,
-      mode
-    })
-
-    if (!result.success) {
-      output.textContent = formatExecutionFailure(result)
-      return
-    }
-
-    const lines = []
-    lines.push(`Status: ${result.status}`)
-    lines.push(`Passed: ${result.passedCount}/${result.totalCount}`)
-    lines.push(`Time: ${result.totalTimeMs}ms`)
-    lines.push('')
-
-    result.results.forEach((item, index) => {
-      if (mode === 'sample' || !item.hidden) {
-        lines.push(`Test ${index + 1}: ${item.passed ? 'Passed' : 'Failed'}${item.description ? ` (${item.description})` : ''}`)
-        lines.push(`Expected: ${JSON.stringify(item.expectedOutput)}`)
-        lines.push(`Actual: ${JSON.stringify(item.actualOutput)}`)
-        if (item.error) lines.push(`Error: ${item.error}`)
-        if (item.executionTimeMs !== undefined) {
-          lines.push(`Elapsed: ${item.executionTimeMs}ms`)
-        }
-        lines.push('')
-      }
-    })
-
-    output.textContent = lines.join('\n')
-
-    if (mode === 'submit') {
-      markDirty('Saving code submission...')
-      answers[String(question.id)] = {
-        type: 'coding',
-        code,
-        language: select.value,
-        status: result.status,
-        testSummary: {
-          allPassed: result.allPassed,
-          passedCount: result.passedCount,
-          totalCount: result.totalCount,
-          totalTimeMs: result.totalTimeMs
-        },
-        savedAt: new Date().toISOString()
-      }
-
-      const saveResult = await window.electronAPI.saveCodeAnswer({
-        sessionId,
-        questionId: question.id,
-        code,
-        language: select.value,
-        status: result.status,
-        testSummary: answers[String(question.id)].testSummary
-      })
-
-      if (!saveResult?.success) {
-        throw new Error(saveResult?.error || 'Could not persist submission result')
-      }
-
-      markSynced('Code submission saved')
-      updateProgress()
-    }
-  } catch (error) {
-    output.textContent = error.message || 'Execution failed unexpectedly.'
-  } finally {
-    if (runButton) runButton.disabled = false
-    if (submitButton) submitButton.disabled = false
-  }
-}
-
-async function startSessionIfNeeded() {
-  if (sessionId) {
-    return
-  }
-
-  const userId = Number(localStorage.getItem('currentUserId') || '0')
-  const systemInfo = await window.electronAPI.getSystemInfo()
-  const session = await window.electronAPI.startExamSession({
-    userId,
-    examId,
-    sessionToken: systemInfo.sessionToken,
-    machineInfo: systemInfo,
-    remainingSeconds: timeRemaining
-  })
-
-  sessionId = session.data.sessionId
-  localStorage.setItem('currentSessionId', String(sessionId))
-}
-
-async function restoreSessionState() {
-  if (!sessionId) return
-  try {
-    const state = await window.electronAPI.getSessionState(sessionId)
-    if (state.success && state.data) {
-      answers = state.data.answers || {}
-      flaggedQuestionIds = state.data.flaggedQuestionIds || []
-      if (Number.isInteger(state.data.remainingSeconds) && state.data.remainingSeconds > 0) {
-        timeRemaining = state.data.remainingSeconds
-      }
-    }
-  } catch (error) {
-    console.warn('Unable to restore session state:', error)
-  }
-}
-
+/* ===================== TIMER ===================== */
 function startTimer() {
-  if (timerHandle) clearInterval(timerHandle)
+  updateTimerDisplay()
   timerHandle = setInterval(() => {
-    timeRemaining = Math.max(timeRemaining - 1, 0)
-    updateTimer()
-    persistUiState()
-    if (sessionId && timeRemaining % HEARTBEAT_INTERVAL_SECONDS === 0) {
-      void syncSessionProgress('heartbeat', { quiet: true })
-    }
-    if (timeRemaining === 0) {
-      clearInterval(timerHandle)
-      setLiveBanner('Time is up. Redirecting to submission...', 'warning')
-      void goToSubmission({ force: true })
-    }
+    timeRemaining--
+    updateTimerDisplay()
+    if (timeRemaining <= 0) { clearInterval(timerHandle); autoSubmit() }
   }, 1000)
 }
 
-async function goToSubmission({ force = false } = {}) {
-  if (isSubmitting) {
+function updateTimerDisplay() {
+  timerDisplay.textContent = formatTime(Math.max(0, timeRemaining))
+  timerWrap.className = timeRemaining <= 300 ? 'exam-timer danger'
+    : timeRemaining <= 900 ? 'exam-timer warn'
+    : 'exam-timer'
+}
+
+/* ===================== SYNC ===================== */
+function setSyncStatus(msg, state = 'idle') {
+  const icons = {
+    idle:    `<svg viewBox="0 0 20 20" fill="currentColor" style="width:10px;height:10px;color:var(--success)"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>`,
+    syncing: `<span class="spinner" style="width:10px;height:10px;border-width:1.5px"></span>`,
+    error:   `<svg viewBox="0 0 20 20" fill="currentColor" style="width:10px;height:10px;color:var(--danger)"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/></svg>`,
+  }
+  syncStatus.innerHTML = `${icons[state] || icons.idle}<span style="font-size:var(--text-xs);color:var(--text-muted)">${msg}</span>`
+}
+
+/* ===================== BANNER ===================== */
+function showBanner(msg, type = 'info') {
+  liveBanner.textContent = msg
+  liveBanner.className = `live-banner ${type}`
+  liveBanner.classList.remove('hidden')
+  setTimeout(() => liveBanner.classList.add('hidden'), 5000)
+}
+
+/* ===================== PROGRESS ===================== */
+function updateProgress() {
+  const visibleIndices = getVisibleQuestionIndices()
+  const sectionTotal = visibleIndices.length
+  const sectionAnswered = visibleIndices.filter(index => isAnswered(questions[index].id)).length
+  const sectionPos = Math.max(visibleIndices.indexOf(currentIndex) + 1, 0)
+  progressLabel.textContent = `${getSectionLabel(activeSectionType)} ${sectionPos} / ${sectionTotal}`
+  progressBar.style.width = sectionTotal ? `${(sectionAnswered / sectionTotal) * 100}%` : '0%'
+}
+
+function updateSectionTabs() {
+  const mcqIndices = getVisibleQuestionIndices('mcq')
+  const codingIndices = getVisibleQuestionIndices('coding')
+  const mcqAnswered = mcqIndices.filter(index => isAnswered(questions[index].id)).length
+  const codingAnswered = codingIndices.filter(index => isAnswered(questions[index].id)).length
+
+  sectionMcqCount.textContent = `${mcqAnswered}/${mcqIndices.length}`
+  sectionCodingCount.textContent = `${codingAnswered}/${codingIndices.length}`
+
+  sectionTabMcq.disabled = mcqIndices.length === 0
+  sectionTabCoding.disabled = codingIndices.length === 0
+
+  sectionTabMcq.classList.toggle('active', activeSectionType === 'mcq')
+  sectionTabCoding.classList.toggle('active', activeSectionType === 'coding')
+  sectionTabMcq.setAttribute('aria-selected', String(activeSectionType === 'mcq'))
+  sectionTabCoding.setAttribute('aria-selected', String(activeSectionType === 'coding'))
+}
+
+function activateSection(type) {
+  const nextType = type === 'coding' ? 'coding' : 'mcq'
+  const nextIndices = getVisibleQuestionIndices(nextType)
+  if (!nextIndices.length) return
+
+  activeSectionType = nextType
+  const rememberedIndex = sectionLastVisited[nextType]
+  const targetIndex = nextIndices.includes(rememberedIndex) ? rememberedIndex : nextIndices[0]
+  goToQuestion(targetIndex)
+}
+
+/* ===================== PALETTE ===================== */
+function renderPalette() {
+  palette.innerHTML = ''
+  const visibleIndices = getVisibleQuestionIndices()
+
+  if (!visibleIndices.length) {
+    palette.innerHTML = '<span class="text-xs text-mute">No questions in this section</span>'
     return
   }
 
-  isSubmitting = true
-  const submitButton = document.querySelector('[data-submit-exam]')
-  if (submitButton) {
-    submitButton.disabled = true
-    submitButton.textContent = 'Preparing...'
+  visibleIndices.forEach((questionIndex, sectionIndex) => {
+    const q = questions[questionIndex]
+    const btn = document.createElement('button')
+    btn.className = 'palette-btn'
+    btn.textContent = sectionIndex + 1
+    btn.title = q.title || `${getSectionLabel(activeSectionType)} question ${sectionIndex + 1}`
+    btn.setAttribute('aria-label', `Go to ${getSectionLabel(activeSectionType)} question ${sectionIndex + 1}`)
+    if (questionIndex === currentIndex)    btn.classList.add('current')
+    else if (flagged.includes(q.id))  btn.classList.add('flagged')
+    else if (isAnswered(q.id))        btn.classList.add('answered')
+    btn.addEventListener('click', () => goToQuestion(questionIndex))
+    palette.appendChild(btn)
+  })
+}
+
+function isAnswered(qId) {
+  const a = answers[String(qId)]
+  if (!a) return false
+  if (a.type === 'mcq') return a.selectedOption !== undefined
+  return (a.code || '').trim().length > 0
+}
+
+/* ===================== NAVIGATION ===================== */
+async function goToQuestion(index) {
+  if (index < 0 || index >= questions.length || index === currentIndex) return
+  const curr = getCurrentQ()
+  if (normalizeQuestionType(curr?.type) === 'coding') await saveCodingDraft()
+  sectionLastVisited[normalizeQuestionType(curr?.type)] = currentIndex
+  currentIndex = index
+  sectionLastVisited[normalizeQuestionType(questions[index]?.type)] = index
+  activeSectionType = normalizeQuestionType(questions[index]?.type)
+  renderQuestion()
+  renderPalette()
+  updateProgress()
+  updateSectionTabs()
+}
+
+function goToAdjacentInSection(direction) {
+  const visibleIndices = getVisibleQuestionIndices()
+  const position = visibleIndices.indexOf(currentIndex)
+  const nextPosition = position + direction
+  if (nextPosition < 0 || nextPosition >= visibleIndices.length) return false
+  goToQuestion(visibleIndices[nextPosition])
+  return true
+}
+
+function goToNextQuestion() {
+  const moved = goToAdjacentInSection(1)
+  if (moved) return
+
+  const otherSection = getOtherSectionType(activeSectionType)
+  const otherSectionIndices = getVisibleQuestionIndices(otherSection)
+  if (otherSectionIndices.length) {
+    activateSection(otherSection)
+    showToast(`Switched to ${getSectionLabel(otherSection)} section.`, 'info')
+    return
   }
+
+  openSubmitModal()
+}
+
+/* ===================== RENDER QUESTION ===================== */
+function renderQuestion() {
+  const q = getCurrentQ()
+  if (!q) return
+
+  const qType = normalizeQuestionType(q.type)
+  activeSectionType = qType
+  const visibleIndices = getVisibleQuestionIndices()
+  const sectionPos = Math.max(visibleIndices.indexOf(currentIndex) + 1, 1)
+  examBody.classList.toggle('mode-coding', qType === 'coding')
+  examBody.classList.toggle('mode-mcq', qType !== 'coding')
+
+  qBadge.innerHTML =
+    `<svg viewBox="0 0 20 20" fill="currentColor" style="width:10px;height:10px"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"/></svg>${getSectionLabel(qType)} ${sectionPos}`
+
+  qTitle.textContent = q.title || 'Question'
+
+  const metaParts = []
+  if (q.section)             metaParts.push(`<span class="badge badge-default">${escHtml(q.section)}</span>`)
+  if (q.difficulty)          metaParts.push(`<span class="badge ${diffClass(q.difficulty)}">${escHtml(q.difficulty)}</span>`)
+  if (q.points)              metaParts.push(`<span class="badge badge-info">${q.points} pts</span>`)
+  if (qType === 'coding')    metaParts.push(`<span class="badge badge-accent">Coding</span>`)
+  if (qType === 'mcq')       metaParts.push(`<span class="badge badge-default">Single choice</span>`)
+  qMeta.innerHTML = metaParts.join('')
+
+  if (qType === 'coding') renderCoding(q)
+  else                     renderMcq(q)
+
+  const sectionPosition = visibleIndices.indexOf(currentIndex)
+  const atFirst = sectionPosition <= 0
+  const atLast = sectionPosition === visibleIndices.length - 1
+  prevBtn.disabled = atFirst
+  if (!atLast) {
+    nextBtn.textContent = 'Next'
+  } else {
+    const hasOtherSection = getVisibleQuestionIndices(getOtherSectionType(activeSectionType)).length > 0
+    nextBtn.textContent = hasOtherSection ? 'Next Section' : 'Submit Exam'
+  }
+
+  const isFlagged = flagged.includes(q.id)
+  flagBtn.innerHTML   = isFlagged
+    ? `<svg viewBox="0 0 20 20" fill="currentColor" style="width:13px;height:13px"><path fill-rule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 7l2.55 2.4A1 1 0 0116 11H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z"/></svg> Flagged`
+    : `<svg viewBox="0 0 20 20" fill="currentColor" style="width:13px;height:13px"><path fill-rule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 7l2.55 2.4A1 1 0 0116 11H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z"/></svg> Flag`
+  flagBtn.className = isFlagged ? 'btn btn-secondary btn-sm' : 'btn btn-ghost btn-sm'
+}
+
+function diffClass(d) {
+  const m = { easy: 'badge-success', medium: 'badge-warning', hard: 'badge-danger' }
+  return m[(d || '').toLowerCase()] || 'badge-default'
+}
+
+/* ===================== MCQ ===================== */
+function renderMcq(q) {
+  mcqInfo.className              = 'exam-mcq-info hidden'
+  codingPanel.style.display      = 'none'
+
+  const saved = answers[String(q.id)]
+  let html = `<p class="exam-q-prompt">${escHtml(q.prompt || q.description || '')}</p>`
+  html    += `<div class="exam-section-heading">Choose one answer</div><div class="mcq-options" id="mcqOptions">`
+
+  const opts = q.options || ['', '', '', '']
+  const keys = ['A', 'B', 'C', 'D']
+  opts.forEach((opt, i) => {
+    if (!opt) return
+    const selected = saved?.selectedOption === i
+    html += `
+      <label class="mcq-option${selected ? ' selected' : ''}" data-idx="${i}">
+        <input type="radio" name="mcq-${q.id}" value="${i}" ${selected ? 'checked' : ''}/>
+        <span class="mcq-opt-key">${keys[i]}</span>
+        <span class="mcq-opt-text">${escHtml(opt)}</span>
+      </label>`
+  })
+  html += '</div>'
+  qBody.innerHTML = html
+
+  qBody.querySelectorAll('.mcq-option').forEach(label => {
+    label.addEventListener('click', () => {
+      const idx = parseInt(label.dataset.idx)
+      qBody.querySelectorAll('.mcq-option').forEach(l => l.classList.remove('selected'))
+      label.classList.add('selected')
+      label.querySelector('input').checked = true
+      saveMcqAnswer(q.id, idx)
+    })
+  })
+}
+
+async function saveMcqAnswer(qId, idx) {
+  answers[String(qId)] = { type: 'mcq', selectedOption: idx }
+  renderPalette()
+  updateProgress()
+  updateSectionTabs()
+  setSyncStatus('Saving...', 'syncing')
+  try {
+    await window.electronAPI.saveMCQAnswer({ sessionId, questionId: qId, selectedOption: idx })
+    setSyncStatus('Saved', 'idle')
+  } catch (err) {
+    setSyncStatus('Save failed', 'error')
+    console.warn('[exam] saveMCQ error:', err.message)
+  }
+}
+
+/* ===================== CODING ===================== */
+const LANG_MODE = { javascript: 'text/javascript', python: 'text/x-python', cpp: 'text/x-c++src' }
+const DEFAULT_LANG_ORDER = ['javascript', 'python', 'cpp']
+
+function getQuestionLanguages(q) {
+  const fromQuestion = Array.isArray(q?.languages) ? q.languages : []
+  const normalized = fromQuestion
+    .map(lang => String(lang || '').toLowerCase())
+    .filter(lang => Object.prototype.hasOwnProperty.call(LANG_MODE, lang))
+  return normalized.length ? normalized : DEFAULT_LANG_ORDER
+}
+
+function getDefaultLanguage(q) {
+  const languages = getQuestionLanguages(q)
+  return languages[0] || 'javascript'
+}
+
+function configureLanguageSelect(q, selectedLang) {
+  const langSelect = document.getElementById('codeLanguage')
+  if (!langSelect) return getDefaultLanguage(q)
+
+  const languages = getQuestionLanguages(q)
+  langSelect.innerHTML = ''
+
+  languages.forEach(lang => {
+    const option = document.createElement('option')
+    option.value = lang
+    option.textContent = LANGUAGE_LABELS[lang] || lang
+    langSelect.appendChild(option)
+  })
+
+  const finalLang = languages.includes(selectedLang) ? selectedLang : languages[0]
+  langSelect.value = finalLang
+  return finalLang
+}
+
+function renderCoding(q) {
+  mcqInfo.className         = 'exam-mcq-info hidden'
+  codingPanel.style.display = 'flex'
+  codingPanel.style.flexDirection = 'column'
+  codingPanel.style.height  = '100%'
+
+  const saved = answers[String(q.id)]
+  const initialLang = saved?.language || getDefaultLanguage(q)
+
+  // Question body — prompt + constraints + examples
+  let html = `<p class="exam-q-prompt">${escHtml(q.prompt || q.description || '')}</p>`
+
+  if (q.functionName) {
+    const lang = initialLang
+    html += `<div class="exam-section-heading">Function Signature</div>
+             <div class="fn-signature">${escHtml(buildSignature(q, lang))}</div>`
+  }
+
+  if (Array.isArray(q.constraints) && q.constraints.length) {
+    html += `<div class="exam-section-heading">Constraints</div><ul class="constraint-list">`
+    q.constraints.forEach(c => { html += `<li>${escHtml(c)}</li>` })
+    html += '</ul>'
+  }
+
+  if (Array.isArray(q.examples) && q.examples.length) {
+    html += `<div class="exam-section-heading">Examples</div>`
+    q.examples.forEach((ex, i) => {
+      html += `<div class="code-example">
+        <div class="code-example-label">Example ${i + 1}</div>
+        <div><strong style="font-size:var(--text-xs);color:var(--text-muted)">Input</strong><div class="code-example-block">${escHtml(ex.input ?? '')}</div></div>
+        <div style="margin-top:var(--sp-2)"><strong style="font-size:var(--text-xs);color:var(--text-muted)">Output</strong><div class="code-example-block">${escHtml(ex.output ?? '')}</div></div>
+        ${ex.explanation ? `<div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--sp-2)">${escHtml(ex.explanation)}</div>` : ''}
+      </div>`
+    })
+  }
+
+  qBody.innerHTML = html
+
+  // Editor
+  const lang = configureLanguageSelect(q, initialLang)
+  updateEditorLang(lang)
+
+  suppressChange = true
+  const code = saved?.code || getTemplate(q, lang)
+  if (editor) {
+    setEditorValue(code)
+    editor.refresh()
+  } else {
+    initEditor(code)
+  }
+  suppressChange = false
+
+  // Reset output
+  const lastResult = saved?.lastResult || ''
+  outputEl.textContent = lastResult || 'Ready. Click "Run" to execute your code.'
+  outputEl.className   = lastResult ? 'output-pre output-idle' : 'output-pre output-idle'
+  outputBadge.textContent = 'Ready'
+  outputBadge.className   = 'badge badge-default'
+}
+
+function initEditor(initialValue = '') {
+  const textarea = document.getElementById('codeEditor')
+  if (!textarea) return
+
+  if (!window.CodeMirror && textarea.dataset.editorReady === 'true') {
+    textarea.value = initialValue
+    syncPlainEditorLines()
+    return
+  }
+
+  if (window.CodeMirror) {
+    editor = window.CodeMirror.fromTextArea(textarea, {
+      mode:             'text/javascript',
+      theme:            'dracula',
+      lineNumbers:      true,
+      indentUnit:       2,
+      tabSize:          2,
+      indentWithTabs:   false,
+      autoCloseBrackets: true,
+      matchBrackets:    true,
+      lineWrapping:     false,
+      extraKeys:        { Tab: cm => cm.execCommand('indentMore') }
+    })
+    editor.setValue(initialValue)
+    editor.on('change', () => {
+      if (suppressChange) return
+      isDirty = true
+      scheduleAutosave()
+    })
+  } else {
+    textarea.style.display = ''
+    textarea.value = initialValue
+
+    const editorWrap = document.getElementById('editorWrap')
+    if (editorWrap && !editorWrap.querySelector('.plain-editor')) {
+      const plain = document.createElement('div')
+      plain.className = 'plain-editor'
+      const lines = document.createElement('pre')
+      lines.className = 'plain-editor-lines'
+      plainEditorLines = lines
+
+      textarea.parentNode.removeChild(textarea)
+      plain.appendChild(lines)
+      plain.appendChild(textarea)
+      editorWrap.appendChild(plain)
+
+      textarea.addEventListener('scroll', () => {
+        if (plainEditorLines) plainEditorLines.scrollTop = textarea.scrollTop
+      })
+    }
+
+    syncPlainEditorLines()
+    textarea.addEventListener('input', () => {
+      syncPlainEditorLines()
+      isDirty = true
+      scheduleAutosave()
+    })
+    textarea.dataset.editorReady = 'true'
+  }
+}
+
+function syncPlainEditorLines() {
+  if (!plainEditorLines) return
+  const text = getEditorValue()
+  const lineCount = Math.max(1, text.split('\n').length)
+  plainEditorLines.textContent = Array.from({ length: lineCount }, (_, i) => String(i + 1)).join('\n')
+}
+
+function updateEditorLang(lang) {
+  if (!editor) return
+  editor.setOption('mode', LANG_MODE[lang] || 'text/javascript')
+}
+
+function getEditorValue() {
+  if (editor) return editor.getValue()
+  const ta = document.getElementById('codeEditor')
+  return ta ? ta.value : ''
+}
+
+function setEditorValue(code) {
+  if (editor) {
+    editor.setValue(code)
+    return
+  }
+  const ta = document.getElementById('codeEditor')
+  if (!ta) return
+  ta.value = code
+  syncPlainEditorLines()
+}
+
+function getTemplate(q, lang) {
+  const starterCode = q?.starterCode && typeof q.starterCode === 'object' ? q.starterCode[lang] : ''
+  if (typeof starterCode === 'string' && starterCode.trim()) return starterCode
+
+  const fn     = q.functionName || 'solve'
+  const params = Array.isArray(q.params) ? q.params.map(p => p.name || p).join(', ') : 'input'
+  if (lang === 'python') return `def ${fn}(${params}):\n    # Write your solution here\n    pass\n`
+  if (lang === 'cpp')    return `#include <bits/stdc++.h>\nusing namespace std;\n\nauto ${fn}(${params}) {\n    // Write your solution here\n}\n`
+  return `function ${fn}(${params}) {\n  // Write your solution here\n  return null;\n}\n`
+}
+
+function buildSignature(q, lang) {
+  const fn     = q.functionName || 'solve'
+  const params = Array.isArray(q.params) ? q.params.map(p => p.name || p).join(', ') : 'input'
+  if (lang === 'python') return `def ${fn}(${params}):`
+  if (lang === 'cpp')    return `auto ${fn}(${params})`
+  return `function ${fn}(${params})`
+}
+
+/* ===================== AUTOSAVE ===================== */
+function scheduleAutosave() {
+  clearTimeout(autosaveHandle)
+  autosaveHandle = setTimeout(saveCodingDraft, 1500)
+}
+
+async function saveCodingDraft(status = 'Draft') {
+  const q = getCurrentQ()
+  if (!q || normalizeQuestionType(q.type) !== 'coding') return
+  const code = getEditorValue()
+  const lang  = document.getElementById('codeLanguage')?.value || 'javascript'
+  answers[String(q.id)] = { ...(answers[String(q.id)] || {}), type: 'coding', code, language: lang }
+
+  if (!sessionId) return  // No session yet, skip save
+
+  setSyncStatus('Saving...', 'syncing')
+  try {
+    await window.electronAPI.saveCodeAnswer({
+      sessionId,
+      questionId: q.id,
+      language: lang,
+      code,
+      status,
+      testSummary: answers[String(q.id)]?.testSummary || {}
+    })
+    setSyncStatus('Saved', 'idle')
+    isDirty = false
+  } catch (err) {
+    setSyncStatus('Save failed', 'error')
+    console.warn('[exam] saveCode error:', err.message)
+  }
+  renderPalette()
+  updateProgress()
+  updateSectionTabs()
+}
+
+/* ===================== RUN CODE ===================== */
+function formatRunResults(result) {
+  // result from codeExecutionService.runCode():
+  // { success, allPassed, passedCount, totalCount, status, results: [...] }
+  if (!result.success) {
+    return `Error: ${result.error || 'Unknown error'}`
+  }
+
+  const lines = []
+  lines.push(`Status: ${result.status || (result.allPassed ? 'Accepted' : 'Wrong Answer')}`)
+  lines.push(`Passed: ${result.passedCount ?? '?'} / ${result.totalCount ?? '?'}`)
+
+  if (Array.isArray(result.results)) {
+    result.results.forEach((r, i) => {
+      if (r.hidden) return  // Don't reveal hidden test case details
+      const icon = r.passed ? '✓' : '✗'
+      lines.push('')
+      lines.push(`${icon} Test ${i + 1}${r.description ? ' — ' + r.description : ''}`)
+      if (!r.passed) {
+        if (r.error) {
+          lines.push(`  Error:    ${r.error}`)
+        } else {
+          lines.push(`  Expected: ${JSON.stringify(r.expectedOutput)}`)
+          lines.push(`  Got:      ${JSON.stringify(r.actualOutput)}`)
+        }
+      }
+      lines.push(`  Time:     ${r.executionTimeMs}ms`)
+    })
+  }
+
+  return lines.join('\n')
+}
+
+async function runCode(mode = 'sample') {
+  const q = getCurrentQ()
+  if (!q || normalizeQuestionType(q.type) !== 'coding') return
+
+  const code = getEditorValue()
+  const lang = document.getElementById('codeLanguage').value
+
+  if (!code.trim()) {
+    showToast('Write some code first.', 'warning')
+    return
+  }
+
+  outputEl.textContent = 'Running code...'
+  outputEl.className   = 'output-pre output-running'
+  outputBadge.textContent = 'Running'
+  outputBadge.className   = 'badge badge-info'
+
+  // Save code before running
+  await saveCodingDraft(mode === 'submit' ? 'Submitted' : 'Draft')
 
   try {
-    if (autosaveHandle) {
-      clearTimeout(autosaveHandle)
-      autosaveHandle = null
-    }
+    const result = await window.electronAPI.runCode({
+      sessionId: sessionId || null,
+      questionId: q.id,
+      code,
+      language: lang,
+      mode
+    })
 
-    try {
-      await saveCurrentCodingDraft({ silent: true, saveStatus: false })
-    } catch (_error) {
-      setSyncStatus('Draft pending sync', 'error')
-    }
+    // ──────────────────────────────────────────────
+    // FIX: correct property check (not result.passed)
+    // codeExecutionService returns: { success, allPassed, status:'Accepted'|'Wrong Answer', ... }
+    // ──────────────────────────────────────────────
+    const passed = result?.success && (result?.allPassed === true || result?.status === 'Accepted')
+    const outputText = formatRunResults(result)
 
-    await syncSessionProgress('submission', { quiet: true })
+    outputEl.textContent = outputText
+    outputEl.className   = passed ? 'output-pre output-success' : 'output-pre output-error'
+    outputBadge.textContent = passed ? '✓ Passed' : '✗ Failed'
+    outputBadge.className   = passed ? 'badge badge-success' : 'badge badge-danger'
 
-    const unanswered = Math.max(questions.length - getAnsweredCount(), 0)
-    if (!force && unanswered > 0) {
-      const proceed = window.confirm(`You still have ${unanswered} unanswered question(s). Submit anyway?`)
-      if (!proceed) {
-        return
-      }
+    // Store last result + test summary in answer state
+    const ans = answers[String(q.id)] || { type: 'coding', code, language: lang }
+    ans.lastResult  = outputText.slice(0, 400)
+    ans.testSummary = {
+      status:      result?.status || '',
+      passedCount: result?.passedCount ?? 0,
+      totalCount:  result?.totalCount  ?? 0,
+      allPassed:   result?.allPassed   ?? false
     }
+    answers[String(q.id)] = ans
 
-    persistUiState()
-    await window.electronAPI.navigateTo('submission')
-  } finally {
-    isSubmitting = false
-    if (submitButton) {
-      submitButton.disabled = false
-      submitButton.textContent = 'Submit'
-    }
+  } catch (err) {
+    outputEl.textContent = `Execution error: ${err.message}`
+    outputEl.className   = 'output-pre output-error'
+    outputBadge.textContent = 'Error'
+    outputBadge.className   = 'badge badge-danger'
   }
 }
 
-async function toggleFlag() {
-  const question = getCurrentQuestion()
-  if (!question) return
-  const id = question.id
-  markDirty('Saving review flag...')
-  if (flaggedQuestionIds.includes(id)) {
-    flaggedQuestionIds = flaggedQuestionIds.filter((item) => item !== id)
+/* ===================== FLAG ===================== */
+function toggleFlag() {
+  const q = getCurrentQ()
+  if (!q) return
+  const idx = flagged.indexOf(q.id)
+  if (idx > -1) {
+    flagged.splice(idx, 1)
   } else {
-    flaggedQuestionIds.push(id)
+    flagged.push(q.id)
   }
-  updateProgress()
-  const synced = await syncSessionProgress('flag-update', { quiet: true })
-  if (synced) {
-    markSynced('Review flag saved')
-  }
-}
-
-function showInstructions() {
-  alert('Complete all questions within the allotted time. Coding questions support JavaScript, Python, and C++. Visible tests can be run before final submission. Hidden tests are used only during Submit.')
-}
-
-async function initializeExam() {
-  const title = document.getElementById('examTitleHeader')
-  const code = document.getElementById('examCodeHeader')
-  if (title) title.textContent = localStorage.getItem('currentExamName') || 'Assessment'
-  if (code) code.textContent = `Exam ID: ${localStorage.getItem('currentExamCode') || '--'}`
-
-  loadUiState()
-  updateConnectionStatus()
-  setSyncStatus('Connecting to exam session...', 'syncing')
-
-  runtimeCapabilities = await window.electronAPI.getRuntimeCapabilities()
-  const result = await window.electronAPI.getExamQuestions(examId)
-  questions = (result.data || []).sort((a, b) => a.orderIndex - b.orderIndex)
-  await startSessionIfNeeded()
-  await restoreSessionState()
-
-  currentIndex = Math.min(currentIndex, Math.max(questions.length - 1, 0))
-  updateTimer()
-  startTimer()
   renderQuestion()
-  markSynced('Session restored')
+  renderPalette()
 }
 
-function setupConnectivityEvents() {
-  window.addEventListener('online', () => {
-    updateConnectionStatus()
-    setLiveBanner('Connection restored.', 'ok')
-  })
-
-  window.addEventListener('offline', () => {
-    updateConnectionStatus()
-    if (canReportIncident('offline')) {
-      void reportIncident('network_offline', 'Network disconnected during exam', 'medium')
-    }
-  })
+/* ===================== SUBMIT ===================== */
+function openSubmitModal() {
+  const answered = Object.values(answers).filter(a =>
+    a?.type === 'mcq'
+      ? a.selectedOption !== undefined
+      : (a?.code || '').trim().length > 0
+  ).length
+  document.getElementById('submitAnswered').textContent = `${answered} / ${questions.length}`
+  document.getElementById('submitFlagged').textContent  = flagged.length
+  submitModal.classList.remove('hidden')
 }
 
-function setupMonitoringEvents() {
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
-      return
-    }
-    if (canReportIncident('visibility')) {
-      void reportIncident('window_hidden', 'Exam window lost visibility', 'high', { hidden: true })
-      setLiveBanner('Please keep the exam window visible at all times.', 'warning')
-    }
-  })
+async function submitExam() {
+  if (isSubmitting) return
+  isSubmitting = true
+  clearInterval(timerHandle)
 
-  window.addEventListener('blur', () => {
-    if (canReportIncident('blur')) {
-      void reportIncident('window_focus_lost', 'Exam window lost focus', 'medium')
-    }
-  })
-}
+  try {
+    submitModal.classList.add('hidden')
+    setSyncStatus('Submitting...', 'syncing')
 
-function setupKeyboardShortcuts() {
-  document.addEventListener('keydown', (event) => {
-    const key = event.key.toLowerCase()
+    // Save current coding question if open
+    const curr = getCurrentQ()
+    if (normalizeQuestionType(curr?.type) === 'coding') await saveCodingDraft('Submitted')
 
-    if (event.ctrlKey && key === 's') {
-      event.preventDefault()
-      void syncSessionProgress('manual', { quiet: false })
-      setLiveBanner('Manual sync requested.', 'info')
-      return
-    }
+    const userId = Number(localStorage.getItem('userId') || '0')
+    await window.electronAPI.saveExamSubmission({
+      sessionId,
+      examId,
+      userId,
+      timeRemaining,
+      flaggedQuestionIds: flagged
+    })
+    await window.electronAPI.endExamSession(sessionId, 'submitted')
 
-    if (isTypingTarget(event)) {
-      return
-    }
-
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault()
-      void goToQuestion(currentIndex - 1)
-      return
-    }
-
-    if (event.key === 'ArrowRight') {
-      event.preventDefault()
-      void goToQuestion(currentIndex + 1)
-      return
-    }
-
-    if (key === 'f') {
-      event.preventDefault()
-      void toggleFlag()
-    }
-  })
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
-  ensureCodeEditor()
-  configureDashboardNavigation()
-  setupConnectivityEvents()
-  setupMonitoringEvents()
-  setupKeyboardShortcuts()
-  await initializeExam()
-
-  document.querySelector('[data-nav-prev]')?.addEventListener('click', () => goToQuestion(currentIndex - 1))
-  document.querySelector('[data-nav-next]')?.addEventListener('click', () => goToQuestion(currentIndex + 1))
-  document.querySelector('[data-sync-now]')?.addEventListener('click', () => {
-    void syncSessionProgress('manual', { quiet: false })
-  })
-  document.querySelector('[data-flag-toggle]')?.addEventListener('click', () => {
-    void toggleFlag()
-  })
-  document.getElementById('runCode')?.addEventListener('click', () => runCode('sample'))
-  document.getElementById('submitCode')?.addEventListener('click', () => runCode('submit'))
-  document.getElementById('loadStarterCode')?.addEventListener('click', () => {
-    const question = getCurrentQuestion()
-    const select = document.getElementById('codeLanguage')
-    if (question && select) {
-      setEditorLanguage(select.value)
-      setEditorValue(getStarterCode(question, select.value))
-      refreshCodingSignature()
-      markDirty('Template loaded')
-      scheduleDraftAutosave()
-    }
-  })
-  document.getElementById('copyPrompt')?.addEventListener('click', async () => {
-    const question = getCurrentQuestion()
-    if (question) {
-      await navigator.clipboard.writeText(question.prompt)
-    }
-  })
-  document.getElementById('codeLanguage')?.addEventListener('change', () => {
-    const question = getCurrentQuestion()
-    const select = document.getElementById('codeLanguage')
-    if (question && select) {
-      setEditorLanguage(select.value)
-    }
-    if (question && select && !answers[String(question.id)]?.code) {
-      setEditorValue(getStarterCode(question, select.value))
-    }
-    refreshCodingSignature()
-    markDirty('Language changed')
-    scheduleDraftAutosave()
-  })
-
-  document.getElementById('codeEditor')?.addEventListener('input', () => {
-    markDirty('Code updated')
-    scheduleDraftAutosave()
-  })
-
-  document.querySelector('[data-submit-exam]')?.addEventListener('click', () => goToSubmission({ force: false }))
-})
-
-window.addEventListener('beforeunload', (event) => {
-  persistUiState()
-  if (dirtyState) {
-    event.preventDefault()
-    event.returnValue = ''
+    await navigateTo('submission')
+  } catch (err) {
+    isSubmitting = false
+    showToast('Submission failed: ' + (err.message || 'Unknown error'), 'error')
+    setSyncStatus('Submit failed', 'error')
   }
+}
+
+async function autoSubmit() {
+  showBanner('Time expired — auto-submitting in 3 seconds...', 'error')
+  await sleep(3000)
+  await submitExam()
+}
+
+/* ===================== MONITORING ===================== */
+function setupMonitoring() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && !isSubmitting) {
+      reportViolation('tab-switch', 'Tab switch or window minimization detected during exam.')
+    }
+  })
+}
+
+async function startProctorPreview() {
+  if (!proctorPip || !proctorVideo || proctorStream) return
+
+  try {
+    proctorStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 320 },
+        height: { ideal: 180 },
+        frameRate: { ideal: 12, max: 15 },
+        facingMode: 'user'
+      },
+      audio: false
+    })
+
+    proctorVideo.srcObject = proctorStream
+    proctorPip.classList.remove('hidden')
+    if (proctorPipLabel) proctorPipLabel.textContent = 'Live Proctor'
+  } catch (err) {
+    if (proctorPipLabel) {
+      proctorPipLabel.textContent = 'Camera Blocked'
+    }
+    console.warn('[exam] proctor preview unavailable:', err?.message || err)
+  }
+}
+
+function stopProctorPreview() {
+  if (proctorStream) {
+    proctorStream.getTracks().forEach(track => track.stop())
+    proctorStream = null
+  }
+  if (proctorVideo) {
+    proctorVideo.srcObject = null
+  }
+}
+
+function reportViolation(type, msg) {
+  violationMsg.textContent = msg
+  violationOverlay.classList.remove('hidden')
+  window.electronAPI.recordIncident?.({
+    type, message: msg, sessionId: sessionId || null, severity: 'high'
+  }).catch(() => {})
+}
+
+/* ===================== PROGRESS SYNC ===================== */
+async function syncProgress() {
+  if (!sessionId) return
+  try {
+    await window.electronAPI.saveSessionProgress({
+      sessionId,
+      remainingSeconds:   timeRemaining,
+      flaggedQuestionIds: flagged
+    })
+  } catch { /* silent */ }
+}
+
+/* ===================== INIT ===================== */
+async function init() {
+  setSyncStatus('Loading...', 'syncing')
+
+  try {
+    await window.electronAPI.ensureExamAccess({
+      sessionId: sessionId > 0 ? sessionId : null,
+      examId: examId > 0 ? examId : null
+    })
+
+    // Try to restore progress from localStorage cache
+    const cachedProgress = localStorage.getItem('examProgress')
+    if (cachedProgress) {
+      try {
+        const p = JSON.parse(cachedProgress)
+        answers       = p.answers       || {}
+        flagged       = p.flagged       || []
+        if (Object.prototype.hasOwnProperty.call(p, 'timeRemaining')) {
+          const cachedRemaining = Number(p.timeRemaining)
+          if (Number.isFinite(cachedRemaining) && cachedRemaining >= 0) {
+            timeRemaining = cachedRemaining
+          }
+        }
+      } catch { /* ignore malformed cache */ }
+    }
+
+    // Load questions
+    if (!examId) throw new Error('No exam selected. Please return to the dashboard.')
+
+    const result = await window.electronAPI.getExamQuestions(examId)
+    if (!result?.success || !Array.isArray(result.data)) {
+      throw new Error(result?.error || 'Failed to load questions')
+    }
+    questions = [...result.data].sort((a, b) => {
+      const orderA = Number.isFinite(a?.orderIndex) ? a.orderIndex : Number.MAX_SAFE_INTEGER
+      const orderB = Number.isFinite(b?.orderIndex) ? b.orderIndex : Number.MAX_SAFE_INTEGER
+      if (orderA !== orderB) return orderA - orderB
+      return (a?.id || 0) - (b?.id || 0)
+    })
+    if (!questions.length) throw new Error('This exam has no questions.')
+
+    activeSectionType = normalizeQuestionType(questions[currentIndex]?.type)
+    sectionLastVisited[activeSectionType] = currentIndex
+
+    // Start session if not already started
+    if (!sessionId) {
+      const userId = Number(localStorage.getItem('userId') || '0')
+      const sRes   = await window.electronAPI.startExamSession({
+        userId,
+        examId,
+        sessionToken: `SES-${Date.now().toString(36).toUpperCase()}`
+      })
+      if (sRes?.success && sRes.data?.sessionId) {
+        sessionId = Number(sRes.data.sessionId)
+        localStorage.setItem('currentSessionId', String(sessionId))
+      } else {
+        throw new Error(sRes?.error || 'Could not start exam session')
+      }
+    } else {
+      // Restore server-side progress
+      try {
+        const state = await window.electronAPI.getSessionState(sessionId)
+        if (state?.success && state.data) {
+          const d = state.data
+          if (Number.isInteger(d.remainingSeconds) && d.remainingSeconds >= 0) timeRemaining = d.remainingSeconds
+          if (Array.isArray(d.flaggedQuestionIds)) flagged = d.flaggedQuestionIds
+          if (d.answers && typeof d.answers === 'object' && Object.keys(d.answers).length > 0) {
+            answers = d.answers
+          }
+        }
+      } catch { /* ignore, use cache */ }
+    }
+
+    setSyncStatus('Ready', 'idle')
+    renderQuestion()
+    renderPalette()
+    updateProgress()
+    updateSectionTabs()
+    startTimer()
+    setupMonitoring()
+    startProctorPreview()
+
+    // Periodic server sync every 20 seconds
+    setInterval(syncProgress, 20000)
+    // Periodic localStorage cache every 10 seconds
+    setInterval(() => {
+      localStorage.setItem('examProgress', JSON.stringify({
+        answers, flagged, timeRemaining
+      }))
+    }, 10000)
+
+  } catch (err) {
+    const message = String(err?.message || err || '')
+    if (/identity verification|verification/i.test(message)) {
+      setSyncStatus('Verification required', 'error')
+      showBanner('Identity verification required before entering exam.', 'warning')
+      setTimeout(() => {
+        navigateTo('verification')
+      }, 300)
+      return
+    }
+
+    setSyncStatus('Load failed', 'error')
+    showBanner('Failed to load exam: ' + message, 'error')
+    console.error('[exam] init error:', err)
+  }
+}
+
+/* ===================== EVENT WIRING ===================== */
+prevBtn.addEventListener('click',       () => goToAdjacentInSection(-1))
+nextBtn.addEventListener('click',       () => goToNextQuestion())
+flagBtn.addEventListener('click',       () => toggleFlag())
+submitExamBtn.addEventListener('click', () => openSubmitModal())
+sectionTabMcq?.addEventListener('click', () => activateSection('mcq'))
+sectionTabCoding?.addEventListener('click', () => activateSection('coding'))
+
+document.getElementById('cancelSubmit').addEventListener('click',  () => submitModal.classList.add('hidden'))
+document.getElementById('confirmSubmit').addEventListener('click', () => submitExam())
+
+document.getElementById('instructionsTopBtn').addEventListener('click', () => instructModal.classList.remove('hidden'))
+document.getElementById('closeInstructions').addEventListener('click',  () => instructModal.classList.add('hidden'))
+document.getElementById('violationDismiss').addEventListener('click',   () => violationOverlay.classList.add('hidden'))
+
+document.getElementById('btnRunCode')?.addEventListener('click',     () => runCode('sample'))
+document.getElementById('btnSubmitCode')?.addEventListener('click',  () => runCode('submit'))
+document.getElementById('btnLoadStarter')?.addEventListener('click', () => {
+  const q = getCurrentQ()
+  if (!q) return
+  const lang = document.getElementById('codeLanguage')?.value || getDefaultLanguage(q)
+  suppressChange = true
+  setEditorValue(getTemplate(q, lang))
+  suppressChange = false
+  isDirty = true
+  scheduleAutosave()
 })
 
-window.nextQuestion = () => goToQuestion(currentIndex + 1)
-window.previousQuestion = () => goToQuestion(currentIndex - 1)
-window.showInstructions = showInstructions
-window.toggleFlag = toggleFlag
+document.getElementById('codeLanguage')?.addEventListener('change', e => {
+  const q = getCurrentQ()
+  if (!q) return
+  const lang = e.target.value
+  updateEditorLang(lang)
+  // Only load template if editor is empty / unchanged
+  const code = getEditorValue()
+  const templates = getQuestionLanguages(q).map(item => getTemplate(q, item))
+  if (!code.trim() || templates.includes(code)) {
+    suppressChange = true
+    setEditorValue(getTemplate(q, lang))
+    suppressChange = false
+  }
+  scheduleAutosave()
+})
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  // Skip if focus is in editor or text input
+  if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return
+  if (e.target.closest?.('.CodeMirror')) return
+  if (e.key === 'ArrowLeft')         { e.preventDefault(); goToAdjacentInSection(-1) }
+  else if (e.key === 'ArrowRight')   { e.preventDefault(); goToNextQuestion() }
+  else if (e.key.toLowerCase() === 'f') { e.preventDefault(); toggleFlag() }
+})
+
+// Save before page unloads
+window.addEventListener('beforeunload', () => {
+  if (isDirty) saveCodingDraft()
+  syncProgress()
+  stopProctorPreview()
+  localStorage.setItem('examProgress', JSON.stringify({ answers, flagged, timeRemaining }))
+})
+
+/* ===================== BOOT ===================== */
+init()

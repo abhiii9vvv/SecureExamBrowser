@@ -1,208 +1,208 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Student Dashboard</title>
-    <link href="https://fonts.googleapis.com" rel="preconnect" />
-    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="css/accessibility.css" />
-    <link rel="stylesheet" href="css/theme.css" />
-    <script src="js/student-dashboard.js" defer></script>
-  </head>
-  <body class="app-bg app-fullscreen">
-    <header class="app-header">
-      <div
-        class="container-fluid py-3 d-flex flex-wrap align-items-center justify-content-between gap-3"
-      >
-        <div class="d-flex align-items-center gap-3">
-          <div class="status-icon is-ok">
-            <span class="material-symbols-outlined">school</span>
-          </div>
-          <div>
-            <div class="app-title">Student Dashboard</div>
-            <div class="app-subtitle">Secure Exam Workspace</div>
-          </div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — CampusSetu Exam Suite</title>
+  <link rel="icon" type="image/x-icon" href="../assets/campussetu-favicon.ico" />
+  <link rel="icon" type="image/png" sizes="96x96" href="../assets/campussetu-favicon-96x96.png" />
+  <link rel="stylesheet" href="css/app.css" />
+  <style>
+    .exam-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      padding: var(--sp-6);
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-4);
+    }
+
+    .exam-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--sp-4);
+    }
+
+    .exam-card-title {
+      font-size: var(--text-xl);
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .exam-card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-3);
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+    }
+
+    .exam-card-meta span {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-1);
+    }
+
+    .exam-card-meta svg { width: 14px; height: 14px; color: var(--text-muted); }
+
+    .exam-desc {
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      line-height: 1.65;
+    }
+
+    .exam-card-actions {
+      margin-top: var(--sp-2);
+      display: flex;
+      gap: var(--sp-3);
+    }
+
+    .profile-row {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-4);
+      padding: var(--sp-5);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+    }
+
+    .profile-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--r-full);
+      background: var(--accent-muted);
+      color: var(--accent);
+      font-size: var(--text-xl);
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .profile-name {
+      font-size: var(--text-xl);
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .profile-role {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .no-exam-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      padding: var(--sp-12) var(--sp-8);
+      text-align: center;
+    }
+
+    .no-exam-icon {
+      font-size: 48px;
+      margin-bottom: var(--sp-4);
+      opacity: 0.3;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell-page">
+
+    <!-- Header -->
+    <header class="page-header">
+      <div class="flex items-center gap-3">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <button class="btn btn-dark btn-sm" data-open-verification>
-            Verify Identity
-          </button>
-          <button class="btn btn-outline-dark btn-sm" data-open-launch>
-            System Checks
-          </button>
-        </div>
+        <span class="page-title">Exam Portal</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="headerUserName" class="text-sm text-sec"></span>
+        <button class="btn btn-ghost btn-sm" id="logoutBtn" title="Sign Out">
+          <svg class="icon-15" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"/>
+          </svg>
+          Sign Out
+        </button>
       </div>
     </header>
 
-    <main class="container-fluid app-main app-compact">
-      <div class="row g-4">
-        <section class="col-xl-8">
-          <div class="app-card p-4 student-hero-card fade-up">
-            <div class="card-header mb-3">
-              <div>
-                <div class="card-title">
-                  Welcome, <span data-student-name>Student</span>
-                </div>
-                <div class="card-subtitle">
-                  Track readiness and continue your scheduled exam flow.
-                </div>
-              </div>
-              <span
-                class="badge text-bg-light border app-mono"
-                data-session-status
-                >Session Ready</span
-              >
-            </div>
-            <div class="student-hero-meta">
-              <div class="student-hero-item">
-                <div class="summary-label">Role</div>
-                <div class="summary-value">Student</div>
-              </div>
-              <div class="student-hero-item">
-                <div class="summary-label">Course</div>
-                <div class="summary-value" data-course>--</div>
-              </div>
-              <div class="student-hero-item">
-                <div class="summary-label">Branch</div>
-                <div class="summary-value" data-branch>--</div>
-              </div>
-              <div class="student-hero-item">
-                <div class="summary-label">Verification</div>
-                <div class="summary-value" data-verification-state>Pending</div>
-              </div>
-            </div>
-            <div class="flow-pill mt-3" data-flow-note data-flow-tone="warning">
-              Step 1: Verify identity before running system checks.
-            </div>
-          </div>
+    <!-- Body -->
+    <main class="page-body">
 
-          <div class="app-card p-4 mt-4 fade-up stagger-1">
-            <div class="card-header">
-              <div>
-                <div class="card-title">Upcoming Exam</div>
-                <div class="card-subtitle">
-                  Latest exam assigned to your account
-                </div>
-              </div>
-              <span class="badge text-bg-light border app-mono" data-exam-status
-                >Checking</span
-              >
-            </div>
-            <div class="info-list mt-3">
-              <div class="info-item">
-                <span class="info-label">Exam Name</span>
-                <span class="info-value" data-exam-name>Not scheduled</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Exam Code</span>
-                <span class="info-value" data-exam-code>--</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Duration</span>
-                <span class="info-value" data-exam-duration>--</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Window</span>
-                <span class="info-value" data-exam-window>Not set</span>
-              </div>
-            </div>
-            <div class="card-actions mt-4">
-              <div class="text-muted small">
-                Run system checks before opening exam.
-              </div>
-              <button class="btn btn-dark btn-sm" data-open-launch>
-                Open Launch Pad
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <aside class="col-xl-4">
-          <div class="app-card p-4 mb-3 fade-up stagger-2">
-            <div class="card-header">
-              <div>
-                <div class="card-title">Quick Status</div>
-                <div class="card-subtitle">Realtime indicators</div>
-              </div>
-            </div>
-            <div class="summary-list">
-              <div class="summary-item">
-                <span class="summary-label">Internet</span>
-                <span class="summary-value" data-online-state>Online</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">Database</span>
-                <span class="summary-value" data-db-state>Checking...</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">Verification</span>
-                <span class="summary-value" data-quick-verify>Pending</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="app-card p-4 mb-3 fade-up stagger-3">
-            <div class="card-header">
-              <div>
-                <div class="card-title">Last Submission</div>
-                <div class="card-subtitle">
-                  Most recent exam result on this device
-                </div>
-              </div>
-            </div>
-            <div class="student-score-card mt-2">
-              <div class="student-score-value" data-last-score>--%</div>
-              <div class="student-score-meta" data-last-exam>Exam: --</div>
-              <div class="student-score-meta" data-last-time>Submitted: --</div>
-            </div>
-          </div>
-
-          <div class="app-card p-4 h-100 fade-up stagger-4">
-            <div class="card-header">
-              <div>
-                <div class="card-title">Actions</div>
-                <div class="card-subtitle">
-                  Complete in order for smooth start
-                </div>
-              </div>
-            </div>
-            <div class="d-grid gap-2 mt-2">
-              <button class="btn btn-outline-dark" data-open-verification>
-                1. Verify Identity
-              </button>
-              <button class="btn btn-outline-dark" data-open-launch>
-                2. Run System Checks
-              </button>
-              <button class="btn btn-dark" data-start-exam>
-                3. Continue To Exam Gate
-              </button>
-              <button class="btn btn-light border" data-logout>Logout</button>
-            </div>
-            <div
-              class="flow-pill mt-3"
-              data-action-hint
-              data-flow-tone="neutral"
-            >
-              Follow the steps in order to unlock exam start.
-            </div>
-          </div>
-        </aside>
+      <!-- Loading -->
+      <div id="loadingState" class="flex items-center gap-3 text-sec text-sm">
+        <div class="spinner"></div>
+        Loading your profile...
       </div>
-    </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  </body>
+      <!-- Content (hidden until loaded) -->
+      <div id="mainContent" class="hidden flex-col gap-6">
+
+        <!-- Profile row -->
+        <div class="profile-row" id="profileRow">
+          <div class="profile-avatar" id="profileAvatar">?</div>
+          <div>
+            <div class="profile-name" id="profileName">Loading...</div>
+            <div class="profile-role" id="profileRole"></div>
+          </div>
+        </div>
+
+        <!-- Section -->
+        <div>
+          <div class="section-title">Available Exam</div>
+
+          <!-- No exam state -->
+          <div class="no-exam-card hidden" id="noExamState">
+            <div class="no-exam-icon">📋</div>
+            <div class="text-base fw-600 text-sec">No active exam</div>
+            <div class="text-sm text-mute mt-2">There are no exams currently available for you. Please check back later.</div>
+          </div>
+
+          <!-- Exam card -->
+          <div class="exam-card hidden" id="examCard">
+            <div class="exam-card-header">
+              <div>
+                <div class="exam-card-title" id="examTitle">—</div>
+                <div class="exam-card-meta mt-2" id="examMeta"></div>
+              </div>
+              <div id="examStatusBadge"></div>
+            </div>
+            <p class="exam-desc" id="examDesc"></p>
+            <div class="exam-card-actions">
+              <button class="btn btn-primary btn-lg" id="startExamBtn">
+                <svg class="icon-16" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/>
+                </svg>
+                Start Exam
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Error state -->
+      <div class="alert alert-danger hidden" id="errorState">
+        <svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/>
+        </svg>
+        <span id="errorMsg">Failed to load dashboard.</span>
+      </div>
+
+    </main>
+  </div>
+
+  <div id="toast-root"></div>
+  <script type="module" src="js/student-dashboard.js"></script>
+</body>
 </html>

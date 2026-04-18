@@ -1,139 +1,104 @@
-let submissionSummary = null
-let questions = []
+const loadingEl  = document.getElementById('loadingState')
+const resultCard = document.getElementById('resultCard')
+const errorEl    = document.getElementById('errorState')
+const errorMsg   = document.getElementById('errorMsg')
+const exitBtn    = document.getElementById('exitBtn')
 
-function getDashboardDestination() {
-  const role = (localStorage.getItem('currentUserRole') || 'student').toLowerCase()
-  return role === 'admin' ? 'dashboard' : 'student-dashboard'
+function cleanupSessionStorage() {
+  localStorage.removeItem('currentSessionId')
+  localStorage.removeItem('examProgress')
+  localStorage.removeItem('currentExamId')
+  localStorage.removeItem('currentExamTitle')
+  localStorage.removeItem('currentExamDuration')
 }
 
-function updateMetrics() {
-  if (!submissionSummary) return
-  const total = questions.length
-  const answered = submissionSummary.answered || 0
-  const unanswered = submissionSummary.unanswered ?? Math.max(total - answered, 0)
-  const flagged = submissionSummary.flagged || 0
-  const percentage = total > 0 ? Math.round((answered / total) * 100) : 0
-
-  const timer = document.querySelector('[data-timer-display]')
-  if (timer) {
-    const remaining = submissionSummary.remainingSeconds || 0
-    const hours = Math.floor(remaining / 3600)
-    const minutes = Math.floor((remaining % 3600) / 60)
-    const seconds = remaining % 60
-    timer.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-  }
-
-  document.querySelector('[data-radial-value]').textContent = `${percentage}%`
-  document.querySelector('[data-radial-meter]').style.background = `conic-gradient(#111111 0deg ${percentage * 3.6}deg, #e5e7eb ${percentage * 3.6}deg 360deg)`
-  document.querySelector('[data-metric="answered"] [data-metric-value]').textContent = String(answered)
-  document.querySelector('[data-metric="answered"] [data-metric-total]').textContent = `/ ${total}`
-  document.querySelector('[data-metric="unanswered"] [data-metric-value]').textContent = String(unanswered)
-  document.querySelector('[data-metric="unanswered"] [data-metric-total]').textContent = `/ ${total}`
-  document.querySelector('[data-metric="flagged"] [data-metric-value]').textContent = String(flagged)
-  document.querySelector('[data-metric="flagged"] [data-metric-total]').textContent = `/ ${total}`
+function fmtDate(s) {
+  if (!s) return '—'
+  try { return new Date(s).toLocaleString() } catch { return s }
 }
 
-function renderGrid() {
-  const container = document.querySelector('[data-submission-grid]')
-  if (!container || !submissionSummary) return
-  container.innerHTML = ''
-
-  const flaggedIds = submissionSummary.flaggedQuestionIds || []
-  const answerMap = submissionSummary.answers || {}
-
-  questions.forEach((question, index) => {
-    const wrapper = document.createElement('div')
-    wrapper.className = 'col-2 col-sm-2 col-md-1'
-    const button = document.createElement('button')
-    button.className = 'question-button position-relative w-100'
-    button.textContent = String(index + 1)
-    if (answerMap[String(question.id)]) button.classList.add('is-answered')
-    if (flaggedIds.includes(question.id)) button.classList.add('is-flagged')
-    button.addEventListener('click', () => goToQuestion(index))
-    wrapper.appendChild(button)
-    container.appendChild(wrapper)
-  })
-}
-
-async function loadSummary() {
+async function load() {
   const sessionId = Number(localStorage.getItem('currentSessionId') || '0')
-  const examId = Number(localStorage.getItem('currentExamId') || '0')
-  const userName = localStorage.getItem('currentUserName') || 'Student'
-  const studentName = document.getElementById('studentName')
-  if (studentName) studentName.textContent = userName
-
-  const questionResult = await window.electronAPI.getExamQuestions(examId)
-  questions = (questionResult.data || []).sort((a, b) => a.orderIndex - b.orderIndex)
-
-  const sessionState = await window.electronAPI.getSessionState(sessionId)
-  const summaryResult = await window.electronAPI.getSubmissionSummary(sessionId)
-  submissionSummary = {
-    ...(summaryResult.data || {}),
-    remainingSeconds: sessionState.data?.remainingSeconds || 0,
-    flaggedQuestionIds: sessionState.data?.flaggedQuestionIds || summaryResult.data?.flaggedQuestionIds || [],
-    answers: sessionState.data?.answers || summaryResult.data?.answers || {}
-  }
-
-  updateMetrics()
-  renderGrid()
-}
-
-async function submitExam() {
-  const sessionId = Number(localStorage.getItem('currentSessionId') || '0')
-  const examId = Number(localStorage.getItem('currentExamId') || '0')
-  const userId = Number(localStorage.getItem('currentUserId') || '0')
-  const submitButton = document.querySelector('[data-submit-button]')
-  if (submitButton) {
-    submitButton.disabled = true
-    submitButton.innerHTML = '<span class="material-symbols-outlined animate-spin">progress_activity</span> Submitting...'
-  }
 
   try {
-    const result = await window.electronAPI.saveExamSubmission({
-      sessionId,
-      examId,
-      userId,
-      flaggedQuestionIds: submissionSummary.flaggedQuestionIds || [],
-      timeRemaining: submissionSummary.remainingSeconds || 0
-    })
-    if (!result.success) {
-      throw new Error(result.error || 'Submission failed')
+    let summary = null
+
+    if (sessionId > 0) {
+      try {
+        const res = await window.electronAPI.getSubmissionSummary(sessionId)
+        if (res?.success && res.data) summary = res.data
+      } catch (e) {
+        console.warn('[submission] getSubmissionSummary failed:', e.message)
+      }
     }
-    localStorage.setItem('lastSubmissionScore', String(result.data.score ?? 0))
-    localStorage.setItem('lastSubmissionAt', new Date().toISOString())
-    localStorage.setItem('lastSubmissionExamName', localStorage.getItem('currentExamName') || '')
-    localStorage.removeItem('examUiState')
-    alert(`Exam submitted successfully. Score: ${result.data.score}%`)
-    await window.electronAPI.navigateTo(getDashboardDestination())
-  } catch (error) {
-    alert(error.message || 'Submission failed')
-    if (submitButton) {
-      submitButton.disabled = false
-      submitButton.innerHTML = 'Confirm Submission'
+
+    loadingEl.classList.add('hidden')
+
+    if (!summary) {
+      // Show partial success — exam was submitted but summary unavailable
+      errorEl.querySelector('span').textContent =
+        'Your exam was submitted successfully. Results summary is unavailable right now.'
+      errorEl.classList.remove('hidden')
+      resultCard.classList.remove('hidden')
+      // Still fill what we know
+      document.getElementById('statAnswered').textContent = '—'
+      document.getElementById('statFlagged').textContent  = '—'
+      document.getElementById('statTotal').textContent    = '—'
+      document.getElementById('subSubtitle').textContent  = 'Submitted successfully — results pending.'
+      resultCard.classList.remove('hidden')
+      cleanupSessionStorage()
+      return
     }
+
+    // ── Populate stats ──
+    const answered = summary.answeredCount ?? summary.answered
+    const flagged = summary.flaggedCount ?? summary.flagged
+    const total = summary.totalQuestions ?? (
+      Number.isFinite(summary.answered) && Number.isFinite(summary.unanswered)
+        ? summary.answered + summary.unanswered
+        : undefined
+    )
+
+    document.getElementById('statAnswered').textContent = answered ?? '—'
+    document.getElementById('statFlagged').textContent  = flagged ?? '0'
+    document.getElementById('statTotal').textContent    = total ?? '—'
+
+    document.getElementById('subSubtitle').textContent =
+      `Submitted on ${fmtDate(summary.submittedAt || new Date().toISOString())}`
+
+    let detailHtml = ''
+    if (summary.examTitle)  detailHtml += row('Exam', summary.examTitle)
+    if (summary.duration)   detailHtml += row('Duration', summary.duration)
+    if (summary.sessionId)  detailHtml += row('Session ID', `#${summary.sessionId}`)
+    if (summary.score !== undefined) detailHtml += row('Score', `${summary.score}%`)
+    document.getElementById('subDetails').innerHTML = detailHtml
+
+    resultCard.classList.remove('hidden')
+
+  } catch (err) {
+    loadingEl.classList.add('hidden')
+    errorMsg.textContent = err.message || 'Unable to load results.'
+    errorEl.classList.remove('hidden')
   }
+
+  cleanupSessionStorage()
 }
 
-function confirmSubmission() {
-  if (!submissionSummary) return
-  const message = `Submit exam now?\n\nAnswered: ${submissionSummary.answered}/${questions.length}\nFlagged: ${submissionSummary.flagged}`
-  if (confirm(message)) {
-    submitExam()
+function row(label, val) {
+  return `<div class="sub-detail-row"><span class="sub-detail-key">${label}</span><span class="sub-detail-val">${val}</span></div>`
+}
+
+exitBtn.addEventListener('click', async () => {
+  // Use electronAPI directly — logout and navigate to login
+  try { await window.electronAPI.logout() } catch { /* ignore */ }
+  localStorage.clear()
+  // Navigate to login — preload handles this as an auth-free navigation
+  try {
+    await window.electronAPI.navigateTo('login')
+  } catch (err) {
+    // Last resort fallback
+    console.error('[submission] exit nav failed:', err.message)
   }
-}
+})
 
-async function returnToExam() {
-  await window.electronAPI.navigateTo('exam')
-}
-
-function goToQuestion(index) {
-  localStorage.setItem('examUiState', JSON.stringify({
-    currentIndex: index,
-    timeRemaining: submissionSummary.remainingSeconds || 0
-  }))
-  returnToExam()
-}
-
-document.addEventListener('DOMContentLoaded', loadSummary)
-window.confirmSubmission = confirmSubmission
-window.returnToExam = returnToExam
+load()

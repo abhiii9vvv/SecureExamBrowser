@@ -1,0 +1,140 @@
+SECURE EXAM BROWSER - GAP CLOSURE PLAN AND SOLUTIONS
+Date: 2026-04-18
+
+PURPOSE
+This file maps each major gap to practical actions, architecture changes, and measurable outcomes.
+
+GAP 1: Lockdown-only security model
+Why it matters: Browser lock is necessary but insufficient.
+Solution:
+- Add continuous session assurance with fused identity, liveness, and behavior signals.
+- Maintain identity continuity checks at fixed intervals and event-based triggers.
+Implementation notes:
+- Introduce a session risk service in main process.
+- Feed camera, microphone, fullscreen, visibility, and timing events into one score.
+Success metric:
+- Reduced severe incidents that bypass lock-only controls.
+
+GAP 2: Weak anti-spoofing depth
+Why it matters: Replay and presentation attacks can bypass simple face checks.
+Solution:
+- Add active challenge-response checks (blink pattern, head turn, gaze direction, phrase repeat).
+- Add periodic random challenge during long exams.
+Implementation notes:
+- Extend verification flow to include challenge modules.
+- Store challenge success/fail timestamps in incident metadata.
+Success metric:
+- Higher spoof detection rate under replay attack tests.
+
+GAP 3: False-positive burden
+Why it matters: Too many false flags reduce trust and increase review load.
+Solution:
+- Replace single event triggers with temporal smoothing and confidence windows.
+- Add cooldowns to prevent duplicate incident storms.
+Implementation notes:
+- Use rolling windows and minimum consecutive evidence before escalation.
+- Label events as warning, review, or violation by calibrated thresholds.
+Success metric:
+- Lower false-positive rate and lower manual review time per exam.
+
+GAP 4: Fairness and accessibility risks
+Why it matters: Uneven performance across users can create bias and harm.
+Solution:
+- Create fairness and accessibility evaluation suite.
+- Add accommodation policy mode without disabling core integrity checks.
+Implementation notes:
+- Evaluate by lighting conditions, camera quality tier, and speech/no-speech environments.
+- Add auditable accommodation flags in exam policy profile.
+Success metric:
+- Reduced performance variance across evaluation slices.
+
+GAP 5: Privacy and compliance gaps
+Why it matters: Adoption can fail without lawful and proportional data handling.
+Solution:
+- Enforce privacy-by-design: local inference first, minimum retention by default.
+- Store feature summaries first; keep raw media only for escalated incidents and strict TTL.
+Implementation notes:
+- Add retention policy config (days by evidence class).
+- Add consent and notice screen with policy version tracking.
+Success metric:
+- Compliance audit pass and reduced sensitive data footprint.
+
+GAP 6: Weak multimodal fusion and calibration
+Why it matters: Independent rules miss context and amplify noise.
+Solution:
+- Build weighted multimodal fusion model with interpretable components.
+- Calibrate per exam mode (coding, MCQ, oral, mixed).
+Implementation notes:
+- Start with transparent weighted scoring before ML black-box fusion.
+- Record all component scores for traceability.
+Success metric:
+- Better precision-recall tradeoff than single-signal rules.
+
+GAP 7: Limited explainability for incidents
+Why it matters: Admins and students need clear reason trails.
+Solution:
+- Create incident evidence schema with signal values, thresholds, and timeline snapshots.
+- Add reviewer UI for evidence playback and decision logging.
+Implementation notes:
+- Extend incident record format with evidence_vector and reasoning_text.
+- Add appeal outcome fields.
+Success metric:
+- Faster and more consistent adjudication outcomes.
+
+GAP 8: Operational fragility (network and devices)
+Why it matters: Real exams run in imperfect conditions.
+Solution:
+- Add offline-safe local queue for incidents and sync when connectivity returns.
+- Add health watchdogs for permission revokes and device changes.
+Implementation notes:
+- Sign queued logs to prevent tampering.
+- Add graceful degradation policy per exam severity level.
+Success metric:
+- Lower exam interruption rate under unstable conditions.
+
+GAP 9: Limited GenAI-era integrity controls
+Why it matters: Threat model now includes AI-assisted answer generation.
+Solution:
+- Add process-integrity features (paste burst detection, abrupt style shift, timing anomalies).
+- Add policy controls for external tool usage and suspicion review workflows.
+Implementation notes:
+- Keep as review signals, not auto-fail conditions.
+- Align with institutional academic integrity policy.
+Success metric:
+- More reliable identification of high-risk answer-generation patterns.
+
+GAP 10: Limited adversarial and red-team validation
+Why it matters: Un-tested controls fail in real adversarial settings.
+Solution:
+- Build repeatable red-team harness (replay video, virtual camera, injected noise, permission flapping).
+- Run quarterly reliability drills.
+Implementation notes:
+- Track spoof detection, false positives, and resilience KPIs per release.
+- Gate releases with minimum security quality bars.
+Success metric:
+- Measurable robustness improvements over each release cycle.
+
+PRIORITIZED IMPLEMENTATION ORDER
+Phase 1 (Immediate, 2-3 weeks)
+- False-positive suppression
+- Incident explainability schema
+- Multimodal score baseline
+
+Phase 2 (Next, 3-6 weeks)
+- Active anti-spoof challenge-response
+- Privacy retention controls
+- Network resilient incident pipeline
+
+Phase 3 (Quarter roadmap)
+- Fairness and accessibility benchmark suite
+- GenAI integrity signal package
+- Red-team automation and release gates
+
+RECOMMENDED KPI DASHBOARD
+- False-positive rate per 100 exam hours
+- Spoof detection rate in controlled attack tests
+- Average incident review time
+- Appeal reversal rate
+- Device/network failure recovery rate
+- Fairness variance across evaluation slices
+- Privacy retention compliance score

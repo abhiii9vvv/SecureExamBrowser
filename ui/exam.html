@@ -45,6 +45,13 @@
         <span id="syncStatusText">Syncing...</span>
       </div>
 
+      <button class="btn btn-ghost btn-sm" id="healthToggleBtn" title="Exam health center">
+        <svg class="icon-15" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 015.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/>
+        </svg>
+        Health
+      </button>
+
       <!-- Timer -->
       <div class="exam-timer" id="timerWrap">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -71,6 +78,18 @@
 
     <!-- Live banner (hidden by default) -->
     <div class="live-banner hidden" id="liveBanner"></div>
+
+    <aside class="exam-health-panel hidden" id="examHealthPanel" aria-live="polite">
+      <div class="exam-health-title">Exam Health Center</div>
+      <div class="exam-health-grid">
+        <div class="exam-health-row"><span>Camera</span><strong id="healthCamera">Checking...</strong></div>
+        <div class="exam-health-row"><span>Microphone</span><strong id="healthMic">Checking...</strong></div>
+        <div class="exam-health-row"><span>Network</span><strong id="healthNetwork">Checking...</strong></div>
+        <div class="exam-health-row"><span>Sync Queue</span><strong id="healthQueue">0 pending</strong></div>
+        <div class="exam-health-row"><span>Last Save</span><strong id="healthLastSave">Not yet</strong></div>
+        <div class="exam-health-row"><span>Liveness</span><strong id="healthLiveness">Pending</strong></div>
+      </div>
+    </aside>
 
     <!-- MAIN BODY -->
     <div class="exam-body">
@@ -244,6 +263,15 @@
             <div class="text-xs fw-700 text-mute">Flagged</div>
             <div class="text-2xl fw-800 text-warn mt-1" id="submitFlagged">—</div>
           </div>
+        </div>
+        <div class="submit-confidence" id="submitConfidence">
+          <div class="submit-confidence-title">Submission Confidence</div>
+          <div class="submit-confidence-grid">
+            <div class="submit-confidence-row"><span>Last saved</span><strong id="submitLastSaved">Checking...</strong></div>
+            <div class="submit-confidence-row"><span>Pending offline incidents</span><strong id="submitQueueDepth">0</strong></div>
+            <div class="submit-confidence-row"><span>Current sync state</span><strong id="submitSyncState">Ready</strong></div>
+          </div>
+          <button class="btn btn-ghost btn-sm mt-3" id="forceSyncNow" type="button">Force Sync Now</button>
         </div>
       </div>
       <div class="modal-footer">

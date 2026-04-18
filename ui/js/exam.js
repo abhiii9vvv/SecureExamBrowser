@@ -19,6 +19,70 @@ let activeSectionType = 'mcq'
 const sectionLastVisited = { mcq: 0, coding: 0 }
 let plainEditorLines   = null
 let proctorStream      = null
+let proctorAudioStream = null
+let audioContext       = null
+let audioAnalyser      = null
+let audioDataBuffer    = null
+let audioMonitorHandle = null
+let audioNoiseFloor    = null
+let audioSpeechStreak  = 0
+let lastAudioIncidentAt = 0
+let audioPolicy = {
+  mode: 'heuristic-fallback',
+  audioModelAvailable: false,
+  keywordModelAvailable: false,
+  speechAlertWindowMs: 6000,
+  speechCooldownMs: 45000,
+  minConsecutiveSpeechFrames: 12,
+  sampleIntervalMs: 500
+}
+const proctorState = {
+  cameraAvailable: false,
+  micAvailable: false,
+  speaking: false
+}
+const riskSignalState = {
+  visibilityBreaches: 0,
+  speechBursts: 0,
+  cameraDrops: 0,
+  micDrops: 0,
+  lastRiskScore: 0
+}
+const incidentThrottleMs = {
+  'tab-switch': 30000,
+  'voice-activity': 45000,
+  'camera-unavailable': 90000,
+  'microphone-unavailable': 90000
+}
+const lastIncidentByKey = new Map()
+let visibilityHiddenAt = null
+const INCIDENT_QUEUE_STORAGE_KEY = `sebIncidentQueue:v1:${localStorage.getItem('userId') || 'anon'}`
+const ACCOMMODATION_STORAGE_KEY = 'examAccommodations'
+const INCIDENT_QUEUE_MAX_ITEMS = 200
+const INCIDENT_QUEUE_FLUSH_BATCH = 20
+let incidentQueueFlushHandle = null
+let incidentQueueFlushInFlight = false
+let incidentEscalationResetHandle = null
+let livenessRecheckTimeoutHandle = null
+let livenessBusy = false
+let lastLivenessStatus = 'Pending'
+let lastSyncStateText = 'Loading...'
+let lastSavedAt = 0
+const selectedAccommodations = new Set()
+const codingIntegrityState = {
+  pasteEvents: [],
+  typingEvents: [],
+  recentSnapshots: [],
+  lastLength: 0,
+  lastTimestamp: 0
+}
+const incidentEscalationState = new Map()
+const fairnessProfile = {
+  cameraTier: 'unknown',
+  lightingTier: 'unknown',
+  speechEnv: 'unknown',
+  accommodationFlags: []
+}
 
 /* ===================== DOM REFS ===================== */
 const progressLabel    = document.getElementById('progressLabel')
@@ -52,12 +116,28 @@ const sectionTabCoding = document.getElementById('sectionTabCoding')
 const proctorPip       = document.getElementById('proctorPip')
 const proctorVideo     = document.getElementById('proctorVideo')
 const proctorPipLabel  = document.getElementById('proctorPipLabel')
+const healthToggleBtn  = document.getElementById('healthToggleBtn')
+const examHealthPanel  = document.getElementById('examHealthPanel')
+const healthCamera     = document.getElementById('healthCamera')
+const healthMic        = document.getElementById('healthMic')
+const healthNetwork    = document.getElementById('healthNetwork')
+const healthQueue      = document.getElementById('healthQueue')
+const healthLastSave   = document.getElementById('healthLastSave')
+const healthLiveness   = document.getElementById('healthLiveness')
+const submitLastSaved  = document.getElementById('submitLastSaved')
+const submitQueueDepth = document.getElementById('submitQueueDepth')
+const submitSyncState  = document.getElementById('submitSyncState')
+const forceSyncNowBtn  = document.getElementById('forceSyncNow')
 
 const SECTION_LABELS = { mcq: 'MCQ', coding: 'Coding' }
 const LANGUAGE_LABELS = { javascript: 'JavaScript', python: 'Python', cpp: 'C++' }
 
 /* ===================== UTILS ===================== */
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+function clamp(value, min = 0, max = 1) {
+  return Math.min(max, Math.max(min, value))
+}
 
 function escHtml(s) {
   if (!s) return ''
@@ -92,6 +172,62 @@ function getOtherSectionType(type = activeSectionType) {
   return type === 'coding' ? 'mcq' : 'coding'
 }
 
+function formatRelativeFromNow(timestamp) {
+  const ts = Number(timestamp || 0)
+  if (!ts) return 'Not yet'
+  const deltaSec = Math.max(0, Math.round((Date.now() - ts) / 1000))
+  if (deltaSec < 2) return 'just now'
+  if (deltaSec < 60) return `${deltaSec}s ago`
+  const min = Math.round(deltaSec / 60)
+  if (min < 60) return `${min}m ago`
+  const hrs = Math.round(min / 60)
+  return `${hrs}h ago`
+}
+
+function loadAccommodationSelection() {
+  selectedAccommodations.clear()
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ACCOMMODATION_STORAGE_KEY) || '[]')
+    if (Array.isArray(parsed)) {
+      parsed
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+        .forEach((item) => selectedAccommodations.add(item))
+    }
+  } catch {
+    // Ignore malformed storage.
+  }
+}
+
+function applyAccommodationModes() {
+  const body = document.body
+  if (!body) return
+  body.classList.toggle('exam-accommodation-reduced-motion', selectedAccommodations.has('reduced-motion'))
+  body.classList.toggle('exam-accommodation-high-contrast', selectedAccommodations.has('high-contrast'))
+}
+
+function updateExamHealthPanel() {
+  if (!healthCamera || !healthMic || !healthNetwork || !healthQueue || !healthLastSave || !healthLiveness) {
+    return
+  }
+
+  healthCamera.textContent = proctorState.cameraAvailable ? 'Connected' : 'Unavailable'
+  healthMic.textContent = proctorState.micAvailable ? (proctorState.speaking ? 'Active speech' : 'Connected') : 'Unavailable'
+  healthNetwork.textContent = navigator.onLine ? 'Online' : 'Offline'
+  healthQueue.textContent = `${readQueuedIncidents().length} pending`
+  healthLastSave.textContent = formatRelativeFromNow(lastSavedAt)
+  healthLiveness.textContent = lastLivenessStatus
+
+  if (submitLastSaved) submitLastSaved.textContent = formatRelativeFromNow(lastSavedAt)
+  if (submitQueueDepth) submitQueueDepth.textContent = String(readQueuedIncidents().length)
+  if (submitSyncState) submitSyncState.textContent = lastSyncStateText
+}
+
+function markSaveSuccess() {
+  lastSavedAt = Date.now()
+  updateExamHealthPanel()
+}
+
 /* ===================== TIMER ===================== */
 function startTimer() {
   updateTimerDisplay()
@@ -117,6 +253,8 @@ function setSyncStatus(msg, state = 'idle') {
     error:   `<svg viewBox="0 0 20 20" fill="currentColor" style="width:10px;height:10px;color:var(--danger)"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/></svg>`,
   }
   syncStatus.innerHTML = `${icons[state] || icons.idle}<span style="font-size:var(--text-xs);color:var(--text-muted)">${msg}</span>`
+  lastSyncStateText = msg
+  updateExamHealthPanel()
 }
 
 /* ===================== BANNER ===================== */
@@ -124,7 +262,431 @@ function showBanner(msg, type = 'info') {
   liveBanner.textContent = msg
   liveBanner.className = `live-banner ${type}`
   liveBanner.classList.remove('hidden')
-  setTimeout(() => liveBanner.classList.add('hidden'), 5000)
+  const ttl = selectedAccommodations.has('extended-warnings') ? 8000 : 5000
+  setTimeout(() => liveBanner.classList.add('hidden'), ttl)
+}
+
+function updateProctorStatusLabel() {
+  if (!proctorPipLabel) {
+    updateExamHealthPanel()
+    return
+  }
+
+  let label = 'Proctor Unavailable'
+  if (proctorState.speaking && proctorState.micAvailable) {
+    label = 'Speech Detected'
+  } else if (proctorState.cameraAvailable && proctorState.micAvailable) {
+    label = 'Live Proctor · AV'
+  } else if (proctorState.cameraAvailable && !proctorState.micAvailable) {
+    label = 'Live Proctor · Cam Only'
+  } else if (!proctorState.cameraAvailable && proctorState.micAvailable) {
+    label = 'Live Proctor · Mic Only'
+  }
+
+  proctorPipLabel.textContent = label
+  updateExamHealthPanel()
+}
+
+function detectAccommodationFlags() {
+  const flags = [...selectedAccommodations]
+  try {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+      flags.push('reduced-motion')
+    }
+    if (window.matchMedia?.('(forced-colors: active)')?.matches) {
+      flags.push('forced-colors')
+    }
+    if (window.matchMedia?.('(prefers-contrast: more)')?.matches) {
+      flags.push('high-contrast')
+    }
+  } catch {
+    // Ignore feature detection failures.
+  }
+  return Array.from(new Set(flags))
+}
+
+function classifyCameraTier(width, height) {
+  const w = Number(width || 0)
+  const h = Number(height || 0)
+  if (w >= 1280 && h >= 720) return 'high'
+  if (w >= 640 && h >= 480) return 'medium'
+  if (w > 0 && h > 0) return 'low'
+  return 'unknown'
+}
+
+function classifyLightingTier(avgLuminance) {
+  const value = Number(avgLuminance)
+  if (!Number.isFinite(value)) return 'unknown'
+  if (value >= 155) return 'bright'
+  if (value >= 95) return 'normal'
+  return 'low-light'
+}
+
+function estimateFrameLuminance(videoEl) {
+  try {
+    const width = Number(videoEl?.videoWidth || 0)
+    const height = Number(videoEl?.videoHeight || 0)
+    if (width < 16 || height < 16) {
+      return null
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = 32
+    canvas.height = 18
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) {
+      return null
+    }
+
+    ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height)
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    if (!data || !data.length) {
+      return null
+    }
+
+    let sum = 0
+    const pixels = data.length / 4
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i]
+      const g = data[i + 1]
+      const b = data[i + 2]
+      sum += (0.299 * r) + (0.587 * g) + (0.114 * b)
+    }
+    return sum / Math.max(1, pixels)
+  } catch {
+    return null
+  }
+}
+
+function refreshFairnessProfile() {
+  fairnessProfile.accommodationFlags = detectAccommodationFlags()
+  fairnessProfile.speechEnv = proctorState.speaking ? 'speech-detected' : 'quiet'
+
+  if (proctorVideo?.srcObject) {
+    const tracks = proctorVideo.srcObject.getVideoTracks?.() || []
+    const settings = tracks[0]?.getSettings?.() || {}
+    fairnessProfile.cameraTier = classifyCameraTier(settings.width || proctorVideo.videoWidth, settings.height || proctorVideo.videoHeight)
+
+    const luminance = estimateFrameLuminance(proctorVideo)
+    fairnessProfile.lightingTier = classifyLightingTier(luminance)
+  }
+}
+
+function recordFairnessBenchmark({ incidentType, severity, confidence, detectorFamily }) {
+  refreshFairnessProfile()
+  window.electronAPI.recordFairnessBenchmark?.({
+    sessionId: sessionId || null,
+    incidentType,
+    severity,
+    confidence,
+    detectorFamily,
+    cameraTier: fairnessProfile.cameraTier,
+    lightingTier: fairnessProfile.lightingTier,
+    speechEnv: fairnessProfile.speechEnv,
+    accommodationFlags: fairnessProfile.accommodationFlags
+  }).catch(() => {})
+}
+
+async function loadAudioProctoringPolicy() {
+  try {
+    const result = await window.electronAPI.getAudioProctoringPolicy?.()
+    const policy = result?.data ?? result
+    if (policy && typeof policy === 'object') {
+      audioPolicy = {
+        ...audioPolicy,
+        ...policy
+      }
+    }
+  } catch {
+    // Continue with renderer fallback defaults.
+  }
+}
+
+function getAudioMetrics(buffer) {
+  if (!buffer || !buffer.length) {
+    return { rms: 0, zcr: 0 }
+  }
+
+  let sumSquares = 0
+  let zeroCrossings = 0
+  let prevSample = (buffer[0] - 128) / 128
+
+  for (let i = 0; i < buffer.length; i += 1) {
+    const sample = (buffer[i] - 128) / 128
+    sumSquares += sample * sample
+    if (i > 0 && ((sample >= 0 && prevSample < 0) || (sample < 0 && prevSample >= 0))) {
+      zeroCrossings += 1
+    }
+    prevSample = sample
+  }
+
+  return {
+    rms: Math.sqrt(sumSquares / buffer.length),
+    zcr: zeroCrossings / Math.max(1, buffer.length - 1)
+  }
+}
+
+function shouldEmitIncident(key, cooldownMs) {
+  const now = Date.now()
+  const last = Number(lastIncidentByKey.get(key) || 0)
+  if ((now - last) < cooldownMs) {
+    return false
+  }
+  lastIncidentByKey.set(key, now)
+  return true
+}
+
+function nextIncidentEscalation(type) {
+  const now = Date.now()
+  const state = incidentEscalationState.get(type) || { count: 0, lastAt: 0 }
+  const stale = (now - Number(state.lastAt || 0)) > 180000
+  const count = stale ? 1 : (Number(state.count || 0) + 1)
+  incidentEscalationState.set(type, { count, lastAt: now })
+
+  if (count <= 1) {
+    return {
+      shouldRecord: false,
+      severity: 'low',
+      confidenceBoost: 0.85,
+      warning: 'Warning issued. Continued violations will be recorded.'
+    }
+  }
+
+  if (count === 2) {
+    return {
+      shouldRecord: true,
+      severity: 'medium',
+      confidenceBoost: 0.95,
+      warning: 'Repeated behavior detected. Incident has been recorded.'
+    }
+  }
+
+  return {
+    shouldRecord: true,
+    severity: 'high',
+    confidenceBoost: 1,
+    warning: 'Escalated violation pattern detected. High-risk incident recorded.'
+  }
+}
+
+function computeProctorRiskScore({ eventType, confidence = 0, evidenceVector = {} }) {
+  let score = 0
+
+  if (!proctorState.cameraAvailable) score += 0.2
+  if (!proctorState.micAvailable) score += 0.1
+  if (proctorState.speaking) score += 0.12
+
+  score += clamp(Number(evidenceVector.visibilityHiddenMs || 0) / 8000) * 0.35
+  score += clamp(Number(evidenceVector.audioRms || 0) / 0.08) * 0.2
+
+  if (eventType === 'tab-switch') score += 0.35
+  if (eventType === 'voice-activity') score += 0.22
+  if (eventType === 'camera-unavailable') score += 0.3
+  if (eventType === 'microphone-unavailable') score += 0.2
+
+  score += clamp(confidence) * 0.25
+  return clamp(score)
+}
+
+function getSeverityFromScore(score) {
+  if (score >= 0.78) return 'high'
+  if (score >= 0.5) return 'medium'
+  return 'low'
+}
+
+function readQueuedIncidents() {
+  try {
+    const raw = localStorage.getItem(INCIDENT_QUEUE_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function writeQueuedIncidents(items) {
+  localStorage.setItem(INCIDENT_QUEUE_STORAGE_KEY, JSON.stringify(Array.isArray(items) ? items : []))
+  updateExamHealthPanel()
+}
+
+async function enqueueIncidentForSync(payload, reason = '') {
+  if (!window.electronAPI.signIncidentPayload) {
+    return false
+  }
+
+  try {
+    const signedResponse = await window.electronAPI.signIncidentPayload(payload)
+    const signed = signedResponse?.data ?? signedResponse
+    if (!signed?.payload || typeof signed.signature !== 'string' || !signed.signature.trim()) {
+      return false
+    }
+
+    const queue = readQueuedIncidents()
+    queue.push({
+      payload: signed.payload,
+      signature: signed.signature,
+      queuedAt: Date.now(),
+      reason: String(reason || '').slice(0, 160)
+    })
+
+    if (queue.length > INCIDENT_QUEUE_MAX_ITEMS) {
+      queue.splice(0, queue.length - INCIDENT_QUEUE_MAX_ITEMS)
+    }
+
+    writeQueuedIncidents(queue)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function flushQueuedIncidents({ force = false } = {}) {
+  if (!window.electronAPI.syncIncidentQueue || incidentQueueFlushInFlight) {
+    return
+  }
+
+  incidentQueueFlushInFlight = true
+  let passesLeft = force ? 6 : 1
+
+  try {
+    while (passesLeft > 0) {
+      passesLeft -= 1
+      const queue = readQueuedIncidents()
+      if (!queue.length) {
+        break
+      }
+
+      const batch = queue.slice(0, INCIDENT_QUEUE_FLUSH_BATCH)
+      const response = await window.electronAPI.syncIncidentQueue({ items: batch })
+      const result = response?.data ?? response ?? {}
+      const acceptedIndices = Array.isArray(result.acceptedIndices) ? result.acceptedIndices : []
+      const droppedIndices = Array.isArray(result.droppedIndices) ? result.droppedIndices : []
+      const removeSet = new Set([...acceptedIndices, ...droppedIndices])
+
+      if (!removeSet.size) {
+        break
+      }
+
+      const remainingBatch = batch.filter((_item, index) => !removeSet.has(index))
+      const nextQueue = [...remainingBatch, ...queue.slice(batch.length)]
+      writeQueuedIncidents(nextQueue)
+
+      if (!force) {
+        break
+      }
+    }
+  } catch {
+    // Keep queued incidents for the next retry.
+  } finally {
+    incidentQueueFlushInFlight = false
+    updateExamHealthPanel()
+  }
+}
+
+function startIncidentQueueSyncLoop() {
+  if (incidentQueueFlushHandle) {
+    clearInterval(incidentQueueFlushHandle)
+  }
+
+  incidentQueueFlushHandle = setInterval(() => {
+    flushQueuedIncidents().catch(() => {})
+  }, 15000)
+}
+
+function emitProctorIncident({
+  type,
+  message,
+  confidence = 0,
+  evidenceVector = {},
+  triggeredRules = [],
+  severity,
+  dedupeScope = 'session'
+}) {
+  const dedupeKey = `${dedupeScope}:${type}:${triggeredRules.slice().sort().join('|') || 'none'}`
+  const cooldownMs = Number(incidentThrottleMs[type] || 25000)
+  if (!shouldEmitIncident(dedupeKey, cooldownMs)) {
+    return
+  }
+
+  const modelRisk = computeProctorRiskScore({ eventType: type, confidence, evidenceVector })
+  const riskScore = clamp(Math.max(modelRisk, confidence))
+  riskSignalState.lastRiskScore = riskScore
+
+  const incidentPayload = {
+    type,
+    message,
+    sessionId: sessionId || null,
+    severity: severity || getSeverityFromScore(riskScore),
+    confidence: riskScore,
+    detectorFamily: audioPolicy.audioModelAvailable ? 'multimodal-audio-model' : 'multimodal-heuristic',
+    triggeredRules,
+    evidenceVector: {
+      ...evidenceVector,
+      riskScore: Number(riskScore.toFixed(4)),
+      cameraAvailable: proctorState.cameraAvailable,
+      micAvailable: proctorState.micAvailable,
+      speaking: proctorState.speaking,
+      visibilityBreaches: riskSignalState.visibilityBreaches,
+      speechBursts: riskSignalState.speechBursts,
+      cameraDrops: riskSignalState.cameraDrops,
+      micDrops: riskSignalState.micDrops
+    },
+    dedupeKey,
+    details: {
+      source: 'exam-monitor',
+      mode: audioPolicy.mode,
+      event: type,
+      message
+    }
+  }
+
+    const usesTieredWarning = ['tab-switch', 'voice-activity', 'periodic-liveness-failed', 'genai-assist-signal'].includes(type)
+    if (usesTieredWarning) {
+      const decision = nextIncidentEscalation(type)
+      showBanner(decision.warning, decision.shouldRecord ? (decision.severity === 'high' ? 'error' : 'warning') : 'info')
+      if (!decision.shouldRecord) {
+        recordFairnessBenchmark({
+          incidentType: `${type}:warning-only`,
+          severity: 'low',
+          confidence: riskScore * 0.6,
+          detectorFamily: incidentPayload.detectorFamily
+        })
+        return
+      }
+      incidentPayload.severity = decision.severity || incidentPayload.severity
+      incidentPayload.confidence = clamp(incidentPayload.confidence * Number(decision.confidenceBoost || 1))
+    }
+
+  window.electronAPI.recordIncident?.(incidentPayload).catch((error) => {
+    enqueueIncidentForSync(incidentPayload, error?.message || 'record-failed').catch(() => {})
+  })
+
+  recordFairnessBenchmark({
+    incidentType: type,
+    severity: incidentPayload.severity,
+    confidence: riskScore,
+    detectorFamily: incidentPayload.detectorFamily
+  })
+}
+
+function recordAudioIncident(message, details = {}) {
+  const threshold = Number(details.threshold || 0)
+  const rms = Number(details.rms || 0)
+  const confidence = threshold > 0 ? clamp(rms / threshold) : (proctorState.speaking ? 0.7 : 0.45)
+
+  emitProctorIncident({
+    type: 'voice-activity',
+    message,
+    confidence,
+    triggeredRules: ['sustained_speech_detected'],
+    evidenceVector: {
+      audioRms: Number.isFinite(rms) ? Number(rms.toFixed(4)) : null,
+      audioZcr: Number.isFinite(Number(details.zcr)) ? Number(Number(details.zcr).toFixed(4)) : null,
+      audioThreshold: threshold > 0 ? Number(threshold.toFixed(4)) : null,
+      sampleIntervalMs: Number(details.sampleIntervalMs || audioPolicy.sampleIntervalMs || 500)
+    }
+  })
 }
 
 /* ===================== PROGRESS ===================== */
@@ -332,6 +894,7 @@ async function saveMcqAnswer(qId, idx) {
   try {
     await window.electronAPI.saveMCQAnswer({ sessionId, questionId: qId, selectedOption: idx })
     setSyncStatus('Saved', 'idle')
+    markSaveSuccess()
   } catch (err) {
     setSyncStatus('Save failed', 'error')
     console.warn('[exam] saveMCQ error:', err.message)
@@ -458,8 +1021,17 @@ function initEditor(initialValue = '') {
       extraKeys:        { Tab: cm => cm.execCommand('indentMore') }
     })
     editor.setValue(initialValue)
-    editor.on('change', () => {
+    codingIntegrityState.lastLength = String(initialValue || '').length
+    codingIntegrityState.lastTimestamp = Date.now()
+    editor.on('change', (_cm, changeObj) => {
       if (suppressChange) return
+      const inserted = Array.isArray(changeObj?.text) ? changeObj.text.join('\n').length : 0
+      if (changeObj?.origin === 'paste') {
+        recordPasteSignal(inserted)
+      } else if (String(changeObj?.origin || '').startsWith('+')) {
+        recordTypingSignal()
+      }
+      analyzeRapidRewrite(editor.getValue())
       isDirty = true
       scheduleAutosave()
     })
@@ -486,10 +1058,18 @@ function initEditor(initialValue = '') {
     }
 
     syncPlainEditorLines()
+    codingIntegrityState.lastLength = String(initialValue || '').length
+    codingIntegrityState.lastTimestamp = Date.now()
     textarea.addEventListener('input', () => {
+      recordTypingSignal()
+      analyzeRapidRewrite(textarea.value)
       syncPlainEditorLines()
       isDirty = true
       scheduleAutosave()
+    })
+    textarea.addEventListener('paste', (event) => {
+      const pasted = event?.clipboardData?.getData('text') || ''
+      recordPasteSignal(String(pasted).length)
     })
     textarea.dataset.editorReady = 'true'
   }
@@ -543,6 +1123,83 @@ function buildSignature(q, lang) {
   return `function ${fn}(${params})`
 }
 
+function trimOldEvents(events, maxAgeMs) {
+  const now = Date.now()
+  while (events.length && (now - events[0]) > maxAgeMs) {
+    events.shift()
+  }
+}
+
+function recordTypingSignal() {
+  const now = Date.now()
+  codingIntegrityState.typingEvents.push(now)
+  trimOldEvents(codingIntegrityState.typingEvents, 15000)
+}
+
+function recordPasteSignal(charCount = 0) {
+  const now = Date.now()
+  codingIntegrityState.pasteEvents.push(now)
+  trimOldEvents(codingIntegrityState.pasteEvents, 45000)
+
+  const pasteBurstCount = codingIntegrityState.pasteEvents.length
+  const largePaste = Number(charCount || 0) >= 280
+  if (!largePaste && pasteBurstCount < 3) {
+    return
+  }
+
+  emitProctorIncident({
+    type: 'genai-assist-signal',
+    message: largePaste
+      ? 'Large paste activity detected in coding editor.'
+      : 'Burst paste activity detected in coding editor.',
+    confidence: largePaste ? 0.72 : 0.62,
+    triggeredRules: [largePaste ? 'large_paste_insert' : 'paste_burst_pattern'],
+    evidenceVector: {
+      pastedChars: Number(charCount || 0),
+      pasteBurstCount,
+      typingWindowEvents: codingIntegrityState.typingEvents.length
+    }
+  })
+}
+
+function analyzeRapidRewrite(nextCode = '') {
+  const now = Date.now()
+  const nextLength = String(nextCode || '').length
+  const prevLength = Number(codingIntegrityState.lastLength || 0)
+  const elapsedMs = codingIntegrityState.lastTimestamp ? (now - codingIntegrityState.lastTimestamp) : 0
+  const delta = nextLength - prevLength
+
+  codingIntegrityState.lastLength = nextLength
+  codingIntegrityState.lastTimestamp = now
+  codingIntegrityState.recentSnapshots.push({ ts: now, length: nextLength })
+  while (codingIntegrityState.recentSnapshots.length > 10) {
+    codingIntegrityState.recentSnapshots.shift()
+  }
+
+  if (elapsedMs <= 0 || elapsedMs > 7000) {
+    return
+  }
+
+  const typingRate = codingIntegrityState.typingEvents.length
+  const likelyRapidRewrite = delta >= 260 && typingRate <= 6
+  if (!likelyRapidRewrite) {
+    return
+  }
+
+  emitProctorIncident({
+    type: 'genai-assist-signal',
+    message: 'Abrupt code rewrite pattern detected.',
+    confidence: 0.66,
+    triggeredRules: ['rapid_rewrite_pattern'],
+    evidenceVector: {
+      charDelta: delta,
+      elapsedMs,
+      typingWindowEvents: typingRate,
+      pasteBurstCount: codingIntegrityState.pasteEvents.length
+    }
+  })
+}
+
 /* ===================== AUTOSAVE ===================== */
 function scheduleAutosave() {
   clearTimeout(autosaveHandle)
@@ -570,6 +1227,7 @@ async function saveCodingDraft(status = 'Draft') {
     })
     setSyncStatus('Saved', 'idle')
     isDirty = false
+    markSaveSuccess()
   } catch (err) {
     setSyncStatus('Save failed', 'error')
     console.warn('[exam] saveCode error:', err.message)
@@ -695,6 +1353,7 @@ function openSubmitModal() {
   ).length
   document.getElementById('submitAnswered').textContent = `${answered} / ${questions.length}`
   document.getElementById('submitFlagged').textContent  = flagged.length
+  updateExamHealthPanel()
   submitModal.classList.remove('hidden')
 }
 
@@ -702,10 +1361,13 @@ async function submitExam() {
   if (isSubmitting) return
   isSubmitting = true
   clearInterval(timerHandle)
+  stopProctorPreview()
+  stopAudioMonitoring()
 
   try {
     submitModal.classList.add('hidden')
     setSyncStatus('Submitting...', 'syncing')
+    await flushQueuedIncidents({ force: true })
 
     // Save current coding question if open
     const curr = getCurrentQ()
@@ -719,6 +1381,7 @@ async function submitExam() {
       timeRemaining,
       flaggedQuestionIds: flagged
     })
+    markSaveSuccess()
     await window.electronAPI.endExamSession(sessionId, 'submitted')
 
     await navigateTo('submission')
@@ -738,8 +1401,21 @@ async function autoSubmit() {
 /* ===================== MONITORING ===================== */
 function setupMonitoring() {
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && !isSubmitting) {
-      reportViolation('tab-switch', 'Tab switch or window minimization detected during exam.')
+    if (isSubmitting) {
+      return
+    }
+
+    if (document.hidden) {
+      visibilityHiddenAt = Date.now()
+      return
+    }
+
+    if (visibilityHiddenAt) {
+      const hiddenMs = Date.now() - visibilityHiddenAt
+      visibilityHiddenAt = null
+      if (hiddenMs >= 1200) {
+        reportViolation('tab-switch', 'Tab switch or window minimization detected during exam.', { visibilityHiddenMs: hiddenMs })
+      }
     }
   })
 }
@@ -760,16 +1436,131 @@ async function startProctorPreview() {
 
     proctorVideo.srcObject = proctorStream
     proctorPip.classList.remove('hidden')
-    if (proctorPipLabel) proctorPipLabel.textContent = 'Live Proctor'
+    proctorState.cameraAvailable = true
+    lastLivenessStatus = 'Scheduled'
+    refreshFairnessProfile()
+    updateProctorStatusLabel()
+    scheduleLivenessRecheck()
   } catch (err) {
-    if (proctorPipLabel) {
-      proctorPipLabel.textContent = 'Camera Blocked'
-    }
+    proctorState.cameraAvailable = false
+    riskSignalState.cameraDrops += 1
+    updateProctorStatusLabel()
+    emitProctorIncident({
+      type: 'camera-unavailable',
+      message: 'Camera stream unavailable during exam monitoring.',
+      confidence: 0.62,
+      severity: 'medium',
+      dedupeScope: 'device',
+      triggeredRules: ['camera_stream_unavailable'],
+      evidenceVector: {
+        error: String(err?.message || err || 'unknown_error')
+      }
+    })
     console.warn('[exam] proctor preview unavailable:', err?.message || err)
   }
 }
 
+async function startAudioMonitoring() {
+  if (audioMonitorHandle || proctorAudioStream) return
+
+  try {
+    proctorAudioStream = await navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    })
+
+    audioContext = new window.AudioContext()
+    const source = audioContext.createMediaStreamSource(proctorAudioStream)
+    audioAnalyser = audioContext.createAnalyser()
+    audioAnalyser.fftSize = 1024
+    audioAnalyser.smoothingTimeConstant = 0.72
+    source.connect(audioAnalyser)
+
+    audioDataBuffer = new Uint8Array(audioAnalyser.fftSize)
+    audioNoiseFloor = null
+    audioSpeechStreak = 0
+    proctorState.micAvailable = true
+    refreshFairnessProfile()
+    updateProctorStatusLabel()
+
+    const sampleIntervalMs = Number(audioPolicy.sampleIntervalMs || 500)
+    audioMonitorHandle = setInterval(() => {
+      if (!audioAnalyser || !audioDataBuffer) return
+
+      audioAnalyser.getByteTimeDomainData(audioDataBuffer)
+      const { rms, zcr } = getAudioMetrics(audioDataBuffer)
+
+      if (!Number.isFinite(audioNoiseFloor) || audioNoiseFloor === null) {
+        audioNoiseFloor = rms
+      }
+
+      if (rms < audioNoiseFloor * 1.4) {
+        audioNoiseFloor = (audioNoiseFloor * 0.92) + (rms * 0.08)
+      }
+
+      const minNoiseFloor = audioPolicy.audioModelAvailable ? 0.01 : 0.012
+      audioNoiseFloor = Math.max(minNoiseFloor, audioNoiseFloor)
+
+      const thresholdMultiplier = audioPolicy.audioModelAvailable ? 1.8 : 2.05
+      const absoluteThreshold = audioPolicy.audioModelAvailable ? 0.018 : 0.022
+      const dynamicThreshold = Math.max(absoluteThreshold, audioNoiseFloor * thresholdMultiplier)
+      const speechLike = rms >= dynamicThreshold && zcr >= 0.02 && zcr <= 0.25
+
+      audioSpeechStreak = speechLike ? (audioSpeechStreak + 1) : Math.max(0, audioSpeechStreak - 1)
+      proctorState.speaking = speechLike && audioSpeechStreak >= 2
+      fairnessProfile.speechEnv = proctorState.speaking ? 'speech-detected' : 'quiet'
+      updateProctorStatusLabel()
+
+      const alertWindowFrames = Math.max(1, Math.ceil(Number(audioPolicy.speechAlertWindowMs || 6000) / Math.max(100, sampleIntervalMs)))
+      const minFrames = Math.max(Number(audioPolicy.minConsecutiveSpeechFrames || 12), alertWindowFrames)
+      if (audioSpeechStreak < minFrames) {
+        return
+      }
+
+      const now = Date.now()
+      const cooldownMs = Number(audioPolicy.speechCooldownMs || 45000)
+      if ((now - lastAudioIncidentAt) < cooldownMs) {
+        return
+      }
+
+      lastAudioIncidentAt = now
+      riskSignalState.speechBursts += 1
+      showBanner('Sustained voice activity detected. This incident has been recorded.', 'warning')
+      recordAudioIncident('Sustained voice activity detected during exam session.', {
+        mode: audioPolicy.mode,
+        audioModelAvailable: !!audioPolicy.audioModelAvailable,
+        rms: Number(rms.toFixed(4)),
+        zcr: Number(zcr.toFixed(4)),
+        threshold: Number(dynamicThreshold.toFixed(4)),
+        sampleIntervalMs
+      })
+    }, sampleIntervalMs)
+  } catch (err) {
+    proctorState.micAvailable = false
+    proctorState.speaking = false
+    riskSignalState.micDrops += 1
+    updateProctorStatusLabel()
+    showBanner('Microphone unavailable. Audio proctoring incidents will be flagged.', 'warning')
+    emitProctorIncident({
+      type: 'microphone-unavailable',
+      message: 'Microphone unavailable for audio proctoring during exam.',
+      confidence: 0.58,
+      severity: 'medium',
+      dedupeScope: 'device',
+      triggeredRules: ['microphone_stream_unavailable'],
+      evidenceVector: {
+        error: String(err?.message || err || 'permission denied')
+      }
+    })
+  }
+}
+
 function stopProctorPreview() {
+  stopLivenessRecheck()
   if (proctorStream) {
     proctorStream.getTracks().forEach(track => track.stop())
     proctorStream = null
@@ -777,14 +1568,146 @@ function stopProctorPreview() {
   if (proctorVideo) {
     proctorVideo.srcObject = null
   }
+  proctorState.cameraAvailable = false
+  lastLivenessStatus = 'Stopped'
+  updateProctorStatusLabel()
 }
 
-function reportViolation(type, msg) {
+function stopAudioMonitoring() {
+  if (audioMonitorHandle) {
+    clearInterval(audioMonitorHandle)
+    audioMonitorHandle = null
+  }
+
+  if (proctorAudioStream) {
+    proctorAudioStream.getTracks().forEach(track => track.stop())
+    proctorAudioStream = null
+  }
+
+  if (audioContext && audioContext.state !== 'closed') {
+    audioContext.close().catch(() => {})
+  }
+  audioContext = null
+  audioAnalyser = null
+  audioDataBuffer = null
+  audioNoiseFloor = null
+  audioSpeechStreak = 0
+  proctorState.micAvailable = false
+  proctorState.speaking = false
+  updateProctorStatusLabel()
+}
+
+function reportViolation(type, msg, details = {}) {
   violationMsg.textContent = msg
   violationOverlay.classList.remove('hidden')
-  window.electronAPI.recordIncident?.({
-    type, message: msg, sessionId: sessionId || null, severity: 'high'
-  }).catch(() => {})
+
+  if (type === 'tab-switch') {
+    riskSignalState.visibilityBreaches += 1
+  }
+
+  const hiddenMs = Number(details.visibilityHiddenMs || 0)
+  emitProctorIncident({
+    type,
+    message: msg,
+    confidence: hiddenMs > 0 ? clamp(hiddenMs / 5000) : 0.74,
+    severity: hiddenMs >= 5000 ? 'high' : undefined,
+    triggeredRules: ['visibility_loss'],
+    evidenceVector: {
+      visibilityHiddenMs: hiddenMs || null
+    }
+  })
+}
+
+function captureProctorFrameData() {
+  if (!proctorVideo || !proctorVideo.videoWidth || !proctorVideo.videoHeight) {
+    return null
+  }
+
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = proctorVideo.videoWidth
+    canvas.height = proctorVideo.videoHeight
+    const ctx = canvas.getContext('2d', { willReadFrequently: false })
+    if (!ctx) return null
+    ctx.drawImage(proctorVideo, 0, 0, canvas.width, canvas.height)
+    return canvas.toDataURL('image/jpeg', 0.8)
+  } catch {
+    return null
+  }
+}
+
+async function runLivenessRecheck() {
+  if (livenessBusy || isSubmitting) return
+  if (!window.electronAPI.verifyFrame || !proctorState.cameraAvailable) {
+    lastLivenessStatus = 'Skipped'
+    updateExamHealthPanel()
+    return
+  }
+
+  const frameData = captureProctorFrameData()
+  if (!frameData) {
+    lastLivenessStatus = 'Frame unavailable'
+    updateExamHealthPanel()
+    return
+  }
+
+  livenessBusy = true
+  try {
+    const result = await window.electronAPI.verifyFrame({
+      imageData: frameData,
+      requireMl: true,
+      requireLiveness: true,
+      examId: examId || null,
+      sessionId: sessionId || null,
+      stage: 'exam-random-recheck'
+    })
+
+    const data = result?.data || result || {}
+    const faceCount = Number(data?.face_count || 0)
+    const isLive = Boolean(data?.liveness?.is_live)
+    if (faceCount === 1 && isLive) {
+      lastLivenessStatus = 'Passed'
+    } else {
+      lastLivenessStatus = 'Recheck failed'
+      emitProctorIncident({
+        type: 'periodic-liveness-failed',
+        message: 'Random liveness re-check could not validate active candidate presence.',
+        confidence: 0.78,
+        triggeredRules: ['periodic_liveness_recheck_failed'],
+        evidenceVector: {
+          faceCount,
+          livenessScore: Number(data?.liveness?.score || 0),
+          stage: 'exam-random-recheck'
+        }
+      })
+    }
+  } catch {
+    lastLivenessStatus = 'Unavailable'
+  } finally {
+    livenessBusy = false
+    updateExamHealthPanel()
+  }
+}
+
+function scheduleLivenessRecheck() {
+  if (livenessRecheckTimeoutHandle) {
+    clearTimeout(livenessRecheckTimeoutHandle)
+  }
+
+  const minMs = 120000
+  const maxMs = 200000
+  const nextMs = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs
+  livenessRecheckTimeoutHandle = setTimeout(async () => {
+    await runLivenessRecheck()
+    scheduleLivenessRecheck()
+  }, nextMs)
+}
+
+function stopLivenessRecheck() {
+  if (livenessRecheckTimeoutHandle) {
+    clearTimeout(livenessRecheckTimeoutHandle)
+    livenessRecheckTimeoutHandle = null
+  }
 }
 
 /* ===================== PROGRESS SYNC ===================== */
@@ -796,11 +1719,14 @@ async function syncProgress() {
       remainingSeconds:   timeRemaining,
       flaggedQuestionIds: flagged
     })
+    markSaveSuccess()
   } catch { /* silent */ }
 }
 
 /* ===================== INIT ===================== */
 async function init() {
+  loadAccommodationSelection()
+  applyAccommodationModes()
   setSyncStatus('Loading...', 'syncing')
 
   try {
@@ -873,13 +1799,36 @@ async function init() {
     }
 
     setSyncStatus('Ready', 'idle')
+    updateExamHealthPanel()
     renderQuestion()
     renderPalette()
     updateProgress()
     updateSectionTabs()
     startTimer()
     setupMonitoring()
+    await loadAudioProctoringPolicy()
     startProctorPreview()
+    startAudioMonitoring()
+    recordFairnessBenchmark({
+      incidentType: 'baseline-snapshot',
+      severity: 'low',
+      confidence: 0,
+      detectorFamily: audioPolicy.audioModelAvailable ? 'multimodal-audio-model' : 'multimodal-heuristic'
+    })
+    await flushQueuedIncidents({ force: true })
+    startIncidentQueueSyncLoop()
+
+    if (incidentEscalationResetHandle) {
+      clearInterval(incidentEscalationResetHandle)
+    }
+    incidentEscalationResetHandle = setInterval(() => {
+      const staleBefore = Date.now() - 180000
+      for (const [key, value] of incidentEscalationState.entries()) {
+        if (Number(value?.lastAt || 0) < staleBefore) {
+          incidentEscalationState.delete(key)
+        }
+      }
+    }, 30000)
 
     // Periodic server sync every 20 seconds
     setInterval(syncProgress, 20000)
@@ -914,9 +1863,19 @@ flagBtn.addEventListener('click',       () => toggleFlag())
 submitExamBtn.addEventListener('click', () => openSubmitModal())
 sectionTabMcq?.addEventListener('click', () => activateSection('mcq'))
 sectionTabCoding?.addEventListener('click', () => activateSection('coding'))
+healthToggleBtn?.addEventListener('click', () => {
+  examHealthPanel?.classList.toggle('hidden')
+  updateExamHealthPanel()
+})
 
 document.getElementById('cancelSubmit').addEventListener('click',  () => submitModal.classList.add('hidden'))
 document.getElementById('confirmSubmit').addEventListener('click', () => submitExam())
+forceSyncNowBtn?.addEventListener('click', async () => {
+  setSyncStatus('Force syncing...', 'syncing')
+  await flushQueuedIncidents({ force: true })
+  setSyncStatus('Sync refreshed', 'idle')
+  updateExamHealthPanel()
+})
 
 document.getElementById('instructionsTopBtn').addEventListener('click', () => instructModal.classList.remove('hidden'))
 document.getElementById('closeInstructions').addEventListener('click',  () => instructModal.classList.add('hidden'))
@@ -951,6 +1910,16 @@ document.getElementById('codeLanguage')?.addEventListener('change', e => {
   scheduleAutosave()
 })
 
+window.addEventListener('online', () => {
+  showBanner('Network restored. Sync resumed.', 'success')
+  updateExamHealthPanel()
+})
+
+window.addEventListener('offline', () => {
+  showBanner('Network offline. Progress will sync when connection returns.', 'warning')
+  updateExamHealthPanel()
+})
+
 // Keyboard shortcuts
 document.addEventListener('keydown', e => {
   // Skip if focus is in editor or text input
@@ -966,6 +1935,15 @@ window.addEventListener('beforeunload', () => {
   if (isDirty) saveCodingDraft()
   syncProgress()
   stopProctorPreview()
+  stopAudioMonitoring()
+  if (incidentQueueFlushHandle) {
+    clearInterval(incidentQueueFlushHandle)
+    incidentQueueFlushHandle = null
+  }
+  if (incidentEscalationResetHandle) {
+    clearInterval(incidentEscalationResetHandle)
+    incidentEscalationResetHandle = null
+  }
   localStorage.setItem('examProgress', JSON.stringify({ answers, flagged, timeRemaining }))
 })
 

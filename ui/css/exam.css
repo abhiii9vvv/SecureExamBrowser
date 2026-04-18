@@ -718,6 +718,104 @@
 .live-banner.error   { background: var(--danger-muted);  color: var(--danger); }
 .live-banner.success { background: var(--success-muted); color: var(--success); }
 
+/* ============================================================ HEALTH CENTER */
+.exam-health-panel {
+  position: absolute;
+  top: 58px;
+  right: var(--sp-5);
+  width: min(300px, calc(100vw - 24px));
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-md);
+  z-index: 120;
+  padding: var(--sp-4);
+}
+
+.exam-health-title {
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-3);
+}
+
+.exam-health-grid {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.exam-health-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.exam-health-row strong {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+/* ============================================================ SUBMIT CONFIDENCE */
+.submit-confidence {
+  margin-top: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-base);
+  padding: var(--sp-3);
+}
+
+.submit-confidence-title {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--sp-2);
+}
+
+.submit-confidence-grid {
+  display: grid;
+  gap: var(--sp-1);
+}
+
+.submit-confidence-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.submit-confidence-row strong {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+/* ============================================================ ACCOMMODATIONS */
+body.exam-accommodation-reduced-motion *,
+body.exam-accommodation-reduced-motion *::before,
+body.exam-accommodation-reduced-motion *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+body.exam-accommodation-high-contrast {
+  --bg-base: #000000;
+  --bg-surface: #080808;
+  --bg-card: #101010;
+  --bg-overlay: #151515;
+  --text-primary: #ffffff;
+  --text-secondary: #f4f4f4;
+  --text-muted: #cccccc;
+  --border: #ffffff;
+  --accent: #ffd400;
+}
+
 /* ============================================================ INSTRUCTIONS MODAL */
 .instructions-modal { max-width: 600px; }
 
@@ -780,6 +878,12 @@
   .exam-topbar-brand-name,
   .exam-sync-status {
     display: none;
+  }
+
+  .exam-health-panel {
+    right: var(--sp-3);
+    top: 52px;
+    width: min(280px, calc(100vw - 12px));
   }
 
   .exam-topbar {

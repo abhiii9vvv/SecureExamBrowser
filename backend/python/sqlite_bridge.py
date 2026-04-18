@@ -36,9 +36,96 @@ def run_migrations(conn):
     add_column_if_missing(conn, 'incidents', 'workflow_status', "TEXT NOT NULL DEFAULT 'new'")
     add_column_if_missing(conn, 'incidents', 'workflow_updated_at', 'TEXT')
     add_column_if_missing(conn, 'incidents', 'workflow_note', 'TEXT')
+    add_column_if_missing(conn, 'incidents', 'confidence_score', 'REAL')
+    add_column_if_missing(conn, 'incidents', 'detector_family', 'TEXT')
+    add_column_if_missing(conn, 'incidents', 'triggered_rules_json', "TEXT NOT NULL DEFAULT '[]'")
+    add_column_if_missing(conn, 'incidents', 'evidence_vector_json', "TEXT NOT NULL DEFAULT '{}'")
+    add_column_if_missing(conn, 'incidents', 'dedupe_key', 'TEXT')
+    add_column_if_missing(conn, 'incidents', 'retention_days', 'INTEGER')
+    add_column_if_missing(conn, 'incidents', 'evidence_expires_at', 'TEXT')
+    add_column_if_missing(conn, 'incidents', 'policy_version', 'TEXT')
+    add_column_if_missing(conn, 'incidents', 'assignee', 'TEXT')
+    add_column_if_missing(conn, 'incidents', 'sla_due_at', 'TEXT')
+    conn.execute(
+        '''
+        CREATE TABLE IF NOT EXISTS privacy_consents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            policy_version TEXT NOT NULL,
+            policy_hash TEXT,
+            accepted INTEGER NOT NULL DEFAULT 1,
+            accepted_at TEXT NOT NULL,
+            policy_snapshot_json TEXT NOT NULL DEFAULT '{}',
+            machine_info_json TEXT NOT NULL DEFAULT '{}',
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            UNIQUE(user_id, policy_version)
+        )
+        '''
+    )
+    conn.execute(
+        '''
+        CREATE TABLE IF NOT EXISTS fairness_benchmarks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            session_id INTEGER,
+            incident_type TEXT NOT NULL,
+            severity TEXT NOT NULL,
+            detector_family TEXT,
+            confidence_score REAL,
+            camera_tier TEXT NOT NULL DEFAULT 'unknown',
+            lighting_tier TEXT NOT NULL DEFAULT 'unknown',
+            speech_env TEXT NOT NULL DEFAULT 'unknown',
+            accommodation_flags_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE SET NULL
+        )
+        '''
+    )
+    conn.execute(
+        '''
+        CREATE TABLE IF NOT EXISTS appeals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            incident_id INTEGER NOT NULL,
+            requested_by_user_id INTEGER,
+            reason TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'open',
+            resolution_note TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (incident_id) REFERENCES incidents(id) ON DELETE CASCADE,
+            FOREIGN KEY (requested_by_user_id) REFERENCES users(id)
+        )
+        '''
+    )
+    conn.execute(
+        '''
+        CREATE TABLE IF NOT EXISTS proctoring_policies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            version TEXT NOT NULL UNIQUE,
+            title TEXT NOT NULL,
+            effective_at TEXT,
+            retention_days_by_severity_json TEXT NOT NULL DEFAULT '{}',
+            biometric_retention_days INTEGER NOT NULL DEFAULT 30,
+            summary_json TEXT NOT NULL DEFAULT '[]',
+            is_active INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL
+        )
+        '''
+    )
     conn.execute('CREATE INDEX IF NOT EXISTS idx_submissions_submission_hash ON submissions(submission_hash)')
     conn.execute('CREATE INDEX IF NOT EXISTS idx_biometric_records_session_id ON biometric_records(session_id)')
     conn.execute('CREATE INDEX IF NOT EXISTS idx_incidents_workflow_status ON incidents(workflow_status)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_incidents_assignee ON incidents(assignee)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_incidents_sla_due_at ON incidents(sla_due_at)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_incidents_dedupe_key ON incidents(dedupe_key)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_incidents_evidence_expires_at ON incidents(evidence_expires_at)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_privacy_consents_user_policy ON privacy_consents(user_id, policy_version)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_fairness_benchmarks_created_at ON fairness_benchmarks(created_at DESC)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_fairness_benchmarks_slices ON fairness_benchmarks(camera_tier, lighting_tier, speech_env)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_appeals_incident_id ON appeals(incident_id)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_appeals_status ON appeals(status)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_proctoring_policies_is_active ON proctoring_policies(is_active)')
 
 
 def create_schema(conn):
@@ -179,9 +266,74 @@ def create_schema(conn):
             severity TEXT NOT NULL,
             message TEXT NOT NULL,
             details_json TEXT NOT NULL DEFAULT '{}',
+            confidence_score REAL,
+            detector_family TEXT,
+            triggered_rules_json TEXT NOT NULL DEFAULT '[]',
+            evidence_vector_json TEXT NOT NULL DEFAULT '{}',
+            dedupe_key TEXT,
+            retention_days INTEGER,
+            evidence_expires_at TEXT,
+            policy_version TEXT,
             workflow_status TEXT NOT NULL DEFAULT 'new',
             workflow_updated_at TEXT,
             workflow_note TEXT,
+            assignee TEXT,
+            sla_due_at TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS appeals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            incident_id INTEGER NOT NULL,
+            requested_by_user_id INTEGER,
+            reason TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'open',
+            resolution_note TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (incident_id) REFERENCES incidents(id) ON DELETE CASCADE,
+            FOREIGN KEY (requested_by_user_id) REFERENCES users(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS proctoring_policies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            version TEXT NOT NULL UNIQUE,
+            title TEXT NOT NULL,
+            effective_at TEXT,
+            retention_days_by_severity_json TEXT NOT NULL DEFAULT '{}',
+            biometric_retention_days INTEGER NOT NULL DEFAULT 30,
+            summary_json TEXT NOT NULL DEFAULT '[]',
+            is_active INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS privacy_consents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            policy_version TEXT NOT NULL,
+            policy_hash TEXT,
+            accepted INTEGER NOT NULL DEFAULT 1,
+            accepted_at TEXT NOT NULL,
+            policy_snapshot_json TEXT NOT NULL DEFAULT '{}',
+            machine_info_json TEXT NOT NULL DEFAULT '{}',
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            UNIQUE(user_id, policy_version)
+        );
+
+        CREATE TABLE IF NOT EXISTS fairness_benchmarks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            session_id INTEGER,
+            incident_type TEXT NOT NULL,
+            severity TEXT NOT NULL,
+            detector_family TEXT,
+            confidence_score REAL,
+            camera_tier TEXT NOT NULL DEFAULT 'unknown',
+            lighting_tier TEXT NOT NULL DEFAULT 'unknown',
+            speech_env TEXT NOT NULL DEFAULT 'unknown',
+            accommodation_flags_json TEXT NOT NULL DEFAULT '[]',
             created_at TEXT NOT NULL,
             FOREIGN KEY (user_id) REFERENCES users(id),
             FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE SET NULL
@@ -227,6 +379,11 @@ def create_schema(conn):
         CREATE INDEX IF NOT EXISTS idx_code_runs_session_id ON code_runs(session_id);
         CREATE INDEX IF NOT EXISTS idx_code_runs_question_id ON code_runs(question_id);
         CREATE INDEX IF NOT EXISTS idx_biometric_records_user_id ON biometric_records(user_id);
+        CREATE INDEX IF NOT EXISTS idx_fairness_benchmarks_created_at ON fairness_benchmarks(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_fairness_benchmarks_slices ON fairness_benchmarks(camera_tier, lighting_tier, speech_env);
+        CREATE INDEX IF NOT EXISTS idx_appeals_incident_id ON appeals(incident_id);
+        CREATE INDEX IF NOT EXISTS idx_appeals_status ON appeals(status);
+        CREATE INDEX IF NOT EXISTS idx_proctoring_policies_is_active ON proctoring_policies(is_active);
         '''
     )
     run_migrations(conn)
@@ -246,8 +403,20 @@ def seed_database(conn, seed_path: str):
     for user in seed.get('users', []):
         cursor = conn.execute(
             '''
-            INSERT OR IGNORE INTO users (id, username, password_hash, email, full_name, student_id, role, department, course, branch, university, location)
+            INSERT INTO users (id, username, password_hash, email, full_name, student_id, role, department, course, branch, university, location)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                username = excluded.username,
+                password_hash = excluded.password_hash,
+                email = excluded.email,
+                full_name = excluded.full_name,
+                student_id = excluded.student_id,
+                role = excluded.role,
+                department = excluded.department,
+                course = excluded.course,
+                branch = excluded.branch,
+                university = excluded.university,
+                location = excluded.location
             ''',
             (
                 user['id'], user['username'], user['passwordHash'], user.get('email'), user['fullName'],
@@ -1130,6 +1299,19 @@ def action_get_model_assets(conn, payload, _seed_path):
 
 def action_record_incident(conn, payload, _seed_path):
     now = utc_now()
+    retention_days = payload.get('retentionDays')
+    evidence_expires_at = None
+    if retention_days is not None:
+      try:
+          days_int = int(retention_days)
+          if days_int > 0:
+              retention_days = days_int
+              evidence_expires_at = (datetime.now(timezone.utc) + timedelta(days=days_int)).isoformat()
+          else:
+              retention_days = None
+      except Exception:
+          retention_days = None
+
     conn.execute(
         '''
         INSERT INTO incidents (
@@ -1139,15 +1321,34 @@ def action_record_incident(conn, payload, _seed_path):
             severity,
             message,
             details_json,
+            confidence_score,
+            detector_family,
+            triggered_rules_json,
+            evidence_vector_json,
+            dedupe_key,
+            retention_days,
+            evidence_expires_at,
+            policy_version,
             workflow_status,
             workflow_updated_at,
             created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, 'new', ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)
         ''',
         (
             payload.get('userId'), payload.get('sessionId'), payload['type'], payload.get('severity', 'medium'),
-            payload['message'], json.dumps(payload.get('details', {})), now, now
+            payload['message'],
+            json.dumps(payload.get('details', {})),
+            payload.get('confidence'),
+            payload.get('detectorFamily'),
+            json.dumps(payload.get('triggeredRules', [])),
+            json.dumps(payload.get('evidenceVector', {})),
+            payload.get('dedupeKey'),
+            retention_days,
+            evidence_expires_at,
+            payload.get('policyVersion'),
+            now,
+            now
         )
     )
     conn.commit()
@@ -1170,6 +1371,8 @@ def action_get_recent_incidents(conn, payload, _seed_path):
     return [
         {
             'id': row['id'],
+            'userId': row['user_id'],
+            'sessionId': row['session_id'],
             'type': row['type'],
             'severity': row['severity'],
             'message': row['message'],
@@ -1180,10 +1383,301 @@ def action_get_recent_incidents(conn, payload, _seed_path):
             'workflowStatus': row['workflow_status'] or 'new',
             'workflowUpdatedAt': row['workflow_updated_at'],
             'workflowNote': row['workflow_note'],
+            'assignee': row['assignee'],
+            'slaDueAt': row['sla_due_at'],
+            'confidenceScore': row['confidence_score'],
+            'detectorFamily': row['detector_family'],
+            'triggeredRules': parse_json(row['triggered_rules_json'], []),
+            'evidenceVector': parse_json(row['evidence_vector_json'], {}),
+            'dedupeKey': row['dedupe_key'],
+            'retentionDays': row['retention_days'],
+            'evidenceExpiresAt': row['evidence_expires_at'],
+            'policyVersion': row['policy_version'],
             'details': parse_json(row['details_json'], {})
         }
         for row in rows
     ]
+
+
+def action_save_privacy_consent(conn, payload, _seed_path):
+    accepted_at = utc_now()
+    conn.execute(
+        '''
+        INSERT INTO privacy_consents (
+            user_id,
+            policy_version,
+            policy_hash,
+            accepted,
+            accepted_at,
+            policy_snapshot_json,
+            machine_info_json
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, policy_version) DO UPDATE SET
+            policy_hash = excluded.policy_hash,
+            accepted = excluded.accepted,
+            accepted_at = excluded.accepted_at,
+            policy_snapshot_json = excluded.policy_snapshot_json,
+            machine_info_json = excluded.machine_info_json
+        ''',
+        (
+            payload['userId'],
+            payload['policyVersion'],
+            payload.get('policyHash'),
+            1 if payload.get('accepted', True) else 0,
+            accepted_at,
+            json.dumps(payload.get('policySnapshot', {})),
+            json.dumps(payload.get('machineInfo', {}))
+        )
+    )
+    conn.commit()
+    return {
+        'saved': True,
+        'userId': payload['userId'],
+        'policyVersion': payload['policyVersion'],
+        'acceptedAt': accepted_at,
+        'accepted': bool(payload.get('accepted', True))
+    }
+
+
+def action_get_privacy_consent_status(conn, payload, _seed_path):
+    user_id = int(payload.get('userId') or 0)
+    if user_id < 1:
+        raise ValueError('Invalid user id')
+
+    policy_version = str(payload.get('policyVersion') or '').strip()
+    row = None
+    if policy_version:
+        row = conn.execute(
+            'SELECT * FROM privacy_consents WHERE user_id = ? AND policy_version = ? LIMIT 1',
+            (user_id, policy_version)
+        ).fetchone()
+    else:
+        row = conn.execute(
+            'SELECT * FROM privacy_consents WHERE user_id = ? ORDER BY accepted_at DESC LIMIT 1',
+            (user_id,)
+        ).fetchone()
+
+    if not row:
+        return {
+            'exists': False,
+            'accepted': False,
+            'policyVersion': policy_version or None,
+            'acceptedAt': None,
+            'policyHash': None
+        }
+
+    return {
+        'exists': True,
+        'accepted': bool(row['accepted']),
+        'policyVersion': row['policy_version'],
+        'acceptedAt': row['accepted_at'],
+        'policyHash': row['policy_hash'],
+        'policySnapshot': parse_json(row['policy_snapshot_json'], {})
+    }
+
+
+def action_prune_expired_incident_evidence(conn, payload, _seed_path):
+    now = utc_now()
+    result = conn.execute(
+        '''
+        UPDATE incidents
+        SET details_json = '{}',
+            evidence_vector_json = '{}',
+            triggered_rules_json = '[]'
+        WHERE evidence_expires_at IS NOT NULL
+          AND evidence_expires_at <= ?
+          AND (details_json != '{}' OR evidence_vector_json != '{}' OR triggered_rules_json != '[]')
+        ''',
+        (now,)
+    )
+    conn.commit()
+    return {
+        'redactedCount': int(result.rowcount or 0),
+        'executedAt': now
+    }
+
+
+def action_record_fairness_benchmark(conn, payload, _seed_path):
+    now = utc_now()
+    conn.execute(
+        '''
+        INSERT INTO fairness_benchmarks (
+            user_id,
+            session_id,
+            incident_type,
+            severity,
+            detector_family,
+            confidence_score,
+            camera_tier,
+            lighting_tier,
+            speech_env,
+            accommodation_flags_json,
+            created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''',
+        (
+            payload.get('userId'),
+            payload.get('sessionId'),
+            payload.get('incidentType', 'unknown'),
+            payload.get('severity', 'low'),
+            payload.get('detectorFamily'),
+            payload.get('confidence'),
+            payload.get('cameraTier', 'unknown'),
+            payload.get('lightingTier', 'unknown'),
+            payload.get('speechEnv', 'unknown'),
+            json.dumps(payload.get('accommodationFlags', [])),
+            now
+        )
+    )
+    conn.commit()
+    return {'saved': True, 'createdAt': now}
+
+
+def action_get_fairness_benchmark_summary(conn, payload, _seed_path):
+    limit_days = int(payload.get('limitDays', 30) or 30)
+    limit_days = max(1, min(limit_days, 365))
+    threshold = (datetime.now(timezone.utc) - timedelta(days=limit_days)).isoformat()
+
+    summary_rows = conn.execute(
+        '''
+        SELECT
+            camera_tier,
+            lighting_tier,
+            speech_env,
+            COUNT(*) AS sample_count,
+            SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) AS high_count,
+            SUM(CASE WHEN severity = 'medium' THEN 1 ELSE 0 END) AS medium_count,
+            AVG(COALESCE(confidence_score, 0)) AS avg_confidence
+        FROM fairness_benchmarks
+        WHERE created_at >= ?
+        GROUP BY camera_tier, lighting_tier, speech_env
+        ORDER BY sample_count DESC
+        LIMIT 50
+        ''',
+        (threshold,)
+    ).fetchall()
+
+    totals = conn.execute(
+        '''
+        SELECT
+            COUNT(*) AS total_samples,
+            SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) AS total_high,
+            SUM(CASE WHEN severity = 'medium' THEN 1 ELSE 0 END) AS total_medium,
+            SUM(CASE WHEN severity = 'low' THEN 1 ELSE 0 END) AS total_low,
+            AVG(COALESCE(confidence_score, 0)) AS overall_avg_confidence
+        FROM fairness_benchmarks
+        WHERE created_at >= ?
+        ''',
+        (threshold,)
+    ).fetchone()
+
+    accommodations = conn.execute(
+        '''
+        SELECT accommodation_flags_json
+        FROM fairness_benchmarks
+        WHERE created_at >= ?
+        ''',
+        (threshold,)
+    ).fetchall()
+
+    daily_rows = conn.execute(
+        '''
+        SELECT
+            substr(created_at, 1, 10) AS day,
+            COUNT(*) AS sample_count,
+            SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) AS high_count,
+            AVG(COALESCE(confidence_score, 0)) AS avg_confidence
+        FROM fairness_benchmarks
+        WHERE created_at >= ?
+        GROUP BY substr(created_at, 1, 10)
+        ORDER BY day DESC
+        LIMIT 14
+        ''',
+        (threshold,)
+    ).fetchall()
+
+    flag_counts = {}
+    for row in accommodations:
+        flags = parse_json(row['accommodation_flags_json'], [])
+        if not isinstance(flags, list):
+            continue
+        for flag in flags:
+            key = str(flag or '').strip()
+            if not key:
+                continue
+            flag_counts[key] = flag_counts.get(key, 0) + 1
+
+    total_samples = int(totals['total_samples'] or 0)
+    total_high = int(totals['total_high'] or 0)
+    global_high_rate = (total_high / total_samples) if total_samples else 0
+
+    variance_flags = []
+    for row in summary_rows:
+        sample_count = int(row['sample_count'] or 0)
+        high_count = int(row['high_count'] or 0)
+        if sample_count < 5:
+            continue
+        high_rate = high_count / sample_count if sample_count else 0
+        if global_high_rate <= 0:
+            if high_rate >= 0.25:
+                variance_flags.append({
+                    'cameraTier': row['camera_tier'],
+                    'lightingTier': row['lighting_tier'],
+                    'speechEnv': row['speech_env'],
+                    'sampleCount': sample_count,
+                    'highRate': high_rate,
+                    'reason': 'high_rate_without_baseline'
+                })
+            continue
+        if high_rate >= (global_high_rate * 1.6):
+            variance_flags.append({
+                'cameraTier': row['camera_tier'],
+                'lightingTier': row['lighting_tier'],
+                'speechEnv': row['speech_env'],
+                'sampleCount': sample_count,
+                'highRate': high_rate,
+                'reason': 'slice_high_rate_outlier'
+            })
+
+    return {
+        'windowDays': limit_days,
+        'totals': {
+            'samples': int(totals['total_samples'] or 0),
+            'high': int(totals['total_high'] or 0),
+            'medium': int(totals['total_medium'] or 0),
+            'low': int(totals['total_low'] or 0),
+            'avgConfidence': float(totals['overall_avg_confidence'] or 0)
+        },
+        'accommodationFlags': [
+            {'flag': key, 'count': count}
+            for key, count in sorted(flag_counts.items(), key=lambda item: item[1], reverse=True)
+        ],
+        'varianceFlags': variance_flags,
+        'dailyRows': [
+            {
+                'day': row['day'],
+                'sampleCount': int(row['sample_count'] or 0),
+                'highCount': int(row['high_count'] or 0),
+                'highRate': (int(row['high_count'] or 0) / max(1, int(row['sample_count'] or 0))),
+                'avgConfidence': float(row['avg_confidence'] or 0)
+            }
+            for row in daily_rows
+        ],
+        'sliceRows': [
+            {
+                'cameraTier': row['camera_tier'],
+                'lightingTier': row['lighting_tier'],
+                'speechEnv': row['speech_env'],
+                'sampleCount': int(row['sample_count'] or 0),
+                'highCount': int(row['high_count'] or 0),
+                'mediumCount': int(row['medium_count'] or 0),
+                'avgConfidence': float(row['avg_confidence'] or 0)
+            }
+            for row in summary_rows
+        ]
+    }
 
 
 def action_update_incident_status(conn, payload, _seed_path):
@@ -1201,26 +1695,294 @@ def action_update_incident_status(conn, payload, _seed_path):
         raise ValueError('Incident not found')
 
     note = str(payload.get('note') or '').strip()
+    assignee_raw = payload.get('assignee')
+    assignee = None if assignee_raw is None else str(assignee_raw).strip()
+    if assignee == '':
+        assignee = None
+    sla_due_at_raw = payload.get('slaDueAt')
+    sla_due_at = None if sla_due_at_raw is None else str(sla_due_at_raw).strip()
+    if sla_due_at == '':
+        sla_due_at = None
+
     now = utc_now()
     conn.execute(
         '''
         UPDATE incidents
-        SET workflow_status = ?, workflow_updated_at = ?, workflow_note = ?
+        SET workflow_status = ?, workflow_updated_at = ?, workflow_note = ?, assignee = COALESCE(?, assignee), sla_due_at = COALESCE(?, sla_due_at)
         WHERE id = ?
         ''',
-        (next_status, now, note if note else None, incident_id)
+        (next_status, now, note if note else None, assignee, sla_due_at, incident_id)
     )
     conn.commit()
 
     row = conn.execute(
-        'SELECT id, workflow_status, workflow_updated_at, workflow_note FROM incidents WHERE id = ?',
+        'SELECT id, workflow_status, workflow_updated_at, workflow_note, assignee, sla_due_at FROM incidents WHERE id = ?',
         (incident_id,)
     ).fetchone()
     return {
         'incidentId': row['id'],
         'workflowStatus': row['workflow_status'],
         'workflowUpdatedAt': row['workflow_updated_at'],
-        'workflowNote': row['workflow_note']
+        'workflowNote': row['workflow_note'],
+        'assignee': row['assignee'],
+        'slaDueAt': row['sla_due_at']
+    }
+
+
+def action_get_appeals(conn, payload, _seed_path):
+    limit = int(payload.get('limit', 100) or 100)
+    limit = max(1, min(limit, 300))
+    status_filter = str(payload.get('status') or '').strip().lower()
+
+    if status_filter:
+        rows = conn.execute(
+            '''
+            SELECT
+                appeals.*,
+                incidents.type AS incident_type,
+                incidents.message AS incident_message,
+                incidents.severity AS incident_severity,
+                users.full_name AS requested_by_name
+            FROM appeals
+            JOIN incidents ON incidents.id = appeals.incident_id
+            LEFT JOIN users ON users.id = appeals.requested_by_user_id
+            WHERE appeals.status = ?
+            ORDER BY appeals.updated_at DESC
+            LIMIT ?
+            ''',
+            (status_filter, limit)
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            '''
+            SELECT
+                appeals.*,
+                incidents.type AS incident_type,
+                incidents.message AS incident_message,
+                incidents.severity AS incident_severity,
+                users.full_name AS requested_by_name
+            FROM appeals
+            JOIN incidents ON incidents.id = appeals.incident_id
+            LEFT JOIN users ON users.id = appeals.requested_by_user_id
+            ORDER BY appeals.updated_at DESC
+            LIMIT ?
+            ''',
+            (limit,)
+        ).fetchall()
+
+    return [
+        {
+            'appealId': row['id'],
+            'incidentId': row['incident_id'],
+            'requestedByUserId': row['requested_by_user_id'],
+            'requestedByName': row['requested_by_name'],
+            'reason': row['reason'],
+            'status': row['status'],
+            'resolutionNote': row['resolution_note'],
+            'createdAt': row['created_at'],
+            'updatedAt': row['updated_at'],
+            'incidentType': row['incident_type'],
+            'incidentSeverity': row['incident_severity'],
+            'incidentMessage': row['incident_message']
+        }
+        for row in rows
+    ]
+
+
+def action_create_appeal(conn, payload, _seed_path):
+    incident_id = int(payload.get('incidentId') or 0)
+    if incident_id < 1:
+        raise ValueError('Invalid incident id')
+
+    incident = conn.execute('SELECT id FROM incidents WHERE id = ?', (incident_id,)).fetchone()
+    if not incident:
+        raise ValueError('Incident not found')
+
+    requested_by_user_id = payload.get('requestedByUserId')
+    if requested_by_user_id is not None:
+        requested_by_user_id = int(requested_by_user_id)
+        if requested_by_user_id < 1:
+            requested_by_user_id = None
+
+    reason = str(payload.get('reason') or '').strip()
+    if not reason:
+        raise ValueError('Appeal reason is required')
+
+    now = utc_now()
+    conn.execute(
+        '''
+        INSERT INTO appeals (incident_id, requested_by_user_id, reason, status, created_at, updated_at)
+        VALUES (?, ?, ?, 'open', ?, ?)
+        ''',
+        (incident_id, requested_by_user_id, reason, now, now)
+    )
+    conn.commit()
+
+    return {
+        'created': True,
+        'appealId': conn.execute('SELECT last_insert_rowid() AS id').fetchone()['id']
+    }
+
+
+def action_update_appeal_status(conn, payload, _seed_path):
+    appeal_id = int(payload.get('appealId') or 0)
+    if appeal_id < 1:
+        raise ValueError('Invalid appeal id')
+
+    next_status = str(payload.get('status') or '').strip().lower()
+    allowed = {'open', 'under_review', 'accepted', 'rejected'}
+    if next_status not in allowed:
+        raise ValueError('Invalid appeal status')
+
+    note = str(payload.get('resolutionNote') or '').strip()
+    now = utc_now()
+
+    existing = conn.execute('SELECT id FROM appeals WHERE id = ?', (appeal_id,)).fetchone()
+    if not existing:
+        raise ValueError('Appeal not found')
+
+    conn.execute(
+        '''
+        UPDATE appeals
+        SET status = ?, resolution_note = ?, updated_at = ?
+        WHERE id = ?
+        ''',
+        (next_status, note if note else None, now, appeal_id)
+    )
+    conn.commit()
+
+    row = conn.execute(
+        'SELECT id, status, resolution_note, updated_at FROM appeals WHERE id = ?',
+        (appeal_id,)
+    ).fetchone()
+
+    return {
+        'appealId': row['id'],
+        'status': row['status'],
+        'resolutionNote': row['resolution_note'],
+        'updatedAt': row['updated_at']
+    }
+
+
+def action_get_proctoring_policies(conn, payload, _seed_path):
+    rows = conn.execute(
+        '''
+        SELECT *
+        FROM proctoring_policies
+        ORDER BY is_active DESC, effective_at DESC, updated_at DESC
+        '''
+    ).fetchall()
+    return [
+        {
+            'id': row['id'],
+            'version': row['version'],
+            'title': row['title'],
+            'effectiveAt': row['effective_at'],
+            'retentionDaysBySeverity': parse_json(row['retention_days_by_severity_json'], {}),
+            'biometricRetentionDays': row['biometric_retention_days'],
+            'summary': parse_json(row['summary_json'], []),
+            'isActive': bool(row['is_active']),
+            'updatedAt': row['updated_at']
+        }
+        for row in rows
+    ]
+
+
+def action_get_active_proctoring_policy(conn, payload, _seed_path):
+    row = conn.execute(
+        '''
+        SELECT *
+        FROM proctoring_policies
+        WHERE is_active = 1
+        ORDER BY updated_at DESC
+        LIMIT 1
+        '''
+    ).fetchone()
+    if not row:
+        return None
+    return {
+        'id': row['id'],
+        'version': row['version'],
+        'title': row['title'],
+        'effectiveAt': row['effective_at'],
+        'retentionDaysBySeverity': parse_json(row['retention_days_by_severity_json'], {}),
+        'biometricRetentionDays': row['biometric_retention_days'],
+        'summary': parse_json(row['summary_json'], []),
+        'isActive': bool(row['is_active']),
+        'updatedAt': row['updated_at']
+    }
+
+
+def action_save_proctoring_policy(conn, payload, _seed_path):
+    version = str(payload.get('version') or '').strip()
+    title = str(payload.get('title') or '').strip()
+    if not version:
+        raise ValueError('Policy version is required')
+    if not title:
+        raise ValueError('Policy title is required')
+
+    retention = payload.get('retentionDaysBySeverity') or {}
+    if not isinstance(retention, dict):
+        raise ValueError('Invalid retentionDaysBySeverity')
+
+    summary = payload.get('summary') or []
+    if not isinstance(summary, list):
+        raise ValueError('Invalid summary')
+
+    biometric_retention_days = int(payload.get('biometricRetentionDays') or 30)
+    if biometric_retention_days < 1:
+        biometric_retention_days = 30
+
+    effective_at = str(payload.get('effectiveAt') or '').strip() or None
+    is_active = 1 if bool(payload.get('isActive')) else 0
+    now = utc_now()
+
+    conn.execute(
+        '''
+        INSERT INTO proctoring_policies (
+            version,
+            title,
+            effective_at,
+            retention_days_by_severity_json,
+            biometric_retention_days,
+            summary_json,
+            is_active,
+            updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(version) DO UPDATE SET
+            title = excluded.title,
+            effective_at = excluded.effective_at,
+            retention_days_by_severity_json = excluded.retention_days_by_severity_json,
+            biometric_retention_days = excluded.biometric_retention_days,
+            summary_json = excluded.summary_json,
+            is_active = excluded.is_active,
+            updated_at = excluded.updated_at
+        ''',
+        (
+            version,
+            title,
+            effective_at,
+            json.dumps(retention),
+            biometric_retention_days,
+            json.dumps(summary),
+            is_active,
+            now
+        )
+    )
+
+    if is_active:
+        conn.execute(
+            'UPDATE proctoring_policies SET is_active = 0 WHERE version != ? AND is_active = 1',
+            (version,)
+        )
+
+    conn.commit()
+    return {
+        'saved': True,
+        'version': version,
+        'isActive': bool(is_active),
+        'updatedAt': now
     }
 
 
@@ -1263,6 +2025,17 @@ ACTIONS = {
     'record_incident': action_record_incident,
     'get_recent_incidents': action_get_recent_incidents,
     'update_incident_status': action_update_incident_status,
+    'get_appeals': action_get_appeals,
+    'create_appeal': action_create_appeal,
+    'update_appeal_status': action_update_appeal_status,
+    'save_privacy_consent': action_save_privacy_consent,
+    'get_privacy_consent_status': action_get_privacy_consent_status,
+    'prune_expired_incident_evidence': action_prune_expired_incident_evidence,
+    'record_fairness_benchmark': action_record_fairness_benchmark,
+    'get_fairness_benchmark_summary': action_get_fairness_benchmark_summary,
+    'get_proctoring_policies': action_get_proctoring_policies,
+    'get_active_proctoring_policy': action_get_active_proctoring_policy,
+    'save_proctoring_policy': action_save_proctoring_policy,
     'get_database_status': action_get_database_status,
 }
 
@@ -1315,9 +2088,53 @@ ACTION_ALLOWED_FIELDS = {
         'errorMessage'
     },
     'get_model_assets': set(),
-    'record_incident': {'userId', 'sessionId', 'type', 'severity', 'message', 'details'},
+    'record_incident': {
+        'userId',
+        'sessionId',
+        'type',
+        'severity',
+        'message',
+        'details',
+        'confidence',
+        'detectorFamily',
+        'triggeredRules',
+        'evidenceVector',
+        'dedupeKey',
+        'retentionDays',
+        'policyVersion'
+    },
     'get_recent_incidents': {'limit'},
-    'update_incident_status': {'incidentId', 'status', 'note'},
+    'update_incident_status': {'incidentId', 'status', 'note', 'assignee', 'slaDueAt'},
+    'get_appeals': {'limit', 'status'},
+    'create_appeal': {'incidentId', 'requestedByUserId', 'reason'},
+    'update_appeal_status': {'appealId', 'status', 'resolutionNote'},
+    'save_privacy_consent': {'userId', 'policyVersion', 'policyHash', 'accepted', 'policySnapshot', 'machineInfo'},
+    'get_privacy_consent_status': {'userId', 'policyVersion'},
+    'prune_expired_incident_evidence': set(),
+    'record_fairness_benchmark': {
+        'userId',
+        'sessionId',
+        'incidentType',
+        'severity',
+        'detectorFamily',
+        'confidence',
+        'cameraTier',
+        'lightingTier',
+        'speechEnv',
+        'accommodationFlags'
+    },
+    'get_fairness_benchmark_summary': {'limitDays'},
+    'get_proctoring_policies': set(),
+    'get_active_proctoring_policy': set(),
+    'save_proctoring_policy': {
+        'version',
+        'title',
+        'effectiveAt',
+        'retentionDaysBySeverity',
+        'biometricRetentionDays',
+        'summary',
+        'isActive'
+    },
     'get_database_status': set()
 }
 

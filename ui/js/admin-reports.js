@@ -10,11 +10,22 @@ function fmtDate(s) {
 }
 
 const sevBadge  = { high: 'badge-danger', medium: 'badge-warning', low: 'badge-info' }
-const statBadge = { open: 'badge-warning', resolved: 'badge-success', dismissed: 'badge-default' }
+const statBadge = { new: 'badge-warning', acknowledged: 'badge-info', escalated: 'badge-danger', resolved: 'badge-success' }
 
 function esc(s) {
   if (!s) return '—'
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').slice(0, 80)
+}
+
+function fmtConfidence(value) {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '—'
+  return `${Math.round(num * 100)}%`
+}
+
+function fmtRules(rules) {
+  if (!Array.isArray(rules) || !rules.length) return '—'
+  return esc(rules.join(', '))
 }
 
 async function load() {
@@ -43,27 +54,54 @@ async function load() {
 
   // Incidents
   const incBody = document.getElementById('incidentsBody')
-  incBody.innerHTML = `<tr><td colspan="7"><div class="flex items-center gap-2 text-mute text-sm" style="padding:var(--sp-4)"><div class="spinner"></div> Loading...</div></td></tr>`
+  incBody.innerHTML = `<tr><td colspan="9"><div class="flex items-center gap-2 text-mute text-sm" style="padding:var(--sp-4)"><div class="spinner"></div> Loading...</div></td></tr>`
   try {
     const r = await window.electronAPI.getRecentIncidents()
     const incs = r?.data || []
     if (!incs.length) {
-      incBody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-title">No incidents recorded</div></div></td></tr>`
+      incBody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-title">No incidents recorded</div></div></td></tr>`
     } else {
       incBody.innerHTML = incs.map(i => `
         <tr>
           <td>${fmtDate(i.createdAt)}</td>
-          <td class="fw">${i.studentName || `#${i.userId}`}</td>
+          <td class="fw">${i.fullName || i.studentName || `#${i.userId || 'unknown'}`}</td>
           <td>${i.sessionId ? `#${i.sessionId}` : '—'}</td>
           <td class="fw-500">${i.type || '—'}</td>
           <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(i.message)}</td>
+          <td>${fmtConfidence(i.confidenceScore)}</td>
+          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${fmtRules(i.triggeredRules)}</td>
           <td><span class="badge ${sevBadge[i.severity] || 'badge-default'}">${i.severity || '—'}</span></td>
-          <td><span class="badge ${statBadge[i.status] || 'badge-warning'}">${i.status || 'open'}</span></td>
+          <td><span class="badge ${statBadge[i.workflowStatus] || 'badge-warning'}">${i.workflowStatus || 'new'}</span></td>
         </tr>
       `).join('')
     }
   } catch (err) {
-    incBody.innerHTML = `<tr><td colspan="7" class="text-err text-sm" style="padding:var(--sp-4)">${err.message}</td></tr>`
+    incBody.innerHTML = `<tr><td colspan="9" class="text-err text-sm" style="padding:var(--sp-4)">${err.message}</td></tr>`
+  }
+
+  // Fairness benchmark
+  const fairnessBody = document.getElementById('fairnessBody')
+  fairnessBody.innerHTML = `<tr><td colspan="7"><div class="flex items-center gap-2 text-mute text-sm" style="padding:var(--sp-4)"><div class="spinner"></div> Loading...</div></td></tr>`
+  try {
+    const r = await window.electronAPI.getFairnessBenchmarkSummary({ limitDays: 30 })
+    const rows = r?.data?.sliceRows || []
+    if (!rows.length) {
+      fairnessBody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-title">No benchmark samples yet</div></div></td></tr>`
+    } else {
+      fairnessBody.innerHTML = rows.map(row => `
+        <tr>
+          <td>${esc(row.cameraTier)}</td>
+          <td>${esc(row.lightingTier)}</td>
+          <td>${esc(row.speechEnv)}</td>
+          <td>${row.sampleCount ?? 0}</td>
+          <td>${row.highCount ?? 0}</td>
+          <td>${row.mediumCount ?? 0}</td>
+          <td>${fmtConfidence(row.avgConfidence)}</td>
+        </tr>
+      `).join('')
+    }
+  } catch (err) {
+    fairnessBody.innerHTML = `<tr><td colspan="7" class="text-err text-sm" style="padding:var(--sp-4)">${err.message}</td></tr>`
   }
 }
 

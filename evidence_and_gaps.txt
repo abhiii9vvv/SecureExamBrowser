@@ -1,0 +1,78 @@
+SECURE EXAM BROWSER - EVIDENCE AND GAP MAP
+Date: 2026-04-18
+Prepared from: OpenAlex query results plus secure exam browser and online proctoring literature
+
+PURPOSE
+This file lists evidence from high-quality research and the major gaps found in older secure exam browser and proctoring systems.
+
+EVIDENCE 1
+Source: A systematic review of research on cheating in online exams from 2010 to 2021 (Education and Information Technologies, 2022, DOI: 10.1007/s10639-022-10927-7)
+Evidence: Cheating methods evolve faster than single-control exam systems; no single control prevents all misconduct.
+Gap in older SEB systems: Over-reliance on kiosk lock and browser restriction without continuous multimodal identity assurance.
+
+EVIDENCE 2
+Source: Online exam proctoring technologies: Educational innovation or deterioration? (British Journal of Educational Technology, 2022, DOI: 10.1111/bjet.13182)
+Evidence: Proctoring raises trust, fairness, and student stress concerns when systems are opaque.
+Gap in older SEB systems: Poor explainability and weak appeal workflow for flagged incidents.
+
+EVIDENCE 3
+Source: How Common is Cheating in Online Exams and did it Increase During the COVID-19 Pandemic? A Systematic Review (Journal of Academic Ethics, 2023, DOI: 10.1007/s10805-023-09485-5)
+Evidence: Misconduct risk is context-dependent and influenced by assessment design and monitoring quality.
+Gap in older SEB systems: Static policy profiles and weak risk adaptation by exam type, subject, and stakes.
+
+EVIDENCE 4
+Source: The Accuracy of AI-Based Automatic Proctoring in Online Exams (Electronic Journal of e-Learning, 2022)
+Evidence: Automatic proctoring can generate false positives in realistic environments.
+Gap in older SEB systems: Hard thresholds and event spikes without temporal smoothing, confidence fusion, or human-in-the-loop review.
+
+EVIDENCE 5
+Source: Remote proctoring: Lessons learned from the COVID period (Journal of Computer Assisted Learning, 2022)
+Evidence: Operational failures (permissions, bandwidth, unstable devices) reduce reliability.
+Gap in older SEB systems: Limited resilience to network drops, permission revokes, and low-end hardware.
+
+EVIDENCE 6
+Source: An automated online proctoring system using attention methods (Multimedia Tools and Applications, 2023)
+Evidence: Multimodal signals improve detection quality when fused correctly.
+Gap in older SEB systems: Camera-only or independent rule checks with no calibrated multimodal risk score.
+
+EVIDENCE 7
+Source: Proctor net: An AI framework for suspicious activity (Measurement, 2022)
+Evidence: Suspicious behavior detection benefits from sequence-level modeling, not only frame-level triggers.
+Gap in older SEB systems: Lack of sequential behavior modeling over time.
+
+EVIDENCE 8
+Source: A Proposed Model for Improving the Reliability of Online Proctoring (IEEE Access, 2023)
+Evidence: Reliability improves with layered controls and robust incident pipelines.
+Gap in older SEB systems: Weak incident evidence schema and inconsistent severity handling.
+
+EVIDENCE 9
+Source: ChatGPT: The End of Online Exam Integrity? (Education Sciences, 2024, DOI: 10.3390/educsci14060656)
+Evidence: LLMs can solve many assessment tasks, especially under weak process controls.
+Gap in older SEB systems: Focus on browser misuse while under-addressing AI-assisted answer generation patterns.
+
+EVIDENCE 10
+Source: ChatGPT/Copilot/Gemini impacts on assessment integrity (Australasian Journal of Engineering Education, 2024, DOI: 10.1080/22054952.2024.2372154)
+Evidence: GenAI changes integrity threat models across domains.
+Gap in older SEB systems: Missing policy controls and detection heuristics for AI-era cheating behavior.
+
+EVIDENCE 11
+Source: Frequency trends from retrieved abstracts (user query output)
+Evidence: Most frequent reported gaps include spoofing, false positives, bias, privacy, legal/compliance, and network robustness.
+Gap in older SEB systems: Anti-spoofing and fairness are often weak; privacy-by-design is not default.
+
+EVIDENCE 12
+Source: Current project capability review (Secure Exam Browser repository)
+Evidence: Existing strengths include kiosk controls, face verification path, incident logging, and basic audio activity detection.
+Gap in current implementation: Need stronger anti-spoof challenge-response, calibrated multimodal scoring, explainability, fairness testing, and policy-grade compliance controls.
+
+CONSOLIDATED MAJOR GAPS
+1) Lockdown-only security model
+2) Weak anti-spoofing depth
+3) False-positive burden
+4) Fairness and accessibility risks
+5) Privacy and compliance gaps
+6) Weak multimodal fusion and confidence calibration
+7) Limited explainability for incidents
+8) Operational fragility under network and device issues
+9) Limited GenAI-era integrity controls
+10) Limited adversarial and red-team validation

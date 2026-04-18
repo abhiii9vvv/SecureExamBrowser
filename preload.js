@@ -53,6 +53,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
   getRuntimeCapabilities: () => ipcRenderer.invoke('get-runtime-capabilities'),
   getEnvironmentFlags: () => ipcRenderer.invoke('get-environment-flags'),
+  getAudioProctoringPolicy: () => invokeProtected('get-audio-proctoring-policy'),
+  getPrivacyPolicy: () => invokeProtected('get-privacy-policy'),
+  getPrivacyConsentStatus: () => invokeProtected('get-privacy-consent-status'),
+  savePrivacyConsent: (payload) => invokeProtected('save-privacy-consent', payload),
 
   login: async (username, password) => {
     const result = await ipcRenderer.invoke('login', username, password)
@@ -84,6 +88,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getActiveSessions: () => invokeProtected('get-active-sessions'),
   getRecentSubmissions: () => invokeProtected('get-recent-submissions'),
   getRecentIncidents: () => invokeProtected('get-recent-incidents'),
+  getFairnessBenchmarkSummary: (payload) => invokeProtected('get-fairness-benchmark-summary', payload || {}),
+  recordFairnessBenchmark: (payload) => invokeProtected('record-fairness-benchmark', payload),
+  signIncidentPayload: (payload) => invokeProtected('sign-incident-payload', payload),
+  syncIncidentQueue: (payload) => invokeProtected('sync-incident-queue', payload),
   recordIncident: (payload) => invokeProtected('record-incident', payload),
   updateIncidentStatus: (incidentId, status, note) => invokeProtected('update-incident-status', incidentId, status, note),
   getDatabaseStatus: () => ipcRenderer.invoke('get-database-status'),

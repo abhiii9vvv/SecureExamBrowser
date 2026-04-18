@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, globalShortcut, ipcMain, screen } = require('electron')
+﻿const { app, BrowserWindow, dialog, globalShortcut, ipcMain, screen } = require('electron')
 const crypto = require('node:crypto')
 const path = require('node:path')
 
@@ -44,6 +44,26 @@ const database = new DatabaseService({
 const modelService = new ModelService({ rootDir, database })
 const visionService = new VisionService({ rootDir, pythonCommand: runtimeCapabilities.python.visionCommand || null })
 const codeExecutionService = new CodeExecutionService({ database, runtimeCapabilities })
+const PRIVACY_POLICY = {
+  version: '2026.04',
+  title: 'Secure Exam Monitoring & Data Policy',
+  effectiveAt: '2026-04-18T00:00:00Z',
+  retentionDaysBySeverity: {
+    low: 14,
+    medium: 45,
+    high: 180
+  },
+  biometricRetentionDays: 30,
+  summary: [
+    'Monitoring data is collected for exam integrity and audit review.',
+    'Evidence is retained using severity-based retention limits.',
+    'Expired incident evidence is automatically redacted from stored details.'
+  ]
+}
+const INCIDENT_SYNC_SIGNATURE_VERSION = 'v1'
+const INCIDENT_SYNC_SIGNING_SECRET = crypto.randomBytes(32).toString('hex')
+const INCIDENT_SYNC_MAX_BATCH = 100
+const INCIDENT_SYNC_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 
 function generateSessionToken() {
   return `SES-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 10).toUpperCase()}`
@@ -69,7 +89,9 @@ function pruneExpiredAuthSessions() {
 }
 
 function canBypassVerification() {
-  return !app.isPackaged
+  const pythonCaps = runtimeCapabilities?.python || {}
+  const visionReady = Boolean(pythonCaps.available && pythonCaps.visionReady)
+  return !app.isPackaged && !visionReady
 }
 
 function pruneExpiredVerificationSessions() {
@@ -258,7 +280,7 @@ function createWindow() {
     height: Math.min(920, height),
     minWidth: 1100,
     minHeight: 760,
-    fullscreen: false,
+    fullscreen: true,
     frame: false,
     titleBarStyle: 'hidden',
     kiosk: false,
@@ -275,6 +297,15 @@ function createWindow() {
   })
 
   mainWindow.loadFile(path.join(__dirname, 'ui', 'login.html'))
+
+  mainWindow.once('ready-to-show', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return
+    }
+    if (!mainWindow.isFullScreen()) {
+      mainWindow.setFullScreen(true)
+    }
+  })
 
   mainWindow.on('close', (event) => {
     if (!isExamMode) {
@@ -331,7 +362,98 @@ async function refreshVisionModels() {
 
 async function initializeServices() {
   await database.initialize()
+  await database.pruneExpiredIncidentEvidence().catch((error) => {
+    console.warn('Failed to prune expired incident evidence:', toMessage(error))
+  })
   await refreshVisionModels()
+}
+
+function getDefaultIncidentRetentionDays(severity) {
+  const normalized = String(severity || '').toLowerCase().trim()
+  const map = PRIVACY_POLICY.retentionDaysBySeverity || {}
+  return map[normalized] || map.medium || 45
+}
+
+function getPrivacyPolicySnapshot() {
+  const hash = crypto.createHash('sha256')
+    .update(JSON.stringify({
+      version: PRIVACY_POLICY.version,
+      effectiveAt: PRIVACY_POLICY.effectiveAt,
+      retentionDaysBySeverity: PRIVACY_POLICY.retentionDaysBySeverity,
+      biometricRetentionDays: PRIVACY_POLICY.biometricRetentionDays,
+      summary: PRIVACY_POLICY.summary
+    }))
+    .digest('hex')
+
+  return {
+    ...PRIVACY_POLICY,
+    hash
+  }
+}
+
+async function getAudioProctoringPolicy() {
+  const audioPaths = await modelService.getAudioModelPaths()
+  const audioModelAvailable = Boolean(audioPaths.sileroVadOnnxPath || audioPaths.sileroVadJitPath)
+  const keywordModelAvailable = Boolean(audioPaths.porcupineParamsPath)
+
+  return {
+    mode: audioModelAvailable ? 'model-preferred' : 'heuristic-fallback',
+    audioModelAvailable,
+    keywordModelAvailable,
+    speechAlertWindowMs: audioModelAvailable ? 4500 : 6000,
+    speechCooldownMs: audioModelAvailable ? 30000 : 45000,
+    minConsecutiveSpeechFrames: audioModelAvailable ? 9 : 12,
+    sampleIntervalMs: 500
+  }
+}
+
+function stableSerialize(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableSerialize(item)).join(',')}]`
+  }
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value).sort()
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',')}}`
+  }
+  return JSON.stringify(value)
+}
+
+function signIncidentPayloadEnvelope(payload) {
+  return crypto
+    .createHmac('sha256', INCIDENT_SYNC_SIGNING_SECRET)
+    .update(stableSerialize(payload))
+    .digest('hex')
+}
+
+function canonicalizeIncidentPayload(payload, authSession) {
+  assertObject(payload)
+  assertString(payload.type, 'incident type')
+  assertString(payload.message, 'incident message')
+
+  const severity = String(payload.severity || 'medium').toLowerCase().trim()
+  const normalizedSeverity = ['low', 'medium', 'high'].includes(severity) ? severity : 'medium'
+  const policy = getPrivacyPolicySnapshot()
+  const retentionDays = Number(payload.retentionDays || getDefaultIncidentRetentionDays(normalizedSeverity))
+
+  return {
+    userId: authSession.role === 'admin' ? (Number(payload.userId) || authSession.userId) : authSession.userId,
+    sessionId: payload.sessionId === null || payload.sessionId === undefined ? null : Number(payload.sessionId),
+    type: String(payload.type).trim(),
+    severity: normalizedSeverity,
+    message: String(payload.message).trim(),
+    details: payload.details && typeof payload.details === 'object' && !Array.isArray(payload.details) ? payload.details : {},
+    confidence: Number.isFinite(Number(payload.confidence)) ? Number(payload.confidence) : null,
+    detectorFamily: payload.detectorFamily ? String(payload.detectorFamily).slice(0, 64) : '',
+    triggeredRules: Array.isArray(payload.triggeredRules)
+      ? payload.triggeredRules.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 32)
+      : [],
+    evidenceVector: payload.evidenceVector && typeof payload.evidenceVector === 'object' && !Array.isArray(payload.evidenceVector)
+      ? payload.evidenceVector
+      : {},
+    dedupeKey: payload.dedupeKey ? String(payload.dedupeKey).slice(0, 256) : '',
+    retentionDays: Number.isInteger(retentionDays) && retentionDays > 0 ? retentionDays : getDefaultIncidentRetentionDays(normalizedSeverity),
+    policyVersion: payload.policyVersion ? String(payload.policyVersion) : policy.version
+  }
 }
 
 function toMessage(error, fallback = 'Unknown error') {
@@ -563,9 +685,67 @@ function setupIpcHandlers() {
     data: {
       isPackaged: app.isPackaged,
       isLocalDevelopment: !app.isPackaged,
+      allowVerificationBypass: canBypassVerification(),
+      visionReady: Boolean(runtimeCapabilities?.python?.visionReady),
       nodeEnv: String(process.env.NODE_ENV || '')
     }
   }))
+
+  ipcMain.handle('get-audio-proctoring-policy', async (event, auth) => {
+    resolveAuthSession(event, auth, ['student', 'admin'])
+    return {
+      success: true,
+      data: await getAudioProctoringPolicy()
+    }
+  })
+
+  ipcMain.handle('get-privacy-policy', async (event, auth) => {
+    resolveAuthSession(event, auth, ['student', 'admin'])
+    return {
+      success: true,
+      data: getPrivacyPolicySnapshot()
+    }
+  })
+
+  ipcMain.handle('get-privacy-consent-status', async (event, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
+    const policy = getPrivacyPolicySnapshot()
+    const data = await database.getPrivacyConsentStatus({
+      userId: authSession.userId,
+      policyVersion: policy.version
+    })
+
+    return {
+      success: true,
+      data: {
+        ...data,
+        currentPolicyVersion: policy.version,
+        currentPolicyHash: policy.hash,
+        acceptedCurrentVersion: Boolean(data?.exists && data?.accepted && data?.policyVersion === policy.version)
+      }
+    }
+  })
+
+  ipcMain.handle('save-privacy-consent', async (event, payload = {}, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
+    assertObject(payload)
+    const policy = getPrivacyPolicySnapshot()
+    const data = await database.savePrivacyConsent({
+      userId: authSession.userId,
+      policyVersion: policy.version,
+      policyHash: policy.hash,
+      accepted: payload.accepted !== false,
+      policySnapshot: {
+        version: policy.version,
+        effectiveAt: policy.effectiveAt,
+        summary: policy.summary,
+        retentionDaysBySeverity: policy.retentionDaysBySeverity,
+        biometricRetentionDays: policy.biometricRetentionDays
+      },
+      machineInfo: payload.machineInfo || {}
+    })
+    return { success: true, data }
+  })
 
   ipcMain.handle('get-open-source-models', async (event, auth) => {
     resolveAuthSession(event, auth, ['student', 'admin'])
@@ -781,22 +961,102 @@ function setupIpcHandlers() {
     }
   })
 
-  ipcMain.handle('record-incident', async (event, payload, auth) => {
+  ipcMain.handle('get-fairness-benchmark-summary', async (event, payload = {}, auth) => {
+    resolveAuthSession(event, auth, ['student', 'admin'])
+    const limitDays = Number(payload?.limitDays || 30)
+    return {
+      success: true,
+      data: await database.getFairnessBenchmarkSummary(Number.isFinite(limitDays) ? limitDays : 30)
+    }
+  })
+
+  ipcMain.handle('record-fairness-benchmark', async (event, payload = {}, auth) => {
     const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
     assertObject(payload)
-    assertString(payload.type, 'incident type')
-    assertString(payload.message, 'incident message')
-
-    if (payload.sessionId !== undefined && payload.sessionId !== null) {
-      assertInteger(payload.sessionId, 'sessionId')
-      await ensureSessionOwnership(payload.sessionId, authSession)
-    }
-
     if (authSession.role !== 'admin') {
       payload.userId = authSession.userId
     }
+    const data = await database.recordFairnessBenchmark(payload)
+    return { success: true, data }
+  })
 
-    await database.recordIncident(payload)
+  ipcMain.handle('sign-incident-payload', async (event, payload = {}, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
+    const normalizedPayload = canonicalizeIncidentPayload(payload, authSession)
+    const signature = signIncidentPayloadEnvelope(normalizedPayload)
+    return {
+      success: true,
+      data: {
+        payload: normalizedPayload,
+        signature,
+        signatureVersion: INCIDENT_SYNC_SIGNATURE_VERSION,
+        signedAt: Date.now()
+      }
+    }
+  })
+
+  ipcMain.handle('sync-incident-queue', async (event, payload = {}, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
+    assertObject(payload)
+    const items = Array.isArray(payload.items) ? payload.items : []
+    if (items.length > INCIDENT_SYNC_MAX_BATCH) {
+      throw new Error(`Queue batch exceeds limit (${INCIDENT_SYNC_MAX_BATCH})`)
+    }
+
+    const acceptedIndices = []
+    const droppedIndices = []
+
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index]
+      try {
+        assertObject(item, 'queue item')
+        const queuedAt = Number(item.queuedAt || Date.now())
+        if (!Number.isFinite(queuedAt) || (Date.now() - queuedAt) > INCIDENT_SYNC_MAX_AGE_MS) {
+          droppedIndices.push(index)
+          continue
+        }
+
+        assertObject(item.payload, 'incident payload')
+        assertString(item.signature, 'incident signature')
+        const expected = signIncidentPayloadEnvelope(item.payload)
+        if (expected !== item.signature) {
+          droppedIndices.push(index)
+          continue
+        }
+
+        const normalizedPayload = canonicalizeIncidentPayload(item.payload, authSession)
+        if (normalizedPayload.sessionId !== null && normalizedPayload.sessionId !== undefined) {
+          await ensureSessionOwnership(normalizedPayload.sessionId, authSession)
+        }
+
+        await database.recordIncident(normalizedPayload)
+        acceptedIndices.push(index)
+      } catch {
+        droppedIndices.push(index)
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        acceptedIndices,
+        droppedIndices,
+        processedAt: Date.now(),
+        signatureVersion: INCIDENT_SYNC_SIGNATURE_VERSION
+      }
+    }
+  })
+
+  ipcMain.handle('record-incident', async (event, payload, auth) => {
+    const authSession = resolveAuthSession(event, auth, ['student', 'admin'])
+    const normalizedPayload = canonicalizeIncidentPayload(payload, authSession)
+
+    if (normalizedPayload.sessionId !== null && normalizedPayload.sessionId !== undefined) {
+      assertInteger(normalizedPayload.sessionId, 'sessionId')
+      await ensureSessionOwnership(normalizedPayload.sessionId, authSession)
+    }
+
+    await database.recordIncident(normalizedPayload)
     return { success: true }
   })
 

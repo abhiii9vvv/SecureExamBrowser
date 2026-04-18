@@ -9,23 +9,30 @@
   <link rel="stylesheet" href="css/app.css" />
   <style>
     .launch-shell {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(520px, 1.05fr) minmax(460px, 0.95fr);
+      gap: var(--sp-6);
       height: 100vh;
-      overflow: hidden;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: var(--sp-5);
+      overflow-y: auto;
+      align-items: start;
     }
 
     .launch-panel {
-      flex: 0 0 520px;
+      min-width: 0;
       display: flex;
       flex-direction: column;
-      padding: var(--sp-10);
-      border-right: 1px solid var(--border);
+      padding: var(--sp-6);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
       background: var(--bg-surface);
-      overflow-y: auto;
+      box-shadow: var(--shadow-sm);
     }
 
     .launch-panel-header {
-      margin-bottom: var(--sp-8);
+      margin-bottom: var(--sp-5);
     }
 
     .launch-back {
@@ -38,7 +45,7 @@
       border: none;
       background: none;
       padding: 0;
-      margin-bottom: var(--sp-6);
+      margin-bottom: var(--sp-4);
       transition: color var(--transition);
     }
 
@@ -51,7 +58,7 @@
       color: var(--text-primary);
       letter-spacing: -0.03em;
       line-height: 1.1;
-      margin-bottom: var(--sp-2);
+      margin-bottom: var(--sp-1);
     }
 
     .launch-subtitle {
@@ -60,11 +67,136 @@
     }
 
     .launch-actions {
-      margin-top: auto;
-      padding-top: var(--sp-8);
+      margin-top: var(--sp-4);
+      padding-top: var(--sp-4);
       display: flex;
       flex-direction: column;
       gap: var(--sp-3);
+    }
+
+    .check-list {
+      display: grid;
+      gap: var(--sp-2);
+    }
+
+    .launch-panel .check-item {
+      padding: var(--sp-3);
+    }
+
+    .launch-panel .check-name {
+      font-size: var(--text-xs);
+    }
+
+    .launch-panel .check-detail {
+      margin-top: 1px;
+    }
+
+    .consent-card {
+      padding: var(--sp-4);
+      border-radius: var(--r-lg);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      display: grid;
+      gap: var(--sp-3);
+    }
+
+    .consent-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-3);
+    }
+
+    .consent-title {
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .consent-version {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+
+    .consent-summary {
+      margin: 0;
+      padding-left: var(--sp-5);
+      display: grid;
+      gap: 4px;
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .consent-check {
+      display: flex;
+      gap: var(--sp-2);
+      align-items: flex-start;
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+    }
+
+    .consent-check input {
+      margin-top: 2px;
+      width: 15px;
+      height: 15px;
+    }
+
+    .consent-status {
+      min-height: 1.25rem;
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+
+    .consent-status.error {
+      color: var(--danger);
+    }
+
+    .consent-status.ok {
+      color: var(--success);
+    }
+
+    .accommodation-card {
+      padding: var(--sp-4);
+      border-radius: var(--r-lg);
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      display: grid;
+      gap: var(--sp-3);
+    }
+
+    .accommodation-title {
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .accommodation-subtitle {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .accommodation-options {
+      display: grid;
+      gap: var(--sp-2);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .accommodation-option {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--sp-2);
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+    }
+
+    .accommodation-option input {
+      margin-top: 2px;
+      width: 15px;
+      height: 15px;
     }
 
     .launch-notice {
@@ -76,11 +208,21 @@
 
     /* Right info panel */
     .launch-info {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: var(--sp-10);
-      overflow-y: auto;
+      display: grid;
+      gap: var(--sp-4);
+      align-content: start;
+      min-width: 0;
+      padding: var(--sp-6);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      background: linear-gradient(180deg, rgba(11, 17, 32, 0.45) 0%, rgba(11, 17, 32, 0.1) 100%);
+    }
+
+    .info-card {
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      background: var(--bg-card);
+      padding: var(--sp-5);
     }
 
     .exam-info-title {
@@ -89,15 +231,13 @@
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      margin-bottom: var(--sp-5);
+      margin-bottom: var(--sp-3);
     }
 
     .exam-info-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--r-xl);
-      padding: var(--sp-5);
-      margin-bottom: var(--sp-6);
+      padding: 0;
+      border: none;
+      background: transparent;
     }
 
     .exam-info-name {
@@ -125,7 +265,9 @@
       list-style: none;
       display: flex;
       flex-direction: column;
-      gap: var(--sp-3);
+      gap: var(--sp-2);
+      margin: 0;
+      padding: 0;
     }
 
     .instructions-list li {
@@ -133,7 +275,7 @@
       gap: var(--sp-3);
       font-size: var(--text-sm);
       color: var(--text-secondary);
-      line-height: 1.5;
+      line-height: 1.45;
     }
 
     .inst-num {
@@ -149,6 +291,20 @@
       justify-content: center;
       flex-shrink: 0;
       margin-top: 1px;
+    }
+
+    @media (max-width: 1120px) {
+      .launch-shell {
+        grid-template-columns: 1fr;
+        max-width: 860px;
+        gap: var(--sp-4);
+        padding: var(--sp-4);
+      }
+
+      .launch-panel,
+      .launch-info {
+        padding: var(--sp-5);
+      }
     }
   </style>
 </head>
@@ -200,6 +356,14 @@
           </div>
         </div>
 
+        <div class="check-item" id="chk-microphone">
+          <div class="check-icon">⋯</div>
+          <div class="check-info">
+            <div class="check-name">Microphone Access</div>
+            <div class="check-detail">Waiting...</div>
+          </div>
+        </div>
+
         <div class="check-item" id="chk-network">
           <div class="check-icon">⋯</div>
           <div class="check-info">
@@ -232,33 +396,75 @@
 
     <!-- Right: exam info + instructions -->
     <div class="launch-info">
-      <div class="exam-info-title">Exam Details</div>
+      <section class="info-card">
+        <div class="exam-info-title">Exam Details</div>
 
-      <div class="exam-info-card">
-        <div class="exam-info-name" id="examInfoTitle">Loading...</div>
-        <div class="exam-info-row">
-          <span>Duration</span>
-          <span class="val" id="examInfoDuration">—</span>
+        <div class="exam-info-card">
+          <div class="exam-info-name" id="examInfoTitle">Loading...</div>
+          <div class="exam-info-row">
+            <span>Duration</span>
+            <span class="val" id="examInfoDuration">—</span>
+          </div>
+          <div class="exam-info-row">
+            <span>Passing Score</span>
+            <span class="val" id="examInfoPass">—</span>
+          </div>
+          <div class="exam-info-row">
+            <span>Total Questions</span>
+            <span class="val" id="examInfoQs">—</span>
+          </div>
         </div>
-        <div class="exam-info-row">
-          <span>Passing Score</span>
-          <span class="val" id="examInfoPass">—</span>
-        </div>
-        <div class="exam-info-row">
-          <span>Total Questions</span>
-          <span class="val" id="examInfoQs">—</span>
-        </div>
-      </div>
+      </section>
 
-      <div class="exam-info-title">Instructions</div>
-      <ul class="instructions-list">
-        <li><span class="inst-num">1</span><span>Ensure no other applications are running and you are in a quiet environment.</span></li>
-        <li><span class="inst-num">2</span><span>Your camera feed is monitored throughout the exam for proctoring purposes.</span></li>
-        <li><span class="inst-num">3</span><span>Tab switching, window minimization, or loss of focus will be recorded as incidents.</span></li>
-        <li><span class="inst-num">4</span><span>All answers are automatically saved. Do not close the application during the exam.</span></li>
-        <li><span class="inst-num">5</span><span>Once the timer expires, the exam will be submitted automatically.</span></li>
-        <li><span class="inst-num">6</span><span>For coding questions, ensure your code compiles and handles all edge cases.</span></li>
-      </ul>
+      <section class="info-card">
+        <div class="exam-info-title">Instructions</div>
+        <ul class="instructions-list">
+          <li><span class="inst-num">1</span><span>Ensure no other applications are running and you are in a quiet environment.</span></li>
+          <li><span class="inst-num">2</span><span>Your camera and microphone signals are monitored throughout the exam for proctoring purposes.</span></li>
+          <li><span class="inst-num">3</span><span>Tab switching, window minimization, or loss of focus will be recorded as incidents.</span></li>
+          <li><span class="inst-num">4</span><span>All answers are automatically saved. Do not close the application during the exam.</span></li>
+          <li><span class="inst-num">5</span><span>Once the timer expires, the exam will be submitted automatically.</span></li>
+          <li><span class="inst-num">6</span><span>For coding questions, ensure your code compiles and handles all edge cases.</span></li>
+        </ul>
+      </section>
+
+      <section class="consent-card" id="consentCard">
+        <div class="consent-header">
+          <div class="consent-title">Monitoring & Data Consent</div>
+          <div class="consent-version" id="consentVersion">Policy —</div>
+        </div>
+        <ul class="consent-summary" id="consentSummary"></ul>
+        <label class="consent-check" for="consentCheckbox">
+          <input type="checkbox" id="consentCheckbox" />
+          <span>I understand and accept the exam monitoring and evidence retention policy.</span>
+        </label>
+        <div class="consent-status" id="consentStatus">Loading consent policy...</div>
+      </section>
+
+      <section class="accommodation-card" id="accommodationCard">
+        <div class="accommodation-title">Accessibility & Accommodation</div>
+        <div class="accommodation-subtitle">Optional settings are saved for this exam session and included in fairness audit slices.</div>
+        <ul class="accommodation-options">
+          <li>
+            <label class="accommodation-option" for="accReducedMotion">
+              <input type="checkbox" id="accReducedMotion" value="reduced-motion" />
+              <span>Reduced motion mode for less animation intensity</span>
+            </label>
+          </li>
+          <li>
+            <label class="accommodation-option" for="accHighContrast">
+              <input type="checkbox" id="accHighContrast" value="high-contrast" />
+              <span>High contrast mode for better readability</span>
+            </label>
+          </li>
+          <li>
+            <label class="accommodation-option" for="accExtendedWarnings">
+              <input type="checkbox" id="accExtendedWarnings" value="extended-warnings" />
+              <span>Extended warning prompts before strict incident escalation</span>
+            </label>
+          </li>
+        </ul>
+      </section>
     </div>
   </div>
 

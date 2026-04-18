@@ -7,9 +7,61 @@
   <link rel="icon" type="image/x-icon" href="../assets/campussetu-favicon.ico" />
   <link rel="icon" type="image/png" sizes="96x96" href="../assets/campussetu-favicon-96x96.png" />
   <link rel="stylesheet" href="css/app.css" />
+  <style>
+    .reports-shell {
+      max-width: 1480px;
+      margin: 0 auto;
+    }
+
+    .reports-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: var(--sp-5);
+      align-items: start;
+    }
+
+    .report-card {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      border-radius: var(--r-xl);
+      padding: var(--sp-4);
+      min-width: 0;
+    }
+
+    .report-card-wide {
+      grid-column: 1 / -1;
+    }
+
+    .report-card .section-title {
+      margin-bottom: var(--sp-3);
+    }
+
+    .report-card .table-wrap {
+      margin-bottom: 0;
+    }
+
+    .admin-main .page-body {
+      padding-right: var(--sp-5);
+      overflow-x: hidden;
+    }
+
+    @media (max-width: 1180px) {
+      .reports-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .report-card-wide {
+        grid-column: auto;
+      }
+
+      .admin-main .page-body {
+        padding-right: 0;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div class="shell-admin">
+  <div class="shell-admin reports-shell">
     <aside class="sidebar">
       <div class="sidebar-brand">
         <div class="brand-icon">
@@ -76,9 +128,10 @@
         <button class="btn btn-secondary btn-sm" id="refreshBtn">Refresh</button>
       </div>
       <div class="page-body">
+        <div class="reports-grid">
 
         <!-- Recent Submissions -->
-        <div>
+        <div class="report-card">
           <div class="section-title">Recent Submissions</div>
           <div class="table-wrap">
             <table>
@@ -93,18 +146,35 @@
         </div>
 
         <!-- Incidents -->
-        <div>
+        <div class="report-card report-card-wide">
           <div class="section-title">Security Incidents</div>
           <div class="table-wrap">
             <table>
               <thead>
-                <tr><th>Time</th><th>Student</th><th>Session</th><th>Type</th><th>Message</th><th>Severity</th><th>Status</th></tr>
+                <tr><th>Time</th><th>Student</th><th>Session</th><th>Type</th><th>Message</th><th>Confidence</th><th>Rules</th><th>Severity</th><th>Status</th></tr>
               </thead>
               <tbody id="incidentsBody">
+                <tr><td colspan="9"><div class="flex items-center gap-2 text-mute text-sm p-4"><div class="spinner"></div> Loading...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Fairness Benchmark -->
+        <div class="report-card">
+          <div class="section-title">Fairness & Accessibility Benchmark (30d)</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Camera</th><th>Lighting</th><th>Speech Env</th><th>Samples</th><th>High</th><th>Medium</th><th>Avg Confidence</th></tr>
+              </thead>
+              <tbody id="fairnessBody">
                 <tr><td colspan="7"><div class="flex items-center gap-2 text-mute text-sm p-4"><div class="spinner"></div> Loading...</div></td></tr>
               </tbody>
             </table>
           </div>
+        </div>
+
         </div>
 
       </div>

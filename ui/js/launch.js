@@ -4,6 +4,16 @@ const proceedBtn   = document.getElementById('proceedBtn')
 const backBtn      = document.getElementById('backBtn')
 const launchErr    = document.getElementById('launchError')
 const launchErrMsg = document.getElementById('launchErrorMsg')
+const consentCheckbox = document.getElementById('consentCheckbox')
+const consentStatus = document.getElementById('consentStatus')
+const consentVersion = document.getElementById('consentVersion')
+const consentSummary = document.getElementById('consentSummary')
+const accommodationInputs = [
+  document.getElementById('accReducedMotion'),
+  document.getElementById('accHighContrast'),
+  document.getElementById('accExtendedWarnings')
+].filter(Boolean)
+const ACCOMMODATION_STORAGE_KEY = 'examAccommodations'
 
 /* ── Exam info ─────────────────────────────────── */
 document.getElementById('examInfoTitle').textContent    = localStorage.getItem('currentExamTitle') || 'Examination'
@@ -26,17 +36,30 @@ const checks = {
   runtime:  { el: document.getElementById('chk-runtime'),  pass: false },
   database: { el: document.getElementById('chk-database'), pass: false },
   camera:   { el: document.getElementById('chk-camera'),   pass: false },
+  microphone: { el: document.getElementById('chk-microphone'), pass: false },
   network:  { el: document.getElementById('chk-network'),  pass: false },
 }
 
 let failCount = 0
 let allowVerificationBypass = false
+const consentState = {
+  policy: null,
+  acceptedCurrentVersion: false,
+  loaded: false,
+  saving: false
+}
 
 async function initVerificationPolicy() {
   try {
-    const result = await window.electronAPI.getEnvironmentFlags()
-    const flags = result?.data ?? result ?? {}
-    allowVerificationBypass = Boolean(flags.isLocalDevelopment || !flags.isPackaged)
+    const [flagsResult, runtimeResult] = await Promise.all([
+      window.electronAPI.getEnvironmentFlags(),
+      window.electronAPI.getRuntimeCapabilities().catch(() => null)
+    ])
+    const flags = flagsResult?.data ?? flagsResult ?? {}
+    const runtime = runtimeResult?.data ?? runtimeResult ?? {}
+    const visionReady = Boolean(flags.visionReady ?? runtime?.python?.visionReady)
+    const localDev = Boolean(flags.isLocalDevelopment || !flags.isPackaged)
+    allowVerificationBypass = Boolean(flags.allowVerificationBypass ?? (localDev && !visionReady))
   } catch {
     allowVerificationBypass = false
   }
@@ -78,10 +101,149 @@ function svgX() {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
+function setConsentStatus(message, tone = '') {
+  consentStatus.textContent = message
+  consentStatus.className = `consent-status${tone ? ` ${tone}` : ''}`
+}
+
+function renderConsentSummary(policy) {
+  consentSummary.innerHTML = ''
+  const items = Array.isArray(policy?.summary) ? policy.summary : []
+  if (!items.length) {
+    const li = document.createElement('li')
+    li.textContent = 'Consent is required before exam verification can begin.'
+    consentSummary.appendChild(li)
+    return
+  }
+
+  items.forEach((line) => {
+    const li = document.createElement('li')
+    li.textContent = line
+    consentSummary.appendChild(li)
+  })
+}
+
+function allChecksPassed() {
+  return Object.values(checks).every(c => c.pass)
+}
+
+function updateProceedEligibility() {
+  const ready = allChecksPassed() && consentState.acceptedCurrentVersion
+  proceedBtn.disabled = !ready
+}
+
+function loadAccommodationSelection() {
+  let selected = []
+  try {
+    const raw = localStorage.getItem(ACCOMMODATION_STORAGE_KEY)
+    const parsed = JSON.parse(raw || '[]')
+    if (Array.isArray(parsed)) {
+      selected = parsed.map((item) => String(item || '').trim()).filter(Boolean)
+    }
+  } catch {
+    selected = []
+  }
+
+  const selectedSet = new Set(selected)
+  accommodationInputs.forEach((input) => {
+    input.checked = selectedSet.has(String(input.value || '').trim())
+  })
+}
+
+function persistAccommodationSelection() {
+  const selected = accommodationInputs
+    .filter((input) => input.checked)
+    .map((input) => String(input.value || '').trim())
+    .filter(Boolean)
+  localStorage.setItem(ACCOMMODATION_STORAGE_KEY, JSON.stringify(selected))
+}
+
+async function initializePrivacyConsent() {
+  consentCheckbox.disabled = true
+  setConsentStatus('Loading consent policy...')
+
+  try {
+    const [policyResp, statusResp] = await Promise.all([
+      window.electronAPI.getPrivacyPolicy(),
+      window.electronAPI.getPrivacyConsentStatus()
+    ])
+
+    const policy = policyResp?.data || null
+    const status = statusResp?.data || null
+    consentState.policy = policy
+    consentState.loaded = Boolean(policy)
+    consentState.acceptedCurrentVersion = Boolean(status?.acceptedCurrentVersion)
+
+    consentVersion.textContent = `Policy v${policy?.version || 'unknown'}`
+    renderConsentSummary(policy)
+    consentCheckbox.checked = consentState.acceptedCurrentVersion
+    consentCheckbox.disabled = false
+
+    if (consentState.acceptedCurrentVersion) {
+      setConsentStatus('Consent already recorded for this policy version.', 'ok')
+    } else {
+      setConsentStatus('Accept the policy to unlock verification.', '')
+    }
+  } catch (error) {
+    consentState.policy = null
+    consentState.loaded = false
+    consentState.acceptedCurrentVersion = false
+    consentVersion.textContent = 'Policy unavailable'
+    renderConsentSummary(null)
+    setConsentStatus(`Could not load privacy policy: ${error?.message || error}`, 'error')
+  }
+
+  updateProceedEligibility()
+}
+
+async function savePrivacyConsent() {
+  if (!consentState.loaded || consentState.saving) {
+    return false
+  }
+
+  if (!consentCheckbox.checked) {
+    consentState.acceptedCurrentVersion = false
+    setConsentStatus('Please check the consent box to continue.', 'error')
+    updateProceedEligibility()
+    return false
+  }
+
+  if (consentState.acceptedCurrentVersion) {
+    updateProceedEligibility()
+    return true
+  }
+
+  consentState.saving = true
+  consentCheckbox.disabled = true
+  setConsentStatus('Saving consent...')
+
+  try {
+    await window.electronAPI.savePrivacyConsent({
+      accepted: true,
+      machineInfo: {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        language: navigator.language
+      }
+    })
+    consentState.acceptedCurrentVersion = true
+    setConsentStatus('Consent recorded. You can now proceed.', 'ok')
+    return true
+  } catch (error) {
+    consentState.acceptedCurrentVersion = false
+    setConsentStatus(`Failed to save consent: ${error?.message || error}`, 'error')
+    return false
+  } finally {
+    consentState.saving = false
+    consentCheckbox.disabled = false
+    updateProceedEligibility()
+  }
+}
+
 /* ── Check runner ── */
 async function runChecks() {
   failCount = 0
-  proceedBtn.disabled = true
+  updateProceedEligibility()
 
   const selectedExamId = Number(localStorage.getItem('currentExamId') || '0')
   if (!selectedExamId) {
@@ -159,15 +321,38 @@ async function runChecks() {
     }
   }
 
-  /* 5 ── Network */
+  /* 5 ── Microphone */
+  startCheck('microphone')
+  await sleep(200)
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true
+      }
+    })
+    s.getTracks().forEach(t => t.stop())
+    markPass('microphone', 'Microphone accessible')
+  } catch (err) {
+    const reason = err?.message || 'permission denied'
+    if (allowVerificationBypass) {
+      markPass('microphone', `Microphone unavailable — local bypass enabled (${reason})`)
+      checks.microphone.pass = true
+    } else {
+      markFail('microphone', `Microphone required for audio proctoring (${reason})`)
+    }
+  }
+
+  /* 6 ── Network */
   startCheck('network')
   await sleep(200)
   markPass('network', navigator.onLine ? 'Online' : 'Offline (local exam mode)')
 
   /* ── Evaluate ── */
-  const allPassed = Object.values(checks).every(c => c.pass)
+  const allPassed = allChecksPassed()
   if (allPassed) {
-    proceedBtn.disabled = false
+    updateProceedEligibility()
     launchErr.classList.add('hidden')
   } else {
     proceedBtn.disabled = true
@@ -178,16 +363,39 @@ async function runChecks() {
 
 /* ── Event handlers ── */
 proceedBtn.addEventListener('click', async () => {
+  const consentSaved = await savePrivacyConsent()
+  if (!consentSaved) {
+    return
+  }
+  persistAccommodationSelection()
   await navigateTo('verification')
+})
+
+consentCheckbox.addEventListener('change', async () => {
+  if (!consentCheckbox.checked) {
+    consentState.acceptedCurrentVersion = false
+    setConsentStatus('Please check the consent box to continue.', 'error')
+    updateProceedEligibility()
+    return
+  }
+  await savePrivacyConsent()
 })
 
 backBtn.addEventListener('click', async () => {
   await navigateTo('student-dashboard')
 })
 
+accommodationInputs.forEach((input) => {
+  input.addEventListener('change', () => {
+    persistAccommodationSelection()
+  })
+})
+
 /* ── Boot ── */
 ;(async () => {
+  loadAccommodationSelection()
   await initVerificationPolicy()
+  await initializePrivacyConsent()
   await loadExamDetails()
   await runChecks()
 })()

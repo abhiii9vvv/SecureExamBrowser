@@ -35,6 +35,27 @@ function coerceInteger(value, fieldName, { min = null, max = null, nullable = fa
   return value
 }
 
+function coerceNumber(value, fieldName, { min = null, max = null, nullable = false } = {}) {
+  if (nullable && (value === null || value === undefined)) {
+    return null
+  }
+
+  const num = Number(value)
+  if (!Number.isFinite(num)) {
+    throw new Error(`Invalid ${fieldName}`)
+  }
+
+  if (min !== null && num < min) {
+    throw new Error(`Invalid ${fieldName}`)
+  }
+
+  if (max !== null && num > max) {
+    throw new Error(`Invalid ${fieldName}`)
+  }
+
+  return num
+}
+
 function coerceString(value, fieldName, { minLength = 0, maxLength = 2048, nullable = false } = {}) {
   if (nullable && (value === null || value === undefined)) {
     return null
@@ -64,6 +85,27 @@ function coerceIntegerArray(value, fieldName, { maxItems = 1000 } = {}) {
   return value.map((item) => coerceInteger(item, fieldName, { min: 0 }))
 }
 
+function coerceStringArray(value, fieldName, { maxItems = 100, maxLength = 128 } = {}) {
+  if (!Array.isArray(value)) {
+    throw new Error(`Invalid ${fieldName}`)
+  }
+
+  if (value.length > maxItems) {
+    throw new Error(`Invalid ${fieldName}`)
+  }
+
+  return value.map((item) => {
+    if (typeof item !== 'string') {
+      throw new Error(`Invalid ${fieldName}`)
+    }
+    const trimmed = item.trim()
+    if (!trimmed) {
+      throw new Error(`Invalid ${fieldName}`)
+    }
+    return truncateString(trimmed, maxLength)
+  })
+}
+
 function coercePlainObject(value, fieldName, { nullable = false, maxBytes = 64 * 1024 } = {}) {
   if (nullable && (value === null || value === undefined)) {
     return null
@@ -90,6 +132,10 @@ const ACTION_SANITIZERS = {
   get_admin_exams: () => ({}),
   get_admin_users: () => ({}),
   get_model_assets: () => ({}),
+  prune_expired_incident_evidence: () => ({}),
+  get_fairness_benchmark_summary: (payload) => ({
+    limitDays: coerceInteger(payload.limitDays ?? 30, 'limitDays', { min: 1, max: 365 })
+  }),
 
   login: (payload) => ({
     username: coerceString(payload.username, 'username', { minLength: 1, maxLength: 128 }),
@@ -206,7 +252,41 @@ const ACTION_SANITIZERS = {
     type: coerceString(payload.type, 'type', { minLength: 1, maxLength: 128 }),
     severity: coerceString(payload.severity || 'medium', 'severity', { minLength: 1, maxLength: 16 }),
     message: coerceString(payload.message, 'message', { minLength: 1, maxLength: 2048 }),
-    details: coercePlainObject(payload.details || {}, 'details')
+    details: coercePlainObject(payload.details || {}, 'details'),
+    confidence: coerceNumber(payload.confidence, 'confidence', { min: 0, max: 1, nullable: true }),
+    detectorFamily: coerceString(payload.detectorFamily || '', 'detectorFamily', { maxLength: 64 }),
+    triggeredRules: coerceStringArray(payload.triggeredRules || [], 'triggeredRules', { maxItems: 32, maxLength: 128 }),
+    evidenceVector: coercePlainObject(payload.evidenceVector || {}, 'evidenceVector', { maxBytes: 96 * 1024 }),
+    dedupeKey: coerceString(payload.dedupeKey || '', 'dedupeKey', { maxLength: 256 }),
+    retentionDays: coerceInteger(payload.retentionDays, 'retentionDays', { min: 1, max: 3650, nullable: true }),
+    policyVersion: coerceString(payload.policyVersion || '', 'policyVersion', { maxLength: 64 })
+  }),
+
+  save_privacy_consent: (payload) => ({
+    userId: coerceInteger(payload.userId, 'userId', { min: 1 }),
+    policyVersion: coerceString(payload.policyVersion, 'policyVersion', { minLength: 1, maxLength: 64 }),
+    policyHash: coerceString(payload.policyHash || '', 'policyHash', { maxLength: 256 }),
+    accepted: Boolean(payload.accepted !== false),
+    policySnapshot: coercePlainObject(payload.policySnapshot || {}, 'policySnapshot', { maxBytes: 96 * 1024 }),
+    machineInfo: coercePlainObject(payload.machineInfo || {}, 'machineInfo', { maxBytes: 96 * 1024 })
+  }),
+
+  get_privacy_consent_status: (payload) => ({
+    userId: coerceInteger(payload.userId, 'userId', { min: 1 }),
+    policyVersion: coerceString(payload.policyVersion || '', 'policyVersion', { maxLength: 64 })
+  }),
+
+  record_fairness_benchmark: (payload) => ({
+    userId: coerceInteger(payload.userId, 'userId', { min: 1, nullable: true }),
+    sessionId: coerceInteger(payload.sessionId, 'sessionId', { min: 1, nullable: true }),
+    incidentType: coerceString(payload.incidentType || 'unknown', 'incidentType', { minLength: 1, maxLength: 128 }),
+    severity: coerceString(payload.severity || 'low', 'severity', { minLength: 1, maxLength: 16 }),
+    detectorFamily: coerceString(payload.detectorFamily || '', 'detectorFamily', { maxLength: 64 }),
+    confidence: coerceNumber(payload.confidence, 'confidence', { min: 0, max: 1, nullable: true }),
+    cameraTier: coerceString(payload.cameraTier || 'unknown', 'cameraTier', { minLength: 1, maxLength: 32 }),
+    lightingTier: coerceString(payload.lightingTier || 'unknown', 'lightingTier', { minLength: 1, maxLength: 32 }),
+    speechEnv: coerceString(payload.speechEnv || 'unknown', 'speechEnv', { minLength: 1, maxLength: 32 }),
+    accommodationFlags: coerceStringArray(payload.accommodationFlags || [], 'accommodationFlags', { maxItems: 16, maxLength: 64 })
   }),
 
   get_recent_incidents: (payload) => ({
@@ -258,7 +338,9 @@ class DatabaseService {
       'save_biometric_data',
       'upsert_model_asset',
       'record_incident',
-      'update_incident_status'
+      'update_incident_status',
+      'save_privacy_consent',
+      'record_fairness_benchmark'
     ])
 
     if (action === 'sync_open_source_models') {
@@ -489,6 +571,26 @@ class DatabaseService {
 
   updateIncidentStatus(incidentId, status, note = '') {
     return this.invoke('update_incident_status', { incidentId, status, note })
+  }
+
+  savePrivacyConsent(payload) {
+    return this.invoke('save_privacy_consent', payload)
+  }
+
+  getPrivacyConsentStatus(payload) {
+    return this.invoke('get_privacy_consent_status', payload)
+  }
+
+  pruneExpiredIncidentEvidence() {
+    return this.invoke('prune_expired_incident_evidence', {})
+  }
+
+  recordFairnessBenchmark(payload) {
+    return this.invoke('record_fairness_benchmark', payload)
+  }
+
+  getFairnessBenchmarkSummary(limitDays = 30) {
+    return this.invoke('get_fairness_benchmark_summary', { limitDays })
   }
 }
 
